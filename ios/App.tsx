@@ -14,6 +14,9 @@ import { OrderProvider } from './src/context/OrderContext';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
 import { COLORS } from './src/theme';
 
+// Replace with your Stripe publishable key (pk_test_... or pk_live_...)
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular,
@@ -23,16 +26,22 @@ export default function App() {
 
   if (!fontsLoaded && !fontError) {
     return (
-      <View
-        style={{ flex: 1, backgroundColor: COLORS.forestGreen, alignItems: 'center', justifyContent: 'center' }}
-      >
+      <View style={{ flex: 1, backgroundColor: COLORS.forestGreen, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={COLORS.cream} />
       </View>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <StripeProvider publishableKey="pk_live_51TERLgAABIW5Ps3LHbYb27AtAjtEwJLXlKFRJsUbaGfPISwfUvx6qrjjeJi11YDldwf42ko4OEwSDiAOIP2e4V1g00zaKrAYDR">
-        <OrderProvider></OrderProvider>
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="merchant.com.maisonfraise">
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <OrderProvider>
+          <NavigationContainer>
+            <BottomTabNavigator />
+          </NavigationContainer>
+        </OrderProvider>
+      </SafeAreaProvider>
+    </StripeProvider>
+  );
+}

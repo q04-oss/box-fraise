@@ -12,8 +12,8 @@ export async function fetchLocations() {
   return res.json();
 }
 
-export async function fetchSlots(locationId: number) {
-  const res = await fetch(`${BASE_URL}/api/slots?location_id=${locationId}`);
+export async function fetchSlots(locationId: number, date: string) {
+  const res = await fetch(`${BASE_URL}/api/slots?location_id=${locationId}&date=${date}`);
   if (!res.ok) throw new Error('Failed to fetch slots');
   return res.json();
 }
@@ -33,7 +33,10 @@ export async function createOrder(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('Failed to create order');
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(JSON.stringify(errBody));
+  }
   return res.json() as Promise<{ order: { id: number }; client_secret: string }>;
 }
 

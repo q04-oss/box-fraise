@@ -7,6 +7,7 @@ interface OrderState {
   time_slot_id: number | null;
   // Display values (used for UI)
   strawberryName: string | null;
+  priceCents: number | null;
   chocolateId: string | null;
   chocolateName: string | null;
   finishId: string | null;
@@ -21,7 +22,7 @@ interface OrderState {
 
 interface OrderContextType {
   order: OrderState;
-  setVariety: (id: number, name: string) => void;
+  setVariety: (id: number, name: string, priceCents: number) => void;
   setChocolate: (id: string, name: string) => void;
   setFinish: (id: string, name: string) => void;
   setQuantity: (q: number) => void;
@@ -38,6 +39,7 @@ const defaultOrder: OrderState = {
   location_id: null,
   time_slot_id: null,
   strawberryName: null,
+  priceCents: null,
   chocolateId: null,
   chocolateName: null,
   finishId: null,
@@ -59,8 +61,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     <OrderContext.Provider
       value={{
         order,
-        setVariety: (variety_id, strawberryName) =>
-          setOrder((prev) => ({ ...prev, variety_id, strawberryName })),
+        setVariety: (variety_id, strawberryName, priceCents) =>
+          setOrder((prev) => ({ ...prev, variety_id, strawberryName, priceCents })),
         setChocolate: (chocolateId, chocolateName) =>
           setOrder((prev) => ({ ...prev, chocolateId, chocolateName })),
         setFinish: (finishId, finishName) =>

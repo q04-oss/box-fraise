@@ -17,6 +17,12 @@ import ProgressBar from '../../components/ProgressBar';
 
 type Nav = NativeStackNavigationProp<OrderStackParamList, 'Step1Strawberry'>;
 
+const VARIETY_ID_MAP: Record<string, number> = {
+  'Greenhouse Reserve': 1,
+  'Jewel': 2,
+  'Seascape': 3,
+};
+
 function StrawberryOption({
   strawberry,
   selected,
@@ -94,7 +100,7 @@ export default function Step1StrawberryScreen() {
             key={s.id}
             strawberry={s}
             selected={order.strawberryName === s.name}
-            onSelect={() => setVariety(0, s.name)}
+            onSelect={() => setVariety(VARIETY_ID_MAP[s.name] ?? 0, s.name, Math.round(s.price * 100))}
           />
         ))}
       </ScrollView>

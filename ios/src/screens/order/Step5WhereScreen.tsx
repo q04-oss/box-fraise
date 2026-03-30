@@ -70,4 +70,9 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: 4,
   },
-  optionSelected: { ba
+  optionSelected: { backgroundColor: COLORS.forestGreen },
+  optionName: { fontSize: 17, fontFamily: 'PlayfairDisplay_700Bold', color: COLORS.textDark },
+  optionDetail: { fontSize: 13, color: COLORS.textMuted, fontStyle: 'italic' },
+  textWhite: { color: COLORS.white },
+  textWhiteMuted: { color: 'rgba(255,255,255,0.55)' },
+});

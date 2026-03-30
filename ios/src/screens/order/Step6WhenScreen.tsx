@@ -28,18 +28,18 @@ export default function Step6WhenScreen() {
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   useEffect(() => {
-    if (!order.location_id) return;
+    if (!order.location_id || !order.date) return;
     setLoadingSlots(true);
-    fetchSlots(order.location_id)
+    fetchSlots(order.location_id, order.date)
       .then(setSlots)
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
-  }, [order.location_id]);
+  }, [order.location_id, order.date]);
 
   const handleSelectDate = (idx: number) => {
     setSelectedDateIdx(idx);
     const d = DATE_OPTIONS[idx];
-    setDate(`${d.dayName} ${d.dayNum}`);
+    setDate(d.isoDate);
     setTimeSlot(0, '');
   };
 
@@ -98,12 +98,12 @@ export default function Step6WhenScreen() {
                   <TouchableOpacity
                     key={slot.id}
                     style={[styles.timeChip, selected && styles.timeChipSelected]}
-                    onPress={() => setTimeSlot(slot.id, slot.start_time)}
+                    onPress={() => setTimeSlot(slot.id, slot.time)}
                     activeOpacity={0.8}
                     disabled={available <= 0}
                   >
                     <Text style={[styles.timeText, selected && styles.textWhite]}>
-                      {slot.start_time}
+                      {slot.time}
                     </Text>
                     <Text style={[styles.slotsText, selected && styles.textWhiteMuted]}>
                       {available} slots
