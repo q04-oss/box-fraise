@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   View,
@@ -37,7 +38,28 @@ export default function Step7ReviewScreen() {
       ? (order.strawberry.price * order.quantity).toFixed(2)
       : '—';
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+  try {
+    const response = await fetch(
+      'https://maison-fraise-v2-production.up.railway.app/api/orders',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          strawberryId: order.strawberry?.id,
+          chocolateId: order.chocolate?.id,
+          finishId: order.finish?.id,
+          quantity: order.quantity,
+          locationId: order.location?.id,
+          date: order.date,
+          timeSlot: order.timeSlot?.time,
+          isGift: order.isGift,
+        }),
+      }
+    );
+
+    if (!response.ok) throw new Error('Order failed');
+
     Alert.alert(
       'Order placed.',
       `Your ${order.strawberry?.name ?? 'order'} will be ready for collection.`,
@@ -51,7 +73,10 @@ export default function Step7ReviewScreen() {
         },
       ]
     );
-  };
+  } catch (err) {
+    Alert.alert('Something went wrong.', 'Please try again.');
+  }
+};
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.cream }}>
