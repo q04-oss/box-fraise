@@ -6,7 +6,13 @@ import { logger } from './lib/logger';
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 
 async function main(): Promise<void> {
-  await seed();
+  try {
+    await seed();
+  } catch (err) {
+    logger.warn('Seed skipped — continuing startup', err);
+  }
+
+  app.listen(PORT, () => {
 
   app.listen(PORT, () => {
     logger.info(`Maison Fraise API running on port ${PORT}`);
