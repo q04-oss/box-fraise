@@ -13,8 +13,6 @@ async function main(): Promise<void> {
   }
 
   app.listen(PORT, () => {
-
-  app.listen(PORT, () => {
     logger.info(`Maison Fraise API running on port ${PORT}`);
   });
 }
