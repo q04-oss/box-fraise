@@ -71,9 +71,10 @@ export default function Step7ReviewScreen() {
         push_token: pushToken,
       });
 
+      let confirmed;
       if (reviewMode) {
         // Review mode — skip Stripe, confirm directly
-        await confirmOrder(createdOrder.id);
+        confirmed = await confirmOrder(createdOrder.id);
       } else {
         // Step 2: init payment sheet
         const { error: initError } = await initPaymentSheet({
@@ -104,14 +105,25 @@ export default function Step7ReviewScreen() {
         }
 
         // Step 4: confirm with server
-        await confirmOrder(createdOrder.id);
+        confirmed = await confirmOrder(createdOrder.id);
       }
 
-      Alert.alert(
-        'Order placed.',
-        `Your ${order.strawberryName ?? 'order'} will be ready for collection.`,
-        [{ text: 'Done', onPress: () => { resetOrder(); navigation.navigate('Step1Strawberry'); } }]
-      );
+      resetOrder();
+      (navigation as any).navigate('OrderConfirm', {
+        orderId: confirmed.id,
+        locationName: order.locationName ?? '',
+        slotDate: order.date ?? '',
+        slotTime: order.timeSlotTime ?? '',
+        totalCents: confirmed.total_cents ?? totalCents,
+        varietyName: order.strawberryName ?? '',
+        nfc_token: confirmed.nfc_token ?? null,
+        chocolate: confirmed.chocolate,
+        finish: confirmed.finish,
+        quantity: confirmed.quantity,
+        variety_id: confirmed.variety_id,
+        location_id: confirmed.location_id,
+        priceCents: order.priceCents ?? 0,
+      });
     } catch (err: any) {
       Alert.alert('Something went wrong.', err?.message ?? 'Please try again.');
     } finally {

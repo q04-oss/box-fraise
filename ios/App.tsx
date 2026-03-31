@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
+import { NavigationContainerRef } from '@react-navigation/native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -12,9 +13,10 @@ import {
   PlayfairDisplay_700Bold,
 } from '@expo-google-fonts/playfair-display';
 import { OrderProvider } from './src/context/OrderContext';
-import BottomTabNavigator from './src/navigation/BottomTabNavigator';
+import RootNavigator from './src/navigation/RootNavigator';
 import { COLORS } from './src/theme';
 import { enableReviewMode as activateReviewMode } from './src/lib/reviewMode';
+import { getUserId } from './src/lib/userId';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -42,6 +44,8 @@ export default function App() {
   const [reviewMode, setReviewMode] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular,
@@ -50,16 +54,28 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Initialize user ID on first launch
+    getUserId().catch(() => {});
+
     registerForPushNotifications().then(token => {
       if (token) setPushToken(token);
     });
 
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {
-      // notification received while app is foregrounded — handler above shows it
+      // notification received while foregrounded — handler above shows it
+    });
+
+    // Navigate to NFCVerify when geofence notification is tapped
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const screen = response.notification.request.content.data?.screen;
+      if (screen === 'NFCVerify') {
+        navigationRef.current?.navigate('NFCVerify');
+      }
     });
 
     return () => {
       notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, []);
 
@@ -86,8 +102,8 @@ export default function App() {
         <SafeAreaProvider>
           <StatusBar style="light" />
           <OrderProvider>
-            <NavigationContainer>
-              <BottomTabNavigator />
+            <NavigationContainer ref={navigationRef}>
+              <RootNavigator />
             </NavigationContainer>
           </OrderProvider>
         </SafeAreaProvider>

@@ -16,6 +16,8 @@ import { useOrder } from '../context/OrderContext';
 import { useApp } from '../../App';
 import { COLORS, SPACING } from '../theme';
 import { RootTabParamList } from '../types';
+import ProfileAvatar from '../components/ProfileAvatar';
+import { getUserId, isVerified } from '../lib/userId';
 
 type Nav = BottomTabNavigationProp<RootTabParamList, 'Board'>;
 
@@ -40,6 +42,8 @@ export default function BoardScreen() {
   const [liveVarieties, setLiveVarieties] = useState<Record<string, LiveVariety>>({});
   const [loading, setLoading] = useState(true);
   const [hiddenTapCount, setHiddenTapCount] = useState(0);
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [verified, setVerifiedState] = useState(false);
   const navigation = useNavigation<Nav>();
   const { setVariety } = useOrder();
   const { reviewMode, enableReviewMode } = useApp();
@@ -57,6 +61,9 @@ export default function BoardScreen() {
   };
 
   useEffect(() => {
+    getUserId().then(setUserId).catch(() => {});
+    isVerified().then(setVerifiedState).catch(() => {});
+
     fetchVarieties()
       .then((data: LiveVariety[]) => {
         const map: Record<string, LiveVariety> = {};
@@ -83,6 +90,7 @@ export default function BoardScreen() {
           <Text style={styles.dateLabel}>{today}</Text>
           {/* Hidden tap target — 7 taps activates review mode for Apple reviewers */}
           <TouchableOpacity onPress={handleHiddenTap} activeOpacity={1} style={styles.hiddenTap} />
+          <ProfileAvatar verified={verified} userId={userId} />
         </View>
         {reviewMode && (
           <View style={styles.reviewBadge}>

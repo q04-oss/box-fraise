@@ -1,10 +1,17 @@
 import { isReviewMode } from './reviewMode';
+import { API_BASE_URL } from '../config/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'https://maison-fraise-v2-production.up.railway.app';
+const BASE_URL = API_BASE_URL;
 
 function reviewHeaders(): Record<string, string> {
   if (!isReviewMode()) return {};
   return { 'X-Review-Mode': process.env.EXPO_PUBLIC_REVIEW_PIN ?? '' };
+}
+
+async function userHeaders(): Promise<Record<string, string>> {
+  const userId = await AsyncStorage.getItem('user_id');
+  return userId ? { 'X-User-ID': userId } : {};
 }
 
 export async function fetchVarieties() {
@@ -28,6 +35,75 @@ export async function fetchSlots(locationId: number, date: string) {
 export async function fetchOrdersByEmail(email: string) {
   const res = await fetch(`${BASE_URL}/api/orders?email=${encodeURIComponent(email)}`);
   if (!res.ok) throw new Error('Failed to fetch orders');
+  return res.json();
+}
+
+export async function fetchBusinesses() {
+  const res = await fetch(`${BASE_URL}/api/businesses`);
+  if (!res.ok) throw new Error('Failed to fetch businesses');
+  return res.json();
+}
+
+export async function fetchUserProfile(userId: string) {
+  const res = await fetch(`${BASE_URL}/api/users/me`, {
+    headers: { 'X-User-ID': userId },
+  });
+  if (!res.ok) throw new Error('Failed to fetch profile');
+  return res.json();
+}
+
+export async function searchVerifiedUsers(q: string) {
+  const res = await fetch(`${BASE_URL}/api/users/search?q=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error('Failed to search users');
+  return res.json();
+}
+
+export async function verifyNfc(nfc_token: string, user_id: string) {
+  const res = await fetch(`${BASE_URL}/api/verify/nfc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nfc_token, user_id }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error ?? 'Verification failed');
+  }
+  return res.json();
+}
+
+export async function generateGiftNote(tone: string, variety_name: string, recipient_context: string) {
+  const res = await fetch(`${BASE_URL}/api/gift-note`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tone, variety_name, recipient_context }),
+  });
+  if (!res.ok) throw new Error('Failed to generate note');
+  return res.json() as Promise<{ note: string }>;
+}
+
+export async function createStandingOrder(body: {
+  sender_id: number;
+  recipient_id?: number;
+  variety_id: number;
+  chocolate: string;
+  finish: string;
+  quantity: number;
+  location_id: number;
+  time_slot_preference: string;
+  frequency: string;
+  next_order_date: string;
+  gift_tone?: string;
+}) {
+  const headers = await userHeaders();
+  const res = await fetch(`${BASE_URL}/api/standing-orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error ?? 'Failed to create standing order');
+  }
   return res.json();
 }
 
@@ -60,5 +136,16 @@ export async function confirmOrder(orderId: number) {
     headers: { ...reviewHeaders() },
   });
   if (!res.ok) throw new Error('Failed to confirm order');
-  return res.json();
+  return res.json() as Promise<{
+    id: number;
+    nfc_token: string | null;
+    status: string;
+    total_cents: number;
+    variety_id: number;
+    location_id: number;
+    time_slot_id: number;
+    chocolate: string;
+    finish: string;
+    quantity: number;
+  }>;
 }

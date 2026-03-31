@@ -1,60 +1,44 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { RootTabParamList } from '../types';
+import { MainTabParamList } from '../types';
 import { COLORS } from '../theme';
 import BoardScreen from '../screens/BoardScreen';
 import WhereScreen from '../screens/WhereScreen';
-import EventsScreen from '../screens/EventsScreen';
-import OrderHistoryScreen from '../screens/OrderHistoryScreen';
-import OrderNavigator from './OrderNavigator';
 
-const Tab = createBottomTabNavigator<RootTabParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
-function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+function GlassPillTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   const labels: Record<string, string> = {
     Board: 'BOARD',
     Where: 'WHERE',
-    Events: 'EVENTS',
-    Order: 'ORDER',
-    Orders: 'ORDERS',
   };
 
   return (
-    <View
-      style={[
-        styles.tabBar,
-        { paddingBottom: Math.max(insets.bottom, 8) },
-      ]}
-    >
-      {state.routes.map((route, index) => {
-        const focused = state.index === index;
-        const label = labels[route.name] ?? route.name.toUpperCase();
+    <View style={[styles.pillWrapper, { bottom: Math.max(insets.bottom, 16) + 4 }]} pointerEvents="box-none">
+      <View style={styles.pill}>
+        {state.routes.map((route, index) => {
+          const focused = state.index === index;
+          const label = labels[route.name] ?? route.name.toUpperCase();
 
-        const onPress = () => {
-          if (!focused) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            style={styles.tabItem}
-            onPress={onPress}
-            activeOpacity={0.7}
-          >
-            {focused && <View style={styles.activeDot} />}
-            <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={route.key}
+              style={[styles.pillTab, focused && styles.pillTabActive]}
+              onPress={() => { if (!focused) navigation.navigate(route.name); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.pillLabel, focused && styles.pillLabelActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -62,45 +46,51 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} />}
+      tabBar={(props) => <GlassPillTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Board" component={BoardScreen} />
       <Tab.Screen name="Where" component={WhereScreen} />
-      <Tab.Screen name="Events" component={EventsScreen} />
-      <Tab.Screen name="Orders" component={OrderHistoryScreen} />
-      <Tab.Screen name="Order" component={OrderNavigator} />
     </Tab.Navigator>
   );
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.cream,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-    paddingTop: 8,
-  },
-  tabItem: {
-    flex: 1,
+  pillWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    paddingVertical: 4,
+  },
+  pill: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(28,58,42,0.92)',
+    borderRadius: 30,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.textDark,
+  pillTab: {
+    paddingVertical: 9,
+    paddingHorizontal: 24,
+    borderRadius: 22,
+    alignItems: 'center',
   },
-  tabLabel: {
-    fontSize: 10,
-    letterSpacing: 1.2,
-    fontWeight: '600',
-    color: COLORS.textMuted,
+  pillTabActive: {
+    backgroundColor: COLORS.cream,
   },
-  tabLabelActive: {
-    color: COLORS.textDark,
+  pillLabel: {
+    fontSize: 11,
+    letterSpacing: 1.8,
+    fontWeight: '700',
+    color: 'rgba(232,224,208,0.5)',
+  },
+  pillLabelActive: {
+    color: COLORS.forestGreen,
   },
 });
