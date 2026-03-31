@@ -69,8 +69,8 @@ export default function MapScreen() {
             coordinate={{ latitude: b.lat, longitude: b.lng }}
             onPress={() => handleMarkerPress(b)}
           >
-            <View style={[styles.pinCollection, { backgroundColor: c.gold }]}>
-              <Text style={styles.pinText}>✦</Text>
+            <View style={[styles.pinCollection, { backgroundColor: c.markerBg }]}>
+              <View style={styles.pinCollectionDot} />
             </View>
           </Marker>
         ))}
@@ -93,8 +93,9 @@ export default function MapScreen() {
         detents={DETENTS}
         initialDetentIndex={1}
         cornerRadius={20}
+        backgroundBlur={isDark ? 'system-ultra-thin-material-dark' : 'system-material'}
         grabber
-        grabberOptions={{ color: 'rgba(0,0,0,0.2)' }}
+        grabberOptions={{ color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)' }}
       >
         <View style={{ height: contentHeight }} onLayout={onSheetLayout}>
           <PanelNavigator />
@@ -107,33 +108,38 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   pinCollection: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
-  pinText: {
-    fontSize: 10,
-    color: '#fff',
+  pinCollectionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
   },
   pinPartner: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#fff',
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
   },
   pinPartnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
 });

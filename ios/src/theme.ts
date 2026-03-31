@@ -1,6 +1,5 @@
 import { useTheme } from './context/ThemeContext';
 
-// Legacy tokens — used by old screens still in codebase
 export const COLORS = {
   forestGreen: '#1C3A2A',
   cream: '#FFFFFF',
@@ -28,61 +27,62 @@ export const SPACING = {
 };
 
 export const lightColors = {
-  green: '#1C3A2A',
-  bg: '#FFFFFF',
-  cream: '#FFFFFF',
-  card: '#F2F2F7',
-  cardDark: '#E5E5EA',
-  text: '#1C1C1E',
+  accent: '#007AFF',
+  bg: 'transparent',
+  card: 'rgba(255,255,255,0.65)',
+  cardDark: 'rgba(60,60,67,0.06)',
+  text: '#000000',
   muted: '#8E8E93',
+  border: 'rgba(60,60,67,0.12)',
+  panelBg: 'transparent',
+  optionCard: 'rgba(255,255,255,0.65)',
+  optionCardBorder: 'rgba(60,60,67,0.1)',
+  stripBg: 'rgba(60,60,67,0.06)',
+  searchBg: 'rgba(60,60,67,0.06)',
+  searchBorder: 'rgba(60,60,67,0.1)',
+  pillBg: 'rgba(60,60,67,0.06)',
+  pillBorder: 'rgba(60,60,67,0.1)',
+  ctaText: '#FFFFFF',
+  markerBg: '#000000',
+  markerBorder: '#000000',
+  // keep for legacy panel refs
+  green: '#1C3A2A',
+  cream: '#FFFFFF',
   gold: '#C4973A',
-  border: '#E5E5EA',
-  terminal: '#000000',
-  terminalText: '#FFFFFF',
-  terminalClaude: '#F5A623',
-  panelBg: '#F5F0E8',
-  optionCard: 'rgba(255,255,255,0.5)',
-  optionCardBorder: 'rgba(0,0,0,0.06)',
-  stripBg: '#E5E5EA',
-  searchBg: 'rgba(0,0,0,0.05)',
-  searchBorder: 'rgba(0,0,0,0.1)',
-  pillBg: 'rgba(0,0,0,0.06)',
-  pillBorder: 'rgba(0,0,0,0.1)',
 };
 
 export const darkColors = {
-  green: '#2A5C3F',
-  bg: '#000000',
-  cream: '#FFFFFF',
-  card: '#1C1C1E',
-  cardDark: '#2C2C2E',
+  accent: '#0A84FF',
+  bg: 'transparent',
+  card: 'rgba(28,28,30,0.85)',
+  cardDark: 'rgba(255,255,255,0.08)',
   text: '#FFFFFF',
   muted: '#8E8E93',
-  gold: '#D4A955',
-  border: '#38383A',
-  terminal: '#000000',
-  terminalText: '#FFFFFF',
-  terminalClaude: '#F5A623',
-  panelBg: '#000000',
-  optionCard: 'rgba(255,255,255,0.07)',
+  border: 'rgba(255,255,255,0.12)',
+  panelBg: 'transparent',
+  optionCard: 'rgba(44,44,46,0.85)',
   optionCardBorder: 'rgba(255,255,255,0.1)',
-  stripBg: '#2C2C2E',
+  stripBg: 'rgba(255,255,255,0.06)',
   searchBg: 'rgba(255,255,255,0.08)',
   searchBorder: 'rgba(255,255,255,0.12)',
   pillBg: 'rgba(255,255,255,0.08)',
   pillBorder: 'rgba(255,255,255,0.12)',
+  ctaText: '#000000',
+  markerBg: '#FFFFFF',
+  markerBorder: '#FFFFFF',
+  // keep for legacy panel refs
+  green: '#2A5C3F',
+  cream: '#FFFFFF',
+  gold: '#D4A955',
 };
 
-// Static fallback for StyleSheet.create() (uses light by default)
 export const colors = lightColors;
 
-// Hook — call inside components to get the live color set
 export function useColors() {
   const { isDark } = useTheme();
   return isDark ? darkColors : lightColors;
 }
 
-// Font family references
 export const fonts = {
   playfair: 'PlayfairDisplay_700Bold',
   playfairRegular: 'PlayfairDisplay_400Regular',

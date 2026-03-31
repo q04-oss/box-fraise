@@ -51,11 +51,15 @@ export default function HomePanel() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
-      {/* Top row: wordmark + profile */}
+    <View style={styles.container}>
+      {/* Top row */}
       <View style={styles.topRow}>
         <Text style={[styles.wordmark, { color: c.text }]}>maison fraise</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.7} style={[styles.profileBtn, { borderColor: c.border }]}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}
+          style={[styles.profileBtn, { borderColor: c.border }]}
+        >
           <Text style={[styles.profileIcon, { color: c.muted }]}>⊙</Text>
         </TouchableOpacity>
       </View>
@@ -76,7 +80,11 @@ export default function HomePanel() {
       {/* Shortcut pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
         {SHORTCUTS.map(s => (
-          <TouchableOpacity key={s} style={[styles.pill, { backgroundColor: c.pillBg, borderColor: c.pillBorder }]} activeOpacity={0.7}>
+          <TouchableOpacity
+            key={s}
+            style={[styles.pill, { backgroundColor: c.pillBg, borderColor: c.pillBorder }]}
+            activeOpacity={0.7}
+          >
             <Text style={[styles.pillText, { color: c.text }]}>{s}</Text>
           </TouchableOpacity>
         ))}
@@ -94,7 +102,7 @@ export default function HomePanel() {
       {/* Variety list */}
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color={c.green} style={{ marginTop: 24 }} />
+          <ActivityIndicator color={c.accent} style={{ marginTop: 24 }} />
         ) : varieties.length === 0 ? (
           <Text style={[styles.emptyText, { color: c.muted }]}>Nothing ready today.</Text>
         ) : (
@@ -105,7 +113,7 @@ export default function HomePanel() {
               onPress={() => handleVarietyPress(v)}
               activeOpacity={0.8}
             >
-              <View style={[styles.varietyDot, { backgroundColor: (v as any).freshnessColor ?? c.green }]} />
+              <View style={[styles.varietyDot, { backgroundColor: c.accent }]} />
               <View style={styles.varietyInfo}>
                 <Text style={[styles.varietyName, { color: c.text }]}>{v.name}</Text>
                 {(v as any).farm && <Text style={[styles.varietyFarm, { color: c.muted }]}>{(v as any).farm}</Text>}
@@ -130,14 +138,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingTop: 14,
+    paddingTop: 12,
     paddingBottom: 8,
   },
-  wordmark: {
-    fontSize: 16,
-    fontFamily: fonts.playfairItalic,
-    letterSpacing: 0.5,
-  },
+  wordmark: { fontSize: 16, fontFamily: fonts.playfairItalic, letterSpacing: 0.5 },
   profileBtn: {
     width: 32,
     height: 32,
@@ -146,71 +150,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileIcon: {
-    fontSize: 18,
-  },
+  profileIcon: { fontSize: 18 },
   searchBar: {
     marginHorizontal: SPACING.md,
-    marginBottom: 10,
+    marginBottom: 8,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
-  cursor: {
-    width: 2,
-    height: 16,
-    borderRadius: 1,
-  },
-  pillRow: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: 10,
-    gap: 8,
-  },
+  cursor: { width: 2, height: 16, borderRadius: 1 },
+  pillRow: { paddingHorizontal: SPACING.md, paddingBottom: 8, gap: 8 },
   pill: {
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    alignSelf: 'flex-start',
   },
-  pillText: {
-    fontSize: 12,
-    fontFamily: fonts.dmSans,
-  },
-  locationHeader: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: 10,
-    gap: 2,
-  },
-  locationTypeLabel: {
-    fontSize: 10,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 1.5,
-  },
-  locationName: {
-    fontSize: 20,
-    fontFamily: fonts.playfair,
-  },
-  locationAddress: {
-    fontSize: 12,
-    fontFamily: fonts.dmSans,
-  },
-  searchPlaceholder: {
-    fontSize: 14,
-    fontFamily: fonts.dmSans,
-    marginLeft: 8,
-  },
+  pillText: { fontSize: 12, fontFamily: fonts.dmSans },
+  locationHeader: { paddingHorizontal: SPACING.md, paddingBottom: 8, gap: 2 },
+  locationTypeLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  locationName: { fontSize: 18, fontFamily: fonts.playfair },
+  locationAddress: { fontSize: 12, fontFamily: fonts.dmSans },
+  searchPlaceholder: { fontSize: 14, fontFamily: fonts.dmSans, marginLeft: 8 },
   list: { flex: 1 },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: fonts.dmSans,
-    textAlign: 'center',
-    marginTop: 24,
-    fontStyle: 'italic',
-  },
+  emptyText: { fontSize: 14, fontFamily: fonts.dmSans, textAlign: 'center', marginTop: 24, fontStyle: 'italic' },
   varietyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -219,11 +185,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 10,
   },
-  varietyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
+  varietyDot: { width: 6, height: 6, borderRadius: 3 },
   varietyInfo: { flex: 1, gap: 2 },
   varietyName: { fontSize: 15, fontFamily: fonts.playfair },
   varietyFarm: { fontSize: 11, fontFamily: fonts.dmSans },
