@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots } from '../db/schema';
+import { orders } from '../db/schema';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -38,18 +38,9 @@ router.post('/webhook', async (req: Request, res: Response) => {
         .from(orders)
         .where(eq(orders.stripe_payment_intent_id, pi.id));
 
+      // Only mark paid if still pending — inventory is handled by /confirm endpoint
       if (order && order.status === 'pending') {
-        await db.transaction(async (tx) => {
-          await tx.update(orders).set({ status: 'paid' }).where(eq(orders.id, order.id));
-          await tx
-            .update(varieties)
-            .set({ stock_remaining: sql`${varieties.stock_remaining} - ${order.quantity}` })
-            .where(eq(varieties.id, order.variety_id));
-          await tx
-            .update(timeSlots)
-            .set({ booked: sql`${timeSlots.booked} + ${order.quantity}` })
-            .where(eq(timeSlots.id, order.time_slot_id));
-        });
+        await db.update(orders).set({ status: 'paid' }).where(eq(orders.id, order.id));
         logger.info(`Order ${order.id} marked paid via webhook`);
       }
     }
