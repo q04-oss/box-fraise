@@ -126,9 +126,11 @@ export default function MapScreen() {
       <View style={[styles.fabStack, { bottom: fabBottom }]}>
         <TouchableOpacity style={styles.fab} onPress={handleShowAll} activeOpacity={0.8}>
           <Text style={styles.fabIcon}>🍓</Text>
+          <Text style={styles.fabLabel}>Nearby</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.fab} onPress={handleLocateMe} activeOpacity={0.8}>
-          <Text style={styles.fabIcon}>◎</Text>
+          <Text style={styles.fabIcon}>⊕</Text>
+          <Text style={styles.fabLabel}>Locate</Text>
         </TouchableOpacity>
       </View>
 
@@ -155,23 +157,30 @@ const styles = StyleSheet.create({
   fabStack: {
     position: 'absolute',
     right: 16,
-    gap: 10,
+    gap: 12,
     zIndex: 10,
   },
   fab: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 60,
+    height: 60,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.15,
-    shadowRadius: 6,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
+    gap: 2,
   },
   fabIcon: {
-    fontSize: 20,
+    fontSize: 26,
+  },
+  fabLabel: {
+    fontSize: 10,
+    color: '#000',
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   pinCollection: {
     width: 24,
