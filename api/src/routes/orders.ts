@@ -108,17 +108,14 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
 
   const isReview = isReviewRequest(req);
   const stripeClient = isReview ? stripeTest : stripe;
-  logger.info(`confirm ${id}: isReview=${isReview}`);
 
   try {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) {
-      logger.info(`confirm ${id}: order not found`);
       res.status(404).json({ error: 'Order not found' });
       return;
     }
     if (order.status !== 'pending') {
-      logger.info(`confirm ${id}: order status=${order.status}`);
       res.status(400).json({ error: 'Order already processed' });
       return;
     }
@@ -153,7 +150,6 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
     if (!isReview) {
       const [slot] = await db.select().from(timeSlots).where(eq(timeSlots.id, order.time_slot_id));
       const [variety] = await db.select().from(varieties).where(eq(varieties.id, order.variety_id));
-      logger.info(`confirm ${id}: slot=${!!slot} variety=${!!variety} email=${order.customer_email}`);
       if (slot && variety) {
         sendOrderConfirmation({
           to: order.customer_email,
