@@ -27,7 +27,6 @@ const MAP_STYLE = [
 ];
 
 export default function MapScreen() {
-  const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { setBusinesses, setActiveLocation, businesses, goHome } = usePanel();
   const [userId, setUserId] = useState<string | undefined>(undefined);
@@ -105,7 +104,7 @@ export default function MapScreen() {
         <ProfileAvatar verified={verified} userId={userId} />
       </View>
 
-      {/* Float action buttons bottom-right — visible when sheet is peeking */}
+      {/* Float action button — visible only when sheet is fully peeked */}
       {sheetDetentIndex === 0 && (
         <View style={[styles.floatBtns, { bottom: SCREEN_HEIGHT * DETENTS[0] + 16 }]}>
           <TouchableOpacity
@@ -121,13 +120,12 @@ export default function MapScreen() {
       <TrueSheet
         name={SHEET_NAME}
         detents={DETENTS}
-        initialIndex={1}
+        initialDetentIndex={1}
         cornerRadius={20}
-        backgroundBlur="systemMaterial"
-        onDetentChange={({ index }) => setSheetDetentIndex(index)}
+        backgroundBlur="system-material"
+        onDetentChange={({ nativeEvent: { index } }) => setSheetDetentIndex(index)}
         grabber
-        grabberStyle={styles.grabber}
-        style={styles.sheet}
+        grabberOptions={{ color: 'rgba(0,0,0,0.2)' }}
       >
         <PanelNavigator />
       </TrueSheet>
@@ -191,13 +189,5 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.green,
-  },
-  grabber: {
-    backgroundColor: 'rgba(0,0,0,0.12)',
-    width: 36,
-    height: 4,
-  },
-  sheet: {
-    flex: 1,
   },
 });
