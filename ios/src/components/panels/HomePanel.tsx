@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, Animated, ActivityIndicator,
+  View, Text, TouchableOpacity, TextInput, ScrollView,
+  StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,7 +22,7 @@ export default function HomePanel() {
   const { showPanel, varieties, setVarieties, setOrder, activeLocation } = usePanel();
   const c = useColors();
   const [loading, setLoading] = useState(true);
-  const cursorAnim = useRef(new Animated.Value(1)).current;
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     fetchVarieties()
@@ -65,17 +65,15 @@ export default function HomePanel() {
       </View>
 
       {/* Search bar */}
-      <TouchableOpacity
-        style={[styles.searchBar, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
-        onPress={() => {
-          showPanel('ask');
-          TrueSheet.present('main-sheet', 2);
-        }}
-        activeOpacity={0.9}
-      >
-        <Animated.View style={[styles.cursor, { opacity: cursorAnim, backgroundColor: c.text }]} />
-        <Text style={[styles.searchPlaceholder, { color: c.muted }]}>Ask about today's strawberries…</Text>
-      </TouchableOpacity>
+      <TextInput
+        style={[styles.searchBar, { backgroundColor: c.searchBg, borderColor: c.searchBorder, color: c.text }]}
+        placeholder="Ask about today's strawberries…"
+        placeholderTextColor={c.muted}
+        value={query}
+        onChangeText={setQuery}
+        onFocus={() => TrueSheet.present('main-sheet', 2)}
+        returnKeyType="search"
+      />
 
       {/* Shortcut pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
@@ -157,11 +155,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
+    fontSize: 14,
+    fontFamily: fonts.dmSans,
   },
-  cursor: { width: 2, height: 16, borderRadius: 1 },
   pillRow: { paddingHorizontal: SPACING.md, paddingBottom: 8, gap: 8 },
   pill: {
     borderRadius: 20,
@@ -174,7 +171,6 @@ const styles = StyleSheet.create({
   locationTypeLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   locationName: { fontSize: 18, fontFamily: fonts.playfair },
   locationAddress: { fontSize: 12, fontFamily: fonts.dmSans },
-  searchPlaceholder: { fontSize: 14, fontFamily: fonts.dmSans, marginLeft: 8 },
   list: { flex: 1 },
   emptyText: { fontSize: 14, fontFamily: fonts.dmSans, textAlign: 'center', marginTop: 24, fontStyle: 'italic' },
   varietyRow: {

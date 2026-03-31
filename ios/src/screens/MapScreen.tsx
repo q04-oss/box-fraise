@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Dimensions, LayoutChangeEvent } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, LayoutChangeEvent } from 'react-native';
+import MapView, { Marker, UserLocationChangeEvent } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel } from '../context/PanelContext';
 import { useTheme } from '../context/ThemeContext';
@@ -10,14 +11,16 @@ import { useColors } from '../theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_NAME = 'main-sheet';
-const DETENTS: [number, number, number] = [0.12, 0.5, 1];
+const DETENTS: [number, number, number] = [0.18, 0.5, 1];
 
 export default function MapScreen() {
+  const insets = useSafeAreaInsets();
   const { setBusinesses, setActiveLocation, businesses, goHome } = usePanel();
   const { isDark } = useTheme();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.5);
   const mapRef = useRef<MapView>(null);
+  const userCoords = useRef<{ latitude: number; longitude: number } | null>(null);
 
   const onSheetLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
@@ -42,8 +45,36 @@ export default function MapScreen() {
     }, 400);
   };
 
+  const handleLocateMe = () => {
+    if (!userCoords.current) return;
+    mapRef.current?.animateToRegion({
+      latitude: userCoords.current.latitude,
+      longitude: userCoords.current.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 400);
+  };
+
+  const handleShowAll = () => {
+    if (businesses.length === 0) return;
+    mapRef.current?.fitToCoordinates(
+      businesses.map(b => ({ latitude: b.lat, longitude: b.lng })),
+      {
+        edgePadding: {
+          top: insets.top + 60,
+          right: 60,
+          bottom: SCREEN_HEIGHT * DETENTS[1] + 60,
+          left: 60,
+        },
+        animated: true,
+      }
+    );
+  };
+
   const collectionPoints = businesses.filter(b => b.type === 'collection');
   const partners = businesses.filter(b => b.type !== 'collection');
+
+  const fabBottom = SCREEN_HEIGHT * DETENTS[0] + 16;
 
   return (
     <View style={styles.container}>
@@ -62,6 +93,10 @@ export default function MapScreen() {
         showsScale={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        onUserLocationChange={(e: UserLocationChangeEvent) => {
+          const coord = e.nativeEvent.coordinate;
+          if (coord) userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
+        }}
       >
         {collectionPoints.map(b => (
           <Marker
@@ -80,13 +115,22 @@ export default function MapScreen() {
             coordinate={{ latitude: b.lat, longitude: b.lng }}
             onPress={() => handleMarkerPress(b)}
           >
-            <View style={[styles.pinPartner, { borderColor: c.green }]}>
-              <View style={[styles.pinPartnerDot, { backgroundColor: c.green }]} />
+            <View style={styles.pinPartner}>
+              <View style={[styles.pinPartnerDot, { backgroundColor: c.markerBg }]} />
             </View>
           </Marker>
         ))}
       </MapView>
 
+      {/* Floating action buttons — right side, just above sheet */}
+      <View style={[styles.fabStack, { bottom: fabBottom }]}>
+        <TouchableOpacity style={styles.fab} onPress={handleShowAll} activeOpacity={0.8}>
+          <Text style={styles.fabIcon}>🍓</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.fab} onPress={handleLocateMe} activeOpacity={0.8}>
+          <Text style={styles.fabIcon}>◎</Text>
+        </TouchableOpacity>
+      </View>
 
       <TrueSheet
         name={SHEET_NAME}
@@ -94,6 +138,7 @@ export default function MapScreen() {
         initialDetentIndex={1}
         cornerRadius={20}
         backgroundBlur={isDark ? 'system-ultra-thin-material-dark' : 'system-material'}
+        dismissible={false}
         grabber
         grabberOptions={{ color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)' }}
       >
@@ -107,6 +152,27 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  fabStack: {
+    position: 'absolute',
+    right: 16,
+    gap: 10,
+    zIndex: 10,
+  },
+  fab: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  fabIcon: {
+    fontSize: 20,
+  },
   pinCollection: {
     width: 24,
     height: 24,
@@ -130,6 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#fff',
     borderWidth: 2,
+    borderColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
