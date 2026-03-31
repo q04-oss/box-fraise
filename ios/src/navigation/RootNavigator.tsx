@@ -4,11 +4,13 @@ import { RootStackParamList } from '../types';
 import MapScreen from '../screens/MapScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { PanelProvider } from '../context/PanelContext';
+import { ThemeProvider } from '../context/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   return (
+    <ThemeProvider>
     <PanelProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main" component={MapScreen} />
@@ -19,5 +21,6 @@ export default function RootNavigator() {
         />
       </Stack.Navigator>
     </PanelProvider>
+    </ThemeProvider>
   );
 }

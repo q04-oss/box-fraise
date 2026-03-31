@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
+  View, Text, TouchableOpacity, ScrollView,
   StyleSheet, Animated, ActivityIndicator,
 } from 'react-native';
 import { usePanel, Variety } from '../../context/PanelContext';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { fetchVarieties } from '../../lib/api';
-import { colors, fonts } from '../../theme';
+import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
 import { STRAWBERRIES } from '../../data/seed';
 
@@ -14,6 +14,7 @@ const SHORTCUTS = ['Order again', 'Ready now', 'Gift'];
 
 export default function HomePanel() {
   const { showPanel, varieties, setVarieties, setOrder, activeLocation } = usePanel();
+  const c = useColors();
   const [loading, setLoading] = useState(true);
   const cursorAnim = useRef(new Animated.Value(1)).current;
 
@@ -44,25 +45,25 @@ export default function HomePanel() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       {/* Search bar */}
       <TouchableOpacity
-        style={styles.searchBar}
+        style={[styles.searchBar, { backgroundColor: c.searchBg, borderColor: c.searchBorder }]}
         onPress={() => {
           showPanel('ask');
           TrueSheet.present('main-sheet', 2);
         }}
         activeOpacity={0.9}
       >
-        <Animated.View style={[styles.cursor, { opacity: cursorAnim }]} />
-        <Text style={styles.searchPlaceholder}>Ask about today's strawberries…</Text>
+        <Animated.View style={[styles.cursor, { opacity: cursorAnim, backgroundColor: c.text }]} />
+        <Text style={[styles.searchPlaceholder, { color: c.muted }]}>Ask about today's strawberries…</Text>
       </TouchableOpacity>
 
       {/* Shortcut pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
         {SHORTCUTS.map(s => (
-          <TouchableOpacity key={s} style={styles.pill} activeOpacity={0.7}>
-            <Text style={styles.pillText}>{s}</Text>
+          <TouchableOpacity key={s} style={[styles.pill, { backgroundColor: c.pillBg, borderColor: c.pillBorder }]} activeOpacity={0.7}>
+            <Text style={[styles.pillText, { color: c.text }]}>{s}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -70,34 +71,34 @@ export default function HomePanel() {
       {/* Location header */}
       {activeLocation && (
         <View style={styles.locationHeader}>
-          <Text style={styles.locationTypeLabel}>COLLECTION POINT</Text>
-          <Text style={styles.locationName}>{activeLocation.name}</Text>
-          <Text style={styles.locationAddress}>{activeLocation.address}</Text>
+          <Text style={[styles.locationTypeLabel, { color: c.muted }]}>COLLECTION POINT</Text>
+          <Text style={[styles.locationName, { color: c.text }]}>{activeLocation.name}</Text>
+          <Text style={[styles.locationAddress, { color: c.muted }]}>{activeLocation.address}</Text>
         </View>
       )}
 
       {/* Variety list */}
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color={colors.green} style={{ marginTop: 24 }} />
+          <ActivityIndicator color={c.green} style={{ marginTop: 24 }} />
         ) : varieties.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing ready today.</Text>
+          <Text style={[styles.emptyText, { color: c.muted }]}>Nothing ready today.</Text>
         ) : (
           varieties.map(v => (
             <TouchableOpacity
               key={v.id}
-              style={styles.varietyRow}
+              style={[styles.varietyRow, { borderBottomColor: c.border }]}
               onPress={() => handleVarietyPress(v)}
               activeOpacity={0.8}
             >
-              <View style={[styles.varietyDot, { backgroundColor: (v as any).freshnessColor ?? colors.green }]} />
+              <View style={[styles.varietyDot, { backgroundColor: (v as any).freshnessColor ?? c.green }]} />
               <View style={styles.varietyInfo}>
-                <Text style={styles.varietyName}>{v.name}</Text>
-                {(v as any).farm && <Text style={styles.varietyFarm}>{(v as any).farm}</Text>}
+                <Text style={[styles.varietyName, { color: c.text }]}>{v.name}</Text>
+                {(v as any).farm && <Text style={[styles.varietyFarm, { color: c.muted }]}>{(v as any).farm}</Text>}
               </View>
               <View style={styles.varietyRight}>
-                <Text style={styles.varietyPrice}>CA${(v.price_cents / 100).toFixed(2)}</Text>
-                <Text style={styles.varietyStock}>{v.stock_remaining} left</Text>
+                <Text style={[styles.varietyPrice, { color: c.text }]}>CA${(v.price_cents / 100).toFixed(2)}</Text>
+                <Text style={[styles.varietyStock, { color: c.muted }]}>{v.stock_remaining} left</Text>
               </View>
             </TouchableOpacity>
           ))
@@ -109,23 +110,20 @@ export default function HomePanel() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 8, backgroundColor: '#F5F0E8' },
+  container: { flex: 1, paddingTop: 8 },
   searchBar: {
     marginHorizontal: SPACING.md,
     marginBottom: 10,
-    backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
   },
   cursor: {
     width: 2,
     height: 16,
-    backgroundColor: colors.text,
     borderRadius: 1,
   },
   pillRow: {
@@ -134,16 +132,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pill: {
-    backgroundColor: 'rgba(0,0,0,0.06)',
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.1)',
+    alignSelf: 'flex-start',
   },
   pillText: {
-    fontSize: 13,
-    color: colors.text,
+    fontSize: 12,
     fontFamily: fonts.dmSans,
   },
   locationHeader: {
@@ -153,30 +149,25 @@ const styles = StyleSheet.create({
   },
   locationTypeLabel: {
     fontSize: 10,
-    color: colors.muted,
     fontFamily: fonts.dmMono,
     letterSpacing: 1.5,
   },
   locationName: {
     fontSize: 20,
-    color: colors.text,
     fontFamily: fonts.playfair,
   },
   locationAddress: {
     fontSize: 12,
-    color: colors.muted,
     fontFamily: fonts.dmSans,
   },
   searchPlaceholder: {
     fontSize: 14,
-    color: colors.muted,
     fontFamily: fonts.dmSans,
     marginLeft: 8,
   },
   list: { flex: 1 },
   emptyText: {
     fontSize: 14,
-    color: colors.muted,
     fontFamily: fonts.dmSans,
     textAlign: 'center',
     marginTop: 24,
@@ -188,7 +179,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
     gap: 10,
   },
   varietyDot: {
@@ -197,9 +187,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   varietyInfo: { flex: 1, gap: 2 },
-  varietyName: { fontSize: 15, color: colors.text, fontFamily: fonts.playfair },
-  varietyFarm: { fontSize: 11, color: colors.muted, fontFamily: fonts.dmSans },
+  varietyName: { fontSize: 15, fontFamily: fonts.playfair },
+  varietyFarm: { fontSize: 11, fontFamily: fonts.dmSans },
   varietyRight: { alignItems: 'flex-end', gap: 2 },
-  varietyPrice: { fontSize: 12, color: colors.text, fontFamily: fonts.dmMono },
-  varietyStock: { fontSize: 10, color: colors.muted, fontFamily: fonts.dmSans },
+  varietyPrice: { fontSize: 12, fontFamily: fonts.dmMono },
+  varietyStock: { fontSize: 10, fontFamily: fonts.dmSans },
 });
