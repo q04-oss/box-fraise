@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { usePanel } from '../../context/PanelContext';
 import { colors, fonts } from '../../theme';
 import { SPACING } from '../../theme';

@@ -36,6 +36,7 @@ export const colors = {
   terminal: '#000000',
   terminalText: '#FFFFFF',
   terminalClaude: '#F5A623',
+  cardDark: '#E0D8C8',
 };
 
 // Font family references (must be loaded in App.tsx)
