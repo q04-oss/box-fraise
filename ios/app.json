@@ -46,8 +46,7 @@
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
-      ],
-      "@lodev09/react-native-true-sheet"
+      ]
     ],
     "extra": {
       "eas": {
