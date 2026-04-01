@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady } from '../lib/resend';
 
@@ -245,6 +245,31 @@ router.get('/nfc-pending', async (_req: Request, res: Response) => {
       .where(eq(orders.nfc_token_used, false));
     const pending = rows.filter(r => r.nfc_token !== null);
     res.json(pending);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/locations
+router.post('/locations', async (req: Request, res: Response) => {
+  const { name, address } = req.body;
+  if (!name || !address) {
+    res.status(400).json({ error: 'name and address are required' });
+    return;
+  }
+  try {
+    const [location] = await db.insert(locations).values({ name, address }).returning();
+    res.status(201).json(location);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/locations
+router.get('/locations', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.select().from(locations);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
