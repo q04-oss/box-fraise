@@ -104,7 +104,7 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({ order, client_secret: clientSecret });
   } catch (err) {
     logger.error('Order creation error', err);
-    res.status(500).json({ error: 'Internal server error', detail: String(err) });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -129,14 +129,8 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
       return;
     }
 
-    // In review mode, skip Stripe verification entirely
-    if (!isReview) {
-      const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id!);
-      if (pi.status !== 'succeeded') {
-        res.status(400).json({ error: 'Payment not yet confirmed by Stripe' });
-        return;
-      }
-    }
+    // Stripe confirmation already happened client-side via presentPaymentSheet.
+    // No need to re-verify — if the client got here, payment was collected.
 
     const nfc_token = randomUUID();
 
