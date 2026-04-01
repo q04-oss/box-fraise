@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { db } from '../db';
 import { orders, varieties, timeSlots, legitimacyEvents, users } from '../db/schema';
-import { stripe, stripeTest } from '../lib/stripe';
+import { stripe } from '../lib/stripe';
 import { sendOrderConfirmation } from '../lib/resend';
 import { logger } from '../lib/logger';
 
@@ -63,16 +63,26 @@ router.post('/', async (req: Request, res: Response) => {
 
     const total_cents = variety.price_cents * quantity;
 
-    const paymentIntent = await stripeClient.paymentIntents.create({
-      amount: total_cents,
-      currency: 'cad',
-      receipt_email: customer_email,
-      metadata: {
-        variety_id: String(variety_id),
-        time_slot_id: String(time_slot_id),
-        review_mode: isReview ? 'true' : 'false',
-      },
-    });
+    let stripePaymentIntentId: string;
+    let clientSecret: string;
+
+    if (isReview) {
+      // Skip Stripe entirely in review mode
+      stripePaymentIntentId = `review_${randomUUID()}`;
+      clientSecret = 'review_secret';
+    } else {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: total_cents,
+        currency: 'cad',
+        receipt_email: customer_email,
+        metadata: {
+          variety_id: String(variety_id),
+          time_slot_id: String(time_slot_id),
+        },
+      });
+      stripePaymentIntentId = paymentIntent.id;
+      clientSecret = paymentIntent.client_secret!;
+    }
 
     const [order] = await db
       .insert(orders)
@@ -85,14 +95,14 @@ router.post('/', async (req: Request, res: Response) => {
         quantity,
         is_gift: is_gift ?? false,
         total_cents,
-        stripe_payment_intent_id: paymentIntent.id,
+        stripe_payment_intent_id: stripePaymentIntentId,
         status: 'pending',
         customer_email,
         push_token: push_token ?? null,
       })
       .returning();
 
-    res.status(201).json({ order, client_secret: paymentIntent.client_secret });
+    res.status(201).json({ order, client_secret: clientSecret });
   } catch (err) {
     logger.error('Order creation error', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -108,7 +118,6 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
   }
 
   const isReview = isReviewRequest(req);
-  const stripeClient = isReview ? stripeTest : stripe;
 
   try {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
@@ -123,7 +132,7 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
 
     // In review mode, skip Stripe verification entirely
     if (!isReview) {
-      const pi = await stripeClient.paymentIntents.retrieve(order.stripe_payment_intent_id!);
+      const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id!);
       if (pi.status !== 'succeeded') {
         res.status(400).json({ error: 'Payment not yet confirmed by Stripe' });
         return;
