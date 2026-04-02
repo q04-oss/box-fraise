@@ -12,7 +12,6 @@ import {
 import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { DMMono_400Regular } from '@expo-google-fonts/dm-mono';
 import RootNavigator from './src/navigation/RootNavigator';
-import OnboardingScreen from './src/screens/OnboardingScreen';
 import { enableReviewMode as activateReviewMode } from './src/lib/reviewMode';
 import { updatePushToken } from './src/lib/api';
 import './src/lib/geofence'; // registers background geofence task at startup
@@ -51,8 +50,6 @@ export default function App() {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [pendingScreen, setPendingScreen] = useState<string | null>(null);
   const [pendingData, setPendingData] = useState<Record<string, any> | null>(null);
-  const [onboardingDone, setOnboardingDone] = useState(false);
-
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_700Bold,
@@ -61,10 +58,6 @@ export default function App() {
   });
 
   useEffect(() => {
-    AsyncStorage.getItem('onboarding_done').then(v => {
-      if (v === '1') setOnboardingDone(true);
-    }).catch(() => {});
-
     registerForPushNotifications().then(token => {
       if (token) setPushToken(token);
     });
@@ -105,14 +98,6 @@ export default function App() {
       <View style={{ flex: 1, backgroundColor: '#F7F5F2', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color="#C9973A" />
       </View>
-    );
-  }
-
-  if (!onboardingDone) {
-    return (
-      <SafeAreaProvider>
-        <OnboardingScreen onDone={() => setOnboardingDone(true)} />
-      </SafeAreaProvider>
     );
   }
 

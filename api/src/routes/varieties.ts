@@ -17,8 +17,9 @@ router.get('/', async (_req: Request, res: Response) => {
       WHERE rating IS NOT NULL AND variety_id IS NOT NULL
       GROUP BY variety_id
     `);
+    const ratingRows = (ratings as any).rows ?? ratings;
     const ratingMap = Object.fromEntries(
-      (ratings as any[]).map(r => [r.variety_id, { avg_rating: r.avg_rating, rating_count: r.rating_count }])
+      (ratingRows as any[]).map(r => [r.variety_id, { avg_rating: r.avg_rating, rating_count: r.rating_count }])
     );
     const result = vars.map(v => ({ ...v, ...(ratingMap[v.id] ?? { avg_rating: null, rating_count: 0 }) }));
 

@@ -292,15 +292,13 @@ export default function ProfilePanel() {
           ) : !loading ? (
             signingIn ? <ActivityIndicator color={c.accent} /> : (
               <View style={styles.signInStack}>
-                {appleAvailable && (
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={14}
-                    style={styles.appleBtn}
-                    onPress={handleAppleSignIn}
-                  />
-                )}
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={14}
+                  style={styles.appleBtn}
+                  onPress={handleAppleSignIn}
+                />
                 <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6} style={styles.demoBtn}>
                   <Text style={[styles.demoBtnText, { color: c.muted }]}>Use demo account</Text>
                 </TouchableOpacity>
@@ -322,6 +320,31 @@ export default function ProfilePanel() {
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
         ) : (
           <>
+            {/* Signed-out explainer */}
+            {!userDbId && (
+              <>
+                <View style={[styles.verifyCard, { backgroundColor: c.card, borderColor: c.border }]}>
+                  <Text style={[styles.sectionLabel, { color: c.muted }]}>VERIFICATION</Text>
+                  <Text style={[styles.verifyCardTitle, { color: c.text }]}>Become a verified member</Text>
+                  <Text style={[styles.verifyCardBody, { color: c.muted }]}>
+                    Sign in with Apple, place an order, and collect it in person. Once you've collected, you'll be verified — unlocking standing orders and member features.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.orderAgainRow, { backgroundColor: c.card, borderColor: c.border }]}
+                  onPress={() => showPanel('order-history')}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.orderAgainInfo}>
+                    <Text style={[styles.sectionLabel, { color: c.muted }]}>ORDER HISTORY</Text>
+                    <Text style={[styles.orderAgainName, { color: c.text }]}>View past orders</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.accent }]}>→</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
             {/* Quick access */}
             {userDbId && (
               <View style={[styles.verifiedActions, { borderColor: c.border }]}>
@@ -626,4 +649,7 @@ const styles = StyleSheet.create({
 
   verifyHint: { gap: 5 },
   verifyHintText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
+  verifyCard: { borderRadius: 14, padding: SPACING.md, borderWidth: StyleSheet.hairlineWidth, gap: 8 },
+  verifyCardTitle: { fontSize: 17, fontFamily: fonts.playfair },
+  verifyCardBody: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20 },
 });
