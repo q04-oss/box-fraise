@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import varietiesRouter from './routes/varieties';
-import { locationsRouter, slotsRouter } from './routes/locations';
+import { locationsRouter, slotsRouter, timeSlotsPublicRouter } from './routes/locations';
 import ordersRouter from './routes/orders';
 import stripeRouter from './routes/stripe';
 import adminRouter from './routes/admin';
@@ -25,6 +26,9 @@ import { logger } from './lib/logger';
 
 const app = express();
 
+const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
+app.use('/api', limiter);
+
 // Raw body for Stripe webhook — must be registered before express.json()
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
@@ -38,6 +42,7 @@ app.use((req, _res, next) => {
 app.use('/api/varieties', varietiesRouter);
 app.use('/api/locations', locationsRouter);
 app.use('/api/slots', slotsRouter);
+app.use('/api/time-slots', timeSlotsPublicRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/stripe', stripeRouter);
 app.use('/api/admin', adminRouter);

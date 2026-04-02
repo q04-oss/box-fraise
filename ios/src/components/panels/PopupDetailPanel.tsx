@@ -34,7 +34,7 @@ function formatPopupTime(iso?: string, hours?: string): string {
 }
 
 export default function PopupDetailPanel() {
-  const { goBack, activeLocation } = usePanel();
+  const { goBack, activeLocation, showPanel, setPanelData } = usePanel();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -119,6 +119,21 @@ export default function PopupDetailPanel() {
       await checkInPopup(biz.id, userDbId, token);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Welcome.', 'You\'re checked in. Enjoy the night.');
+      Alert.alert(
+        'Nominate someone?',
+        "Know someone who'd be great for a popup? Nominate them.",
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          {
+            text: 'Nominate',
+            style: 'default',
+            onPress: () => {
+              setPanelData({ popupId: biz.id });
+              showPanel('nomination');
+            },
+          },
+        ],
+      );
     } catch (err: any) {
       if (err?.message !== 'UserCancel') {
         Alert.alert('Check-in failed', 'Hold your phone to the NFC chip at the entrance and try again.');

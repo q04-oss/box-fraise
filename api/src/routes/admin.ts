@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, isNull, sql, and, lte, sum, gte, desc, inArray } from 'drizzle-orm';
+import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
 import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits } from '../db/schema';
 import { logger } from '../lib/logger';
@@ -102,9 +102,23 @@ router.patch('/orders/:id/status', async (req: Request, res: Response) => {
       const [slot] = await db.select({ time: timeSlots.time }).from(timeSlots).where(eq(timeSlots.id, updated.time_slot_id));
       const varietyName = variety?.name ?? 'your order';
 
-      if (updated.push_token) {
-        const summary = `${updated.quantity}× ${varietyName}`;
-        sendReadyNotification(updated.push_token, summary); // fire-and-forget
+      // Try push token from order first; fall back to user's push token
+      let pushToken: string | null | undefined = updated.push_token;
+      if (!pushToken && updated.apple_id) {
+        const [orderUser] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.apple_user_id, updated.apple_id));
+        pushToken = orderUser?.push_token;
+      }
+      if (!pushToken) {
+        const [emailUser] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.email, updated.customer_email));
+        pushToken = emailUser?.push_token;
+      }
+
+      if (pushToken) {
+        sendPushNotification(pushToken, {
+          title: 'Your order is ready.',
+          body: 'Your order is ready for pickup.',
+          data: { order_id: updated.id },
+        }).catch((err: unknown) => logger.error('Push notification failed', err));
       }
 
       sendOrderReady({
@@ -1079,6 +1093,75 @@ router.post('/contracts/complete-expired', async (req: Request, res: Response) =
       .where(inArray(employmentContracts.id, ids));
 
     res.json({ completed: ids.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/popups/:id/rsvps — list of RSVPs for a popup with user info
+router.get('/popups/:id/rsvps', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid popup id' }); return; }
+  try {
+    const rows = await db
+      .select({
+        id: popupRsvps.id,
+        user_id: popupRsvps.user_id,
+        status: popupRsvps.status,
+        display_name: users.display_name,
+        email: users.email,
+        created_at: popupRsvps.created_at,
+      })
+      .from(popupRsvps)
+      .innerJoin(users, eq(popupRsvps.user_id, users.id))
+      .where(eq(popupRsvps.popup_id, id))
+      .orderBy(popupRsvps.created_at);
+
+    res.json(rows.map(r => ({ ...r, display_name: r.display_name ?? r.email.split('@')[0] })));
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/broadcast — send push to all users or popup RSVPs
+router.post('/broadcast', async (req: Request, res: Response) => {
+  const { message, popup_id } = req.body;
+  if (!message || typeof message !== 'string') {
+    res.status(400).json({ error: 'message is required' });
+    return;
+  }
+
+  try {
+    let tokens: string[] = [];
+
+    if (popup_id != null) {
+      // Send to users with confirmed/paid RSVP for this popup
+      const rows = await db
+        .select({ push_token: users.push_token })
+        .from(popupRsvps)
+        .innerJoin(users, eq(popupRsvps.user_id, users.id))
+        .where(and(
+          eq(popupRsvps.popup_id, parseInt(String(popup_id), 10)),
+          inArray(popupRsvps.status, ['confirmed', 'paid']),
+          isNotNull(users.push_token),
+        ));
+      tokens = rows.map(r => r.push_token).filter((t): t is string => t != null);
+    } else {
+      // Send to all users with a push token
+      const rows = await db
+        .select({ push_token: users.push_token })
+        .from(users)
+        .where(isNotNull(users.push_token));
+      tokens = rows.map(r => r.push_token).filter((t): t is string => t != null);
+    }
+
+    await Promise.allSettled(
+      tokens.map(token =>
+        sendPushNotification(token, { title: 'Maison Fraise', body: message })
+      )
+    );
+
+    res.json({ sent: tokens.length });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

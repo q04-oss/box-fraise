@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
-import { fetchSlots } from '../../lib/api';
+import { fetchTimeSlots } from '../../lib/api';
 import { getDateOptions } from '../../data/seed';
 import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
@@ -44,7 +44,7 @@ export default function WhenPanel() {
   useEffect(() => {
     if (!order.location_id || !order.date) return;
     setLoadingSlots(true);
-    fetchSlots(order.location_id, order.date)
+    fetchTimeSlots(order.location_id, order.date)
       .then(setSlots)
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));

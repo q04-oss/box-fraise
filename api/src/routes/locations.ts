@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt, SQL } from 'drizzle-orm';
 import { db } from '../db';
 import { locations, timeSlots } from '../db/schema';
 
 export const locationsRouter = Router();
 export const slotsRouter = Router();
+export const timeSlotsPublicRouter = Router();
 
 locationsRouter.get('/', async (_req: Request, res: Response) => {
   try {
@@ -58,6 +59,44 @@ slotsRouter.get('/', async (req: Request, res: Response) => {
     res.json(
       rows.map((s) => ({ ...s, available: s.capacity - s.booked }))
     );
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/time-slots?location_id=&date= — public route for available slots (capacity > 0)
+timeSlotsPublicRouter.get('/', async (req: Request, res: Response) => {
+  const { location_id, date } = req.query;
+
+  try {
+    const conditions: SQL[] = [gt(timeSlots.capacity, 0)];
+
+    if (location_id) {
+      const locationIdNum = parseInt(String(location_id), 10);
+      if (isNaN(locationIdNum)) {
+        res.status(400).json({ error: 'location_id must be a number' });
+        return;
+      }
+      conditions.push(eq(timeSlots.location_id, locationIdNum));
+    }
+
+    if (date) {
+      conditions.push(eq(timeSlots.date, String(date)));
+    }
+
+    const rows = await db
+      .select({
+        id: timeSlots.id,
+        location_id: timeSlots.location_id,
+        date: timeSlots.date,
+        time: timeSlots.time,
+        capacity: timeSlots.capacity,
+      })
+      .from(timeSlots)
+      .where(and(...(conditions as [SQL, ...SQL[]])))
+      .orderBy(timeSlots.date, timeSlots.time);
+
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

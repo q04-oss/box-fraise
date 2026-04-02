@@ -126,6 +126,44 @@
     .s-rejected  { background: rgba(220,80,80,0.12); color: rgba(220,110,110,0.85); }
     .s-passed    { background: rgba(255,255,255,0.06); color: rgba(242,242,247,0.4); }
     .s-accepted  { background: rgba(80,200,120,0.12); color: rgba(100,210,140,0.9); }
+    .s-confirmed { background: rgba(80,200,120,0.15); color: rgba(100,210,140,0.95); }
+    .s-waitlist  { background: rgba(201,151,58,0.18); color: #D4A843; }
+    .s-completed { background: rgba(255,255,255,0.06); color: rgba(242,242,247,0.35); }
+
+    /* ── MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 1000;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-box {
+      background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius);
+      width: 100%; max-width: 520px; max-height: 80vh; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--text); }
+    .modal-close {
+      background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer;
+      line-height: 1; padding: 4px 8px; transition: color 0.15s;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .modal-summary { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+    .rsvp-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+    .rsvp-row:last-child { border-bottom: none; }
+    .rsvp-name { font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); }
+
+    /* ── ORDERS FILTER BAR ── */
+    .orders-filter-bar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 16px;
+    }
+    .orders-filter-bar select { flex: 1; min-width: 140px; max-width: 220px; }
+    .orders-status-pills { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 
     /* ── FORM ── */
     .form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
@@ -334,46 +372,86 @@
   }
 
   // ── ORDERS TAB ────────────────────────────────────────
-  function renderAdmin() {
+  let ordersLocationFilter = '';
+  let ordersStatusFilter = 'all';
+
+  async function renderAdmin() {
     const body = document.getElementById('dash-body');
+
+    const collectionLocations = allBusinesses.filter(b => b.type === 'collection');
+    const locationOpts = `<option value="">All Locations</option>` +
+      collectionLocations.map(b => `<option value="${b.id}" ${ordersLocationFilter == b.id ? 'selected' : ''}>${b.name}</option>`).join('');
+
     const statuses = ['all','pending','paid','preparing','ready','collected','cancelled'];
-    const filtered = currentFilter === 'all' ? allOrders : allOrders.filter(o => o.status === currentFilter);
+    const statusPills = statuses.map(s =>
+      `<div class="pill ${ordersStatusFilter===s?'active':''}" onclick="setOrdersStatus('${s}')">
+        ${s==='all'?'All':STATUS_LABEL[s]||s}</div>`
+    ).join('');
 
-    const filterHtml = `<div class="filter-row">${statuses.map(s =>
-      `<div class="pill ${currentFilter===s?'active':''}" onclick="setFilter('${s}')">
-        ${s==='all'?`All (${allOrders.length})`:STATUS_LABEL[s]}</div>`
-    ).join('')}</div>`;
+    body.innerHTML = `
+      <div class="orders-filter-bar">
+        <select class="form-select" id="orders-loc-sel" onchange="setOrdersLocation(this.value)">${locationOpts}</select>
+        <div class="orders-status-pills">${statusPills}</div>
+        <button class="action-btn" onclick="refreshOrders()" style="flex-shrink:0;">Refresh</button>
+      </div>
+      <div id="orders-list"><div class="empty">Loading…</div></div>`;
 
-    body.innerHTML = filterHtml + (filtered.length === 0
-      ? '<div class="empty">No orders.</div>'
-      : filtered.map(orderCardHtml).join(''));
+    await loadOrdersList();
   }
 
-  function setFilter(f) { currentFilter = f; renderAdmin(); }
+  async function loadOrdersList() {
+    const el = document.getElementById('orders-list');
+    if (!el) return;
+    el.innerHTML = '<div class="empty">Loading…</div>';
+    let url = BASE + '/api/admin/orders?';
+    if (ordersStatusFilter && ordersStatusFilter !== 'all') url += `status=${ordersStatusFilter}&`;
+    if (ordersLocationFilter) url += `location_id=${ordersLocationFilter}&`;
+    const res = await fetch(url, { headers: { 'X-Admin-PIN': currentPin } });
+    if (!res.ok) { el.innerHTML = '<div class="empty">Failed to load orders.</div>'; return; }
+    const orders = await res.json();
+    allOrders = orders;
+    el.innerHTML = orders.length === 0
+      ? '<div class="empty">No orders.</div>'
+      : orders.map(orderCardHtml).join('');
+  }
+
+  function setOrdersLocation(val) { ordersLocationFilter = val; loadOrdersList(); }
+  function setOrdersStatus(s) { ordersStatusFilter = s; renderAdmin(); }
+  function refreshOrders() { loadOrdersList(); }
+  function setFilter(f) { ordersStatusFilter = f; renderAdmin(); }
 
   function orderCardHtml(o) {
-    const choc = CHOC[o.chocolate] || o.chocolate;
-    const fin  = FIN[o.finish] || o.finish;
-    const total = (o.total_cents / 100).toFixed(2);
+    const choc = CHOC[o.chocolate] || o.chocolate || '—';
+    const fin  = FIN[o.finish] || o.finish || '—';
+    const total = o.total_cents != null ? (o.total_cents / 100).toFixed(2) : '—';
     const next  = STATUS_NEXT[o.status];
-    const slotMeta = o.slot_date && o.slot_time ? `${o.slot_date} · ${o.slot_time}` : `Slot #${o.time_slot_id}`;
+    const slotMeta = o.slot_date && o.slot_time ? `${o.slot_date} · ${o.slot_time}` : (o.time_slot_id ? `Slot #${o.time_slot_id}` : '');
+    const statusLabel = STATUS_LABEL[o.status] || o.status || '—';
     const actions = [];
-    if (next) actions.push(`<button class="action-btn primary" onclick="updateStatus(${o.id},'${next}')">Mark ${STATUS_LABEL[next]}</button>`);
-    if (o.status !== 'cancelled' && o.status !== 'collected')
+    // New admin-orders status actions
+    if (o.status === 'pending')
+      actions.push(`<button class="action-btn primary" onclick="updateOrderStatus(${o.id},'ready')">Mark Ready</button>`);
+    if (o.status === 'ready')
+      actions.push(`<button class="action-btn success" onclick="updateOrderStatus(${o.id},'completed')">Complete</button>`);
+    // Legacy status advancement
+    if (next && o.status !== 'pending' && o.status !== 'ready')
+      actions.push(`<button class="action-btn primary" onclick="updateStatus(${o.id},'${next}')">Mark ${STATUS_LABEL[next]||next}</button>`);
+    if (o.status !== 'cancelled' && o.status !== 'collected' && o.status !== 'completed')
       actions.push(`<button class="action-btn danger" onclick="updateStatus(${o.id},'cancelled')">Cancel</button>`);
     return `<div class="order-card" id="order-${o.id}">
       <div class="order-top">
         <div>
-          <div class="order-id">#${o.id} · CA$${total}</div>
-          <div class="order-email">${o.customer_email}</div>
+          <div class="order-id">#${o.id}${total !== '—' ? ' · CA$' + total : ''}</div>
+          <div class="order-email">${o.customer_email || '—'}</div>
         </div>
-        <div class="status-badge s-${o.status}">${STATUS_LABEL[o.status]}</div>
+        <div class="status-badge s-${o.status}">${statusLabel}</div>
       </div>
-      <div><div class="order-variety">${o.variety_name||`Variety #${o.variety_id}`}</div>
-        <div class="order-details">${choc} · ${fin} · ×${o.quantity}</div>
+      <div><div class="order-variety">${o.variety_name||`Variety #${o.variety_id||'?'}`}</div>
+        <div class="order-details">${choc} · ${fin} · ×${o.quantity||1}</div>
         ${o.is_gift?'<span class="gift-badge">Gift</span>':''}
       </div>
-      <div class="order-meta">${slotMeta}</div>
+      ${slotMeta ? `<div class="order-meta">${slotMeta}</div>` : ''}
+      <div class="order-meta">${fmt(o.created_at)}</div>
       ${actions.length?`<div class="action-row">${actions.join('')}</div>`:''}
     </div>`;
   }
@@ -384,9 +462,18 @@
       body: JSON.stringify({ status }),
     });
     if (res.ok) {
-      const updated = await res.json();
-      allOrders = allOrders.map(o => o.id === id ? updated : o);
-      renderAdmin();
+      await loadOrdersList();
+    }
+  }
+
+  async function updateOrderStatus(id, status) {
+    const res = await fetch(`${BASE}/api/admin/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      await loadOrdersList();
     }
   }
 
@@ -444,7 +531,26 @@
       ? '<div class="empty">No popups yet.</div>'
       : popups.map(popupCardHtml).join('');
 
-    body.innerHTML = `<div class="section-heading">Active & Upcoming</div>${popupCards}<div class="section-heading" style="margin-top:8px;">Create</div>${createForm}`;
+    const popupOptions = `<option value="">All users</option>` +
+      popups.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+    const broadcastSection = `
+      <div class="section-heading" style="margin-top:8px;">Broadcast Message</div>
+      <div class="form-card">
+        <div class="form-title">Send Broadcast</div>
+        <div class="form-row">
+          <div class="form-label">Target</div>
+          <select class="form-select" id="bc-popup">${popupOptions}</select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Message</div>
+          <textarea class="form-textarea" id="bc-message" placeholder="Your message to guests…" style="min-height:100px;"></textarea>
+        </div>
+        <button class="action-btn primary" onclick="sendBroadcast()" style="align-self:flex-start;padding:12px 28px;">Send Broadcast</button>
+        <div id="bc-result" style="font-family:'DM Mono',monospace;font-size:12px;min-height:16px;"></div>
+      </div>`;
+
+    body.innerHTML = `<div class="section-heading">Active & Upcoming</div>${popupCards}<div class="section-heading" style="margin-top:8px;">Create</div>${createForm}${broadcastSection}`;
   }
 
   function popupCardHtml(p) {
@@ -481,6 +587,7 @@
       <div class="action-row">
         <button class="action-btn" onclick="toggleNominations(${p.id})">Nominations</button>
         <button class="action-btn" onclick="showDjForm(${p.id})">Send DJ Offer</button>
+        <button class="action-btn" onclick="openRsvpModal(${p.id})" data-popup-name="${(p.name||'').replace(/"/g,'&quot;')}">View RSVPs</button>
         ${auditionActions}
       </div>
       <div id="nom-${p.id}" style="display:none;margin-top:4px;"></div>
@@ -954,6 +1061,90 @@
   }
 
   document.getElementById('pin-input').addEventListener('keydown', e => { if (e.key==='Enter') submitPin(); });
+
+  // ── RSVP MODAL ────────────────────────────────────────
+  function openRsvpModal(popupId, popupName) {
+    if (popupName === undefined) {
+      const btn = document.querySelector(`button[onclick="openRsvpModal(${popupId})"]`);
+      popupName = btn ? btn.dataset.popupName : `Popup #${popupId}`;
+    }
+    const existing = document.getElementById('rsvp-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'rsvp-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">${popupName} — RSVPs</div>
+          <button class="modal-close" onclick="closeRsvpModal()">×</button>
+        </div>
+        <div class="modal-body" id="rsvp-modal-body">
+          <div class="empty">Loading…</div>
+        </div>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) closeRsvpModal(); });
+    document.body.appendChild(modal);
+
+    fetchRsvps(popupId);
+  }
+
+  function closeRsvpModal() {
+    const modal = document.getElementById('rsvp-modal');
+    if (modal) modal.remove();
+  }
+
+  async function fetchRsvps(popupId) {
+    const body = document.getElementById('rsvp-modal-body');
+    if (!body) return;
+    const res = await fetch(`${BASE}/api/admin/popups/${popupId}/rsvps`, { headers: { 'X-Admin-PIN': currentPin } });
+    if (!res.ok) { body.innerHTML = '<div class="empty">Failed to load RSVPs.</div>'; return; }
+    const rsvps = await res.json();
+    if (!rsvps.length) { body.innerHTML = '<div class="empty">No RSVPs yet.</div>'; return; }
+
+    const confirmed = rsvps.filter(r => r.status === 'confirmed').length;
+    const waitlisted = rsvps.filter(r => r.status === 'waitlist').length;
+
+    const RSVP_STATUS_LABEL = { confirmed:'Confirmed', waitlist:'Waitlist', cancelled:'Cancelled', paid:'Paid' };
+
+    body.innerHTML = `
+      <div class="modal-summary">${rsvps.length} total · ${confirmed} confirmed · ${waitlisted} waitlisted</div>
+      ${rsvps.map(r => `
+        <div class="rsvp-row">
+          <div class="rsvp-name">${r.display_name || r.email || 'Guest'}</div>
+          <div class="status-badge s-${r.status}">${RSVP_STATUS_LABEL[r.status] || r.status}</div>
+        </div>`).join('')}`;
+  }
+
+  // ── BROADCAST ─────────────────────────────────────────
+  async function sendBroadcast() {
+    const msgEl = document.getElementById('bc-message');
+    const popupEl = document.getElementById('bc-popup');
+    const resultEl = document.getElementById('bc-result');
+    if (!msgEl || !resultEl) return;
+    const message = msgEl.value.trim();
+    if (!message) { resultEl.style.color = '#E05A5A'; resultEl.textContent = 'Message is required.'; return; }
+    resultEl.textContent = 'Sending…';
+    resultEl.style.color = 'var(--muted)';
+    const payload = { message };
+    if (popupEl && popupEl.value) payload.popup_id = parseInt(popupEl.value);
+    const res = await fetch(`${BASE}/api/admin/broadcast`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      resultEl.style.color = 'rgba(80,200,120,0.9)';
+      resultEl.textContent = data.sent != null ? `Sent to ${data.sent} user${data.sent !== 1 ? 's' : ''}.` : 'Broadcast sent.';
+      msgEl.value = '';
+    } else {
+      const err = await res.json().catch(() => ({}));
+      resultEl.style.color = '#E05A5A';
+      resultEl.textContent = err.error || 'Failed to send broadcast.';
+    }
+  }
 
   // ── SLOTS TAB ─────────────────────────────────────────
   async function renderSlotsTab() {

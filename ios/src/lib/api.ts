@@ -613,3 +613,15 @@ export async function cancelPopupRsvp(popupId: number, userId: number) {
   }
   return res.json() as Promise<{ success: boolean; refunded: boolean }>;
 }
+
+export async function fetchTimeSlots(locationId: number, date: string): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/time-slots?location_id=${locationId}&date=${date}`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchUserPlacements(userId: number): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/users/${userId}/placements`);
+  if (!r.ok) return [];
+  return r.json();
+}

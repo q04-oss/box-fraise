@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePanel } from '../../context/PanelContext';
-import { fetchPublicProfile, followUser, unfollowUser, fetchFollowStatus } from '../../lib/api';
+import { fetchPublicProfile, followUser, unfollowUser, fetchFollowStatus, fetchUserPlacements, fetchLegitimacyBreakdown } from '../../lib/api';
 import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
 
@@ -23,6 +23,8 @@ export default function UserProfilePanel() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [placements, setPlacements] = useState<any[]>([]);
+  const [legitimacyScore, setLegitimacyScore] = useState<number | null>(null);
 
   const userId: number | null = panelData?.userId ?? null;
 
@@ -32,10 +34,14 @@ export default function UserProfilePanel() {
       const cid = storedId ? parseInt(storedId) : null;
       setCurrentUserId(cid);
       try {
-        const [profileData] = await Promise.all([
+        const [profileData, placementsData, legitimacyData] = await Promise.all([
           fetchPublicProfile(userId),
+          fetchUserPlacements(userId),
+          fetchLegitimacyBreakdown(userId).catch(() => null),
         ]);
         setProfile(profileData);
+        setPlacements(placementsData);
+        if (legitimacyData) setLegitimacyScore(legitimacyData.total);
         if (cid && cid !== userId) {
           const status = await fetchFollowStatus(userId, cid).catch(() => null);
           if (status) setIsFollowing(status.is_following);
@@ -103,6 +109,15 @@ export default function UserProfilePanel() {
                 <Text style={[styles.statValue, { color: c.text }]}>{profile.past_placements}</Text>
                 <Text style={[styles.statLabel, { color: c.muted }]}>PLACEMENTS</Text>
               </View>
+              {legitimacyScore !== null && (
+                <>
+                  <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+                  <View style={styles.statBlock}>
+                    <Text style={[styles.statValue, { color: c.text }]}>{legitimacyScore}</Text>
+                    <Text style={[styles.statLabel, { color: c.muted }]}>score</Text>
+                  </View>
+                </>
+              )}
             </View>
 
             {/* Follow button */}
@@ -159,6 +174,34 @@ export default function UserProfilePanel() {
                 </View>
               )}
             </View>
+
+            {/* Sets section */}
+            {placements.length > 0 && (
+              <View style={styles.setsSection}>
+                <Text style={[styles.setsSectionHeader, { color: c.text }]}>Sets</Text>
+                {placements.map((placement: any, i: number) => (
+                  <View key={placement.id ?? i} style={[styles.setRow, { borderTopColor: c.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.setBusinessName, { color: c.text }]}>{placement.business_name}</Text>
+                      <Text style={[styles.setDate, { color: c.muted }]}>
+                        {placement.starts_at ? fmtDate(placement.starts_at) : '—'}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: placement.status === 'active' ? c.accent : 'transparent', borderColor: c.border },
+                    ]}>
+                      <Text style={[
+                        styles.statusBadgeText,
+                        { color: placement.status === 'active' ? '#fff' : c.muted },
+                      ]}>
+                        {placement.status ?? 'completed'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </>
         )}
         <View style={{ height: 40 }} />
@@ -218,4 +261,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5,
   },
   tagText: { fontSize: 11, fontFamily: fonts.dmMono },
+
+  setsSection: { gap: 0 },
+  setsSectionHeader: { fontSize: 16, fontFamily: fonts.dmMono, marginBottom: 8 },
+  setRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  setBusinessName: { fontSize: 15, fontFamily: fonts.playfair },
+  setDate: { fontSize: 11, fontFamily: fonts.dmMono, marginTop: 2 },
+  statusBadge: {
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  statusBadgeText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });

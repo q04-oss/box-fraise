@@ -671,6 +671,31 @@ router.get('/:id/nominations-received', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/users/:id/placements — past and active employment contracts for a user (as DJ)
+router.get('/:id/placements', async (req: Request, res: Response) => {
+  const user_id = parseInt(req.params.id, 10);
+  if (isNaN(user_id)) { res.status(400).json({ error: 'Invalid user id' }); return; }
+  try {
+    const rows = await db
+      .select({
+        id: employmentContracts.id,
+        business_id: employmentContracts.business_id,
+        business_name: businesses.name,
+        starts_at: employmentContracts.starts_at,
+        ends_at: employmentContracts.ends_at,
+        status: employmentContracts.status,
+      })
+      .from(employmentContracts)
+      .innerJoin(businesses, eq(employmentContracts.business_id, businesses.id))
+      .where(eq(employmentContracts.user_id, user_id))
+      .orderBy(desc(employmentContracts.starts_at))
+      .limit(20);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/users/:id/legitimacy — score breakdown by event type
 router.get('/:id/legitimacy', async (req: Request, res: Response) => {
   const user_id = parseInt(req.params.id, 10);
