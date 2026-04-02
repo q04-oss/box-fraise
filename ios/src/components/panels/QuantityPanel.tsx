@@ -23,7 +23,8 @@ export default function QuantityPanel() {
       </View>
 
       <View style={styles.body}>
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Text style={[styles.sectionLabel, { color: c.muted }]}>QUANTITY</Text>
+        <View style={[styles.card, { backgroundColor: c.card }]}>
           {QUANTITIES.map((q, i) => {
             const isSelected = selected === q;
             return (
@@ -44,11 +45,9 @@ export default function QuantityPanel() {
             );
           })}
         </View>
-
-
       </View>
 
-      <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           style={[styles.cta, { backgroundColor: c.accent }]}
           onPress={() => {
@@ -78,15 +77,16 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
-  body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: SPACING.md, justifyContent: 'center' },
-  card: { borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: 8, justifyContent: 'center' },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
+  card: { borderRadius: 12, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
   qNum: { fontSize: 22, fontFamily: fonts.playfair, width: 36 },
   qLabel: { flex: 1, fontSize: 14, fontFamily: fonts.dmSans },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
-  footer: { padding: SPACING.md, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  footer: { padding: SPACING.md, paddingTop: 12 },
   cta: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
   ctaText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },
 });

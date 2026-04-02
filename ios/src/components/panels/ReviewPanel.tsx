@@ -28,7 +28,7 @@ export default function ReviewPanel() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState(order.customer_email);
   const [loading, setLoading] = useState(false);
-  // Refresh email from storage whenever this panel becomes active (e.g. returning from profile sign-in)
+
   useEffect(() => {
     if (currentPanel === 'review' && !email) {
       AsyncStorage.getItem('user_email').then(stored => {
@@ -172,52 +172,59 @@ export default function ReviewPanel() {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.variety, { color: c.text }]}>{order.variety_name ?? '—'}</Text>
-        <Text style={[styles.spec, { color: c.muted }]}>{spec}</Text>
-        {isSoldOut && <Text style={styles.stockAlert}>Sold out</Text>}
-        {isQuantityOverStock && <Text style={styles.stockAlert}>Only {liveVariety?.stock_remaining} left — reduce quantity</Text>}
-
-        <View style={[styles.divider, { backgroundColor: c.border }]} />
-
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: c.muted }]}>COLLECTION</Text>
-          <Text style={[styles.detailValue, { color: c.text }]}>{order.location_name ?? '—'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: c.muted }]}>WHEN</Text>
-          <Text style={[styles.detailValue, { color: c.text }]}>
-            {order.time_slot_time ?? '—'}{order.date ? `  ${formatDate(order.date)}` : ''}
-          </Text>
+        <View style={styles.heroBlock}>
+          <Text style={[styles.variety, { color: c.text }]}>{order.variety_name ?? '—'}</Text>
+          <Text style={[styles.spec, { color: c.muted }]}>{spec}</Text>
+          {isSoldOut && <Text style={styles.stockAlert}>Sold out</Text>}
+          {isQuantityOverStock && <Text style={styles.stockAlert}>Only {liveVariety?.stock_remaining} left — reduce quantity</Text>}
         </View>
 
-        <View style={[styles.divider, { backgroundColor: c.border }]} />
-
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: c.muted }]}>EMAIL</Text>
-          <TextInput
-            style={[styles.emailInput, { color: c.text }]}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="your@email.com"
-            placeholderTextColor={c.muted}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onFocus={() => TrueSheet.present('main-sheet', 2)}
-            onBlur={() => { if (email) AsyncStorage.setItem('user_email', email); setOrder({ customer_email: email }); }}
-          />
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: c.muted }]}>DETAILS</Text>
+          <View style={[styles.card, { backgroundColor: c.card }]}>
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: c.muted }]}>COLLECTION</Text>
+              <Text style={[styles.detailValue, { color: c.text }]}>{order.location_name ?? '—'}</Text>
+            </View>
+            <View style={[styles.cardDivider, { backgroundColor: c.border }]} />
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: c.muted }]}>WHEN</Text>
+              <Text style={[styles.detailValue, { color: c.text }]}>
+                {order.time_slot_time ?? '—'}{order.date ? `  ${formatDate(order.date)}` : ''}
+              </Text>
+            </View>
+          </View>
         </View>
-        {!email && (
-          <TouchableOpacity onPress={() => showPanel('profile')} activeOpacity={0.7} style={styles.signInNudge}>
-            <Text style={[styles.signInNudgeText, { color: c.muted }]}>Sign in with Apple to save your order history →</Text>
-          </TouchableOpacity>
-        )}
 
-        <View style={[styles.divider, { backgroundColor: c.border }]} />
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: c.muted }]}>CONTACT</Text>
+          <View style={[styles.card, { backgroundColor: c.card }]}>
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: c.muted }]}>EMAIL</Text>
+              <TextInput
+                style={[styles.emailInput, { color: c.text }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="your@email.com"
+                placeholderTextColor={c.muted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onFocus={() => TrueSheet.present('main-sheet', 2)}
+                onBlur={() => { if (email) AsyncStorage.setItem('user_email', email); setOrder({ customer_email: email }); }}
+              />
+            </View>
+          </View>
+          {!email && (
+            <TouchableOpacity onPress={() => showPanel('profile')} activeOpacity={0.7} style={styles.signInNudge}>
+              <Text style={[styles.signInNudgeText, { color: c.muted }]}>Sign in with Apple to save your order history →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         <View style={styles.totalRow}>
           <Text style={[styles.totalLabel, { color: c.muted }]}>TOTAL</Text>
           <Text style={[styles.totalAmount, { color: c.text }]}>CA${(totalCents / 100).toFixed(2)}</Text>
         </View>
-
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
@@ -250,15 +257,19 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
   scrollArea: { flex: 1 },
   body: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.md },
+  heroBlock: { gap: 4 },
   variety: { fontSize: 36, fontFamily: fonts.playfair },
-  spec: { fontSize: 14, fontFamily: fonts.dmSans, marginTop: -8 },
-  divider: { height: StyleSheet.hairlineWidth },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  spec: { fontSize: 14, fontFamily: fonts.dmSans },
+  stockAlert: { fontSize: 12, fontFamily: fonts.dmSans, color: '#FF3B30' },
+  section: { gap: 8 },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
+  card: { borderRadius: 12, overflow: 'hidden' },
+  cardDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
   detailLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   detailValue: { fontSize: 15, fontFamily: fonts.playfair, textAlign: 'right', flex: 1 },
   emailInput: { fontSize: 15, fontFamily: fonts.dmSans, textAlign: 'right', flex: 1 },
-  stockAlert: { fontSize: 12, fontFamily: fonts.dmSans, color: '#FF3B30', marginTop: -4 },
-  signInNudge: { marginTop: -8 },
+  signInNudge: { marginTop: 4, marginLeft: 4 },
   signInNudgeText: { fontSize: 12, fontFamily: fonts.dmSans, fontStyle: 'italic', textAlign: 'right' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.sm },
   totalLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.8 },

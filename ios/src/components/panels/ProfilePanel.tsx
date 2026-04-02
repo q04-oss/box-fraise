@@ -199,52 +199,62 @@ export default function ProfilePanel() {
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
         ) : (
           <>
-            {/* Order again */}
             {lastOrder && (
-              <TouchableOpacity
-                style={[styles.orderAgainRow, { borderColor: c.border }]}
-                onPress={handleOrderAgain}
-                activeOpacity={0.8}
-              >
-                <View style={styles.orderAgainInfo}>
-                  <Text style={[styles.label, { color: c.muted }]}>ORDER AGAIN</Text>
-                  <Text style={[styles.orderAgainName, { color: c.text }]}>{lastOrder.variety_name ?? '—'}</Text>
-                  <Text style={[styles.orderAgainSub, { color: c.muted }]}>
-                    {CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
-                    {' · '}
-                    {FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
-                    {' · '}{lastOrder.quantity}
-                  </Text>
-                </View>
-                <Text style={[styles.chevron, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Recent orders */}
-            {recentOrders.length > 1 && (
               <View style={styles.section}>
-                <Text style={[styles.label, { color: c.muted }]}>RECENT ORDERS</Text>
-                {recentOrders.slice(1).map((o: any) => (
-                  <View key={o.id} style={[styles.orderRow, { borderBottomColor: c.border }]}>
-                    <Text style={[styles.orderName, { color: c.text }]}>{o.variety_name ?? '—'}</Text>
-                    <Text style={[styles.orderMeta, { color: c.muted }]}>
-                      {CHOCOLATES.find(choc => choc.id === o.chocolate)?.name ?? o.chocolate ?? '—'}
-                      {' · '}{o.quantity}
-                    </Text>
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>ORDER AGAIN</Text>
+                <TouchableOpacity
+                  style={[styles.card, { backgroundColor: c.card }]}
+                  onPress={handleOrderAgain}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.orderAgainRow}>
+                    <View style={styles.orderAgainInfo}>
+                      <Text style={[styles.orderAgainName, { color: c.text }]}>{lastOrder.variety_name ?? '—'}</Text>
+                      <Text style={[styles.orderAgainSub, { color: c.muted }]}>
+                        {CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
+                        {' · '}
+                        {FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
+                        {' · '}{lastOrder.quantity}
+                      </Text>
+                    </View>
+                    <Text style={[styles.chevron, { color: c.accent }]}>→</Text>
                   </View>
-                ))}
+                </TouchableOpacity>
               </View>
             )}
 
-            {/* Verification */}
+            {recentOrders.length > 1 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>RECENT ORDERS</Text>
+                <View style={[styles.card, { backgroundColor: c.card }]}>
+                  {recentOrders.slice(1).map((o: any, i: number) => (
+                    <React.Fragment key={o.id}>
+                      {i > 0 && <View style={[styles.divider, { backgroundColor: c.border }]} />}
+                      <View style={styles.orderRow}>
+                        <Text style={[styles.orderName, { color: c.text }]}>{o.variety_name ?? '—'}</Text>
+                        <Text style={[styles.orderMeta, { color: c.muted }]}>
+                          {CHOCOLATES.find(choc => choc.id === o.chocolate)?.name ?? o.chocolate ?? '—'}
+                          {' · '}{o.quantity}
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {(!isVerified || !userDbId) && (
-              <View style={styles.verifyBlock}>
-                <Text style={[styles.label, { color: c.muted }]}>VERIFICATION</Text>
-                <Text style={[styles.verifyText, { color: c.muted }]}>
-                  {userDbId
-                    ? 'Collect your first order in person to become a verified member.'
-                    : 'Sign in, place an order, and collect it in person. Verified members unlock standing orders and member features.'}
-                </Text>
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>VERIFICATION</Text>
+                <View style={[styles.card, { backgroundColor: c.card }]}>
+                  <View style={styles.verifyRow}>
+                    <Text style={[styles.verifyText, { color: c.muted }]}>
+                      {userDbId
+                        ? 'Collect your first order in person to become a verified member.'
+                        : 'Sign in, place an order, and collect it in person. Verified members unlock standing orders and member features.'}
+                    </Text>
+                  </View>
+                </View>
               </View>
             )}
           </>
@@ -278,26 +288,19 @@ const styles = StyleSheet.create({
   signInStack: { gap: 8, alignItems: 'center' },
   demoBtn: { paddingVertical: 4, paddingHorizontal: 8 },
   demoBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  body: { padding: SPACING.md, gap: 20 },
-  label: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5, marginBottom: 8 },
-  orderAgainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: SPACING.md,
-  },
+  body: { padding: SPACING.md, gap: SPACING.md },
+  section: { gap: 8 },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
+  card: { borderRadius: 12, overflow: 'hidden' },
+  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
+  orderAgainRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
   orderAgainInfo: { flex: 1, gap: 4 },
   orderAgainName: { fontSize: 17, fontFamily: fonts.playfair },
   orderAgainSub: { fontSize: 12, fontFamily: fonts.dmSans },
   chevron: { fontSize: 20 },
-  section: { gap: 0 },
-  orderRow: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 3,
-  },
+  orderRow: { paddingHorizontal: SPACING.md, paddingVertical: 12, gap: 3 },
   orderName: { fontSize: 15, fontFamily: fonts.playfair },
   orderMeta: { fontSize: 12, fontFamily: fonts.dmSans },
-  verifyBlock: { gap: 0 },
+  verifyRow: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
   verifyText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
 });

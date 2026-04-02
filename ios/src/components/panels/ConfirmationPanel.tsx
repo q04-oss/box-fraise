@@ -71,7 +71,7 @@ export default function ConfirmationPanel() {
         )}
       </View>
 
-      <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           style={[styles.doneBtn, { backgroundColor: c.text }]}
           onPress={goHome}
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   nfcBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.dmSans, fontWeight: '600' },
   standingBtn: { borderRadius: 14, padding: SPACING.md, width: '100%', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
   standingBtnText: { fontSize: 14, fontFamily: fonts.playfair },
-  footer: { padding: SPACING.md, borderTopWidth: StyleSheet.hairlineWidth },
+  footer: { padding: SPACING.md },
   doneBtn: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
   doneBtnText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700' },
 });

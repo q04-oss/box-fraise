@@ -23,7 +23,6 @@ export default function WhenPanel() {
   const activeBiz = businesses.find((b: any) => b.id === order.location_id);
   const isPopup = activeBiz?.type === 'popup';
 
-  // For popup locations, auto-set the date from launched_at
   useEffect(() => {
     if (isPopup && (activeBiz as any)?.launched_at && !order.date) {
       const date = (activeBiz as any).launched_at.split('T')[0];
@@ -55,7 +54,6 @@ export default function WhenPanel() {
     setOrder({ date: DATE_OPTIONS[idx].isoDate, time_slot_id: null, time_slot_time: null });
   };
 
-  // For popup with exactly one available slot, auto-select and advance
   useEffect(() => {
     if (!isPopup || loadingSlots || visibleSlots.length !== 1) return;
     const slot = visibleSlots[0];
@@ -79,78 +77,90 @@ export default function WhenPanel() {
       </View>
 
       <View style={styles.body}>
-        {/* Date card — hidden for popup locations (date is fixed) */}
-        {isPopup ? (
-          <View style={[styles.popupDateRow, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.popupDateLabel, { color: c.muted }]}>DATE</Text>
-            <Text style={[styles.popupDateValue, { color: c.text }]}>
-              {activeBiz && (activeBiz as any).hours
-                ? (activeBiz as any).hours
-                : order.date
-                  ? new Date(order.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })
-                  : '—'}
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
-              {DATE_OPTIONS.map((d, idx) => {
-                const sel = selectedDateIdx === idx;
-                return (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[styles.dateChip, sel && { backgroundColor: c.accent }]}
-                    onPress={() => selectDate(idx)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.dateLabel, { color: sel ? 'rgba(255,255,255,0.7)' : c.muted }]}>{d.label}</Text>
-                    <Text style={[styles.dateNum, { color: sel ? '#fff' : c.text }]}>{d.dayNum}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+        {/* Date section */}
+        {!isPopup && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: c.muted }]}>DATE</Text>
+            <View style={[styles.card, { backgroundColor: c.card }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+                {DATE_OPTIONS.map((d, idx) => {
+                  const sel = selectedDateIdx === idx;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.dateChip, sel && { backgroundColor: c.accent }]}
+                      onPress={() => selectDate(idx)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.dateLabel, { color: sel ? 'rgba(255,255,255,0.7)' : c.muted }]}>{d.label}</Text>
+                      <Text style={[styles.dateNum, { color: sel ? '#fff' : c.text }]}>{d.dayNum}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
           </View>
         )}
 
-        {/* Time card */}
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border, flex: 1 }]}>
-          {!order.location_id ? (
-            <Text style={[styles.emptyText, { color: c.muted }]}>Select a collection point on the map first.</Text>
-          ) : !order.date ? (
-            <Text style={[styles.emptyText, { color: c.muted }]}>Select a date above.</Text>
-          ) : loadingSlots ? (
-            <ActivityIndicator color={c.accent} style={styles.loader} />
-          ) : visibleSlots.length === 0 ? (
-            <Text style={[styles.emptyText, { color: c.muted }]}>No slots available for this date.</Text>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {visibleSlots.map((slot, i) => {
-                const sel = order.time_slot_id === slot.id;
-                const available = (slot.capacity ?? 0) - (slot.booked ?? 0);
-                return (
-                  <React.Fragment key={slot.id}>
-                    {i > 0 && <View style={[styles.divider, { backgroundColor: c.border }]} />}
-                    <TouchableOpacity
-                      style={[styles.timeRow, available <= 0 && { opacity: 0.35 }]}
-                      onPress={() => setOrder({ time_slot_id: slot.id, time_slot_time: slot.time?.substring(0, 5) ?? '' })}
-                      disabled={available <= 0}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.timeText, { color: c.text }]}>{slot.time?.substring(0, 5) ?? ''}</Text>
-                      <Text style={[styles.availText, { color: c.muted }]}>{available} left</Text>
-                      <View style={[styles.radio, { borderColor: sel ? c.accent : c.border }]}>
-                        {sel && <View style={[styles.radioDot, { backgroundColor: c.accent }]} />}
-                      </View>
-                    </TouchableOpacity>
-                  </React.Fragment>
-                );
-              })}
-            </ScrollView>
-          )}
+        {isPopup && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: c.muted }]}>DATE</Text>
+            <View style={[styles.card, { backgroundColor: c.card }]}>
+              <View style={styles.popupDateRow}>
+                <Text style={[styles.popupDateValue, { color: c.text }]}>
+                  {activeBiz && (activeBiz as any).hours
+                    ? (activeBiz as any).hours
+                    : order.date
+                      ? new Date(order.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })
+                      : '—'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Time section */}
+        <View style={[styles.section, { flex: 1 }]}>
+          <Text style={[styles.sectionLabel, { color: c.muted }]}>TIME</Text>
+          <View style={[styles.card, { backgroundColor: c.card, flex: 1 }]}>
+            {!order.location_id ? (
+              <Text style={[styles.emptyText, { color: c.muted }]}>Select a collection point on the map first.</Text>
+            ) : !order.date ? (
+              <Text style={[styles.emptyText, { color: c.muted }]}>Select a date above.</Text>
+            ) : loadingSlots ? (
+              <ActivityIndicator color={c.accent} style={styles.loader} />
+            ) : visibleSlots.length === 0 ? (
+              <Text style={[styles.emptyText, { color: c.muted }]}>No slots available for this date.</Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {visibleSlots.map((slot, i) => {
+                  const sel = order.time_slot_id === slot.id;
+                  const available = (slot.capacity ?? 0) - (slot.booked ?? 0);
+                  return (
+                    <React.Fragment key={slot.id}>
+                      {i > 0 && <View style={[styles.divider, { backgroundColor: c.border }]} />}
+                      <TouchableOpacity
+                        style={[styles.timeRow, available <= 0 && { opacity: 0.35 }]}
+                        onPress={() => setOrder({ time_slot_id: slot.id, time_slot_time: slot.time?.substring(0, 5) ?? '' })}
+                        disabled={available <= 0}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.timeText, { color: c.text }]}>{slot.time?.substring(0, 5) ?? ''}</Text>
+                        <Text style={[styles.availText, { color: c.muted }]}>{available} left</Text>
+                        <View style={[styles.radio, { borderColor: sel ? c.accent : c.border }]}>
+                          {sel && <View style={[styles.radioDot, { backgroundColor: c.accent }]} />}
+                        </View>
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
         </View>
       </View>
 
-      <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           style={[styles.cta, { backgroundColor: c.accent }, !canContinue && styles.ctaDisabled]}
           onPress={() => showPanel('review')}
@@ -179,9 +189,10 @@ const styles = StyleSheet.create({
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
   body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.sm, gap: SPACING.md },
-  card: { borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
-  popupDateRow: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: SPACING.md, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  popupDateLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  section: { gap: 8 },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
+  card: { borderRadius: 12, overflow: 'hidden' },
+  popupDateRow: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
   popupDateValue: { fontSize: 15, fontFamily: fonts.playfair },
   dateRow: { flexDirection: 'row', paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm, gap: 6 },
   dateChip: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center', minWidth: 52 },
@@ -195,7 +206,7 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
   emptyText: { fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic', padding: SPACING.md },
   loader: { marginVertical: SPACING.lg },
-  footer: { padding: SPACING.md, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  footer: { padding: SPACING.md, paddingTop: 12 },
   cta: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
   ctaDisabled: { opacity: 0.3 },
   ctaText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },

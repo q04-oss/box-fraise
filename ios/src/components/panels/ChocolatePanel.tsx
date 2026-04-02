@@ -23,7 +23,8 @@ export default function ChocolatePanel() {
       </View>
 
       <View style={styles.body}>
-        <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Text style={[styles.sectionLabel, { color: c.muted }]}>CHOCOLATE</Text>
+        <View style={[styles.card, { backgroundColor: c.card }]}>
           {CHOCOLATES.map((choc, i) => {
             const isSelected = selected === choc.id;
             return (
@@ -57,10 +58,9 @@ export default function ChocolatePanel() {
             );
           })}
         </View>
-
       </View>
 
-      <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           style={[styles.cta, { backgroundColor: c.accent }, !selected && styles.ctaDisabled]}
           onPress={() => {
@@ -93,8 +93,9 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
-  body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: SPACING.md },
-  card: { borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: 8 },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
+  card: { borderRadius: 12, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
   swatch: { width: 20, height: 20, borderRadius: 10, flexShrink: 0 },
   rowText: { flex: 1, gap: 2 },
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5 },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
   chocDesc: { fontSize: 12, fontFamily: fonts.dmSans, lineHeight: 18, marginTop: 2, fontStyle: 'italic' },
-  footer: { padding: SPACING.md, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  footer: { padding: SPACING.md, paddingTop: 12 },
   cta: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
   ctaDisabled: { opacity: 0.3 },
   ctaText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },
