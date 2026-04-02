@@ -17,7 +17,7 @@ import cron from 'node-cron';
 import { and, eq, lte, gte, sql } from 'drizzle-orm';
 import app from './app';
 import { db } from './db';
-import { employmentContracts, standingOrders, orders, varieties, popupRsvps, users } from './db/schema';
+import { employmentContracts, standingOrders, orders, varieties, popupRsvps, users, membershipFunds, memberships } from './db/schema';
 import { seed } from './db/seed';
 import { logger } from './lib/logger';
 import { sendPushNotification } from './lib/push';
@@ -160,6 +160,15 @@ cron.schedule('0 8 * * *', async () => {
     });
     console.log('[cron] Daily summary email sent');
   } catch (e) { console.error('[cron] Daily summary error', e); }
+});
+
+// Run January 1st at 00:01 — reset membership fund balances and expire memberships
+cron.schedule('1 0 1 1 *', async () => {
+  try {
+    await db.update(membershipFunds).set({ balance_cents: 0, cycle_start: new Date(), updated_at: new Date() });
+    await db.update(memberships).set({ status: 'expired' }).where(and(eq(memberships.status, 'active'), lte(memberships.renews_at, new Date())));
+    console.log('[cron] Annual membership fund reset complete');
+  } catch (e) { console.error('[cron] fund reset error', e); }
 });
 
 async function main(): Promise<void> {

@@ -16,7 +16,7 @@ import {
   fetchHostedPopups, fetchActiveContract, fetchFollowerCount, logMemberVisit,
   fetchLegitimacyBreakdown, updateDisplayName, cancelPopupRsvp, fetchAuthToken,
   demoLogin, fetchSetupIntent, savePaymentMethod, fetchMyReferralCode, applyReferralCode,
-  fetchNotificationPrefs, updateNotificationPrefs,
+  fetchNotificationPrefs, updateNotificationPrefs, fetchMyMembership,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts } from '../../theme';
@@ -56,6 +56,7 @@ export default function ProfilePanel() {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referralUses, setReferralUses] = useState(0);
   const [notifPrefs, setNotifPrefs] = useState<{ order_updates: boolean; social: boolean; popup_updates: boolean; marketing: boolean } | null>(null);
+  const [membershipTier, setMembershipTier] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -91,6 +92,7 @@ export default function ProfilePanel() {
         fetchLegitimacyBreakdown(uid).then(setLegitimacy).catch(() => {});
         fetchMyReferralCode().then(r => { setReferralCode(r.code); setReferralUses(r.uses); }).catch(() => {});
         fetchNotificationPrefs().then(setNotifPrefs).catch(() => {});
+        fetchMyMembership().then(data => { if (data.membership?.tier) setMembershipTier(data.membership.tier); }).catch(() => {});
         if (verifiedBool) {
           fetchUserPopupRsvps(uid).then(setUpcomingPopups).catch(() => {});
           fetchHostedPopups(uid).then(setHostedPopups).catch(() => {});
@@ -450,6 +452,52 @@ export default function ProfilePanel() {
                   <View style={styles.actionInfo}>
                     <Text style={[styles.actionTitle, { color: c.text }]}>Edit name</Text>
                     <Text style={[styles.actionSub, { color: c.muted }]}>{displayName ?? 'Set your display name'}</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
+
+                <TouchableOpacity
+                  style={styles.actionRow}
+                  onPress={() => showPanel('membership')}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.text }]}>Membership</Text>
+                    {membershipTier ? (
+                      <Text style={[styles.actionSub, { color: c.muted }]}>{membershipTier.charAt(0).toUpperCase() + membershipTier.slice(1)}</Text>
+                    ) : (
+                      <Text style={[styles.actionSub, { color: c.muted }]}>View tiers and status</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
+
+                <TouchableOpacity
+                  style={styles.actionRow}
+                  onPress={() => showPanel('editorial-feed')}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.text }]}>Editorial</Text>
+                    <Text style={[styles.actionSub, { color: c.muted }]}>Read and write pieces</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
+
+                <TouchableOpacity
+                  style={styles.actionRow}
+                  onPress={() => showPanel('member-directory')}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.text }]}>Members</Text>
+                    <Text style={[styles.actionSub, { color: c.muted }]}>Browse the directory</Text>
                   </View>
                   <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
                 </TouchableOpacity>

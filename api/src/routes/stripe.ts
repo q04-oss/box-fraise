@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
 import { logger } from '../lib/logger';
+import { TIER_LABELS } from '../lib/membership';
 
 const router = Router();
 
@@ -216,6 +217,52 @@ router.post('/webhook', async (req: Request, res: Response) => {
               tipper_name: pi.metadata?.tipper_name,
             }).catch(() => {});
           }
+        }
+      } else if (type === 'membership') {
+        const { tier, user_id } = pi.metadata;
+        const userId = parseInt(user_id, 10);
+        const now = new Date();
+        const renews = new Date(now);
+        renews.setFullYear(renews.getFullYear() + 1);
+        await db.update(memberships).set({
+          status: 'active',
+          started_at: now,
+          renews_at: renews,
+          stripe_payment_intent_id: pi.id,
+        }).where(and(eq(memberships.user_id, userId), eq(memberships.status, 'pending')));
+        const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId));
+        if (user?.push_token) {
+          sendPushNotification(user.push_token, {
+            title: 'Welcome to Maison Fraise',
+            body: `Your ${TIER_LABELS[tier] ?? tier} membership is now active.`,
+            data: { screen: 'membership' },
+          }).catch(() => {});
+        }
+      } else if (type === 'fund_contribution') {
+        const toUserId = parseInt(pi.metadata.to_user_id, 10);
+        const fromUserId = pi.metadata.from_user_id ? parseInt(pi.metadata.from_user_id, 10) : null;
+        const amount = pi.amount;
+        const note = pi.metadata.note || null;
+        await db.insert(fundContributions).values({
+          from_user_id: fromUserId,
+          to_user_id: toUserId,
+          amount_cents: amount,
+          stripe_payment_intent_id: pi.id,
+          note,
+        });
+        await db.execute(sql`
+          INSERT INTO membership_funds (user_id, balance_cents, cycle_start, updated_at)
+          VALUES (${toUserId}, ${amount}, NOW(), NOW())
+          ON CONFLICT (user_id) DO UPDATE SET balance_cents = membership_funds.balance_cents + ${amount}, updated_at = NOW()
+        `);
+        const [recipient] = await db.select({ push_token: users.push_token, display_name: users.display_name }).from(users).where(eq(users.id, toUserId));
+        if (recipient?.push_token) {
+          const fromLabel = fromUserId ? 'Someone' : 'An anonymous member';
+          sendPushNotification(recipient.push_token, {
+            title: 'Membership contribution',
+            body: `${fromLabel} contributed CA$${(amount / 100).toFixed(2)} to your membership fund.`,
+            data: { screen: 'membership' },
+          }).catch(() => {});
         }
       }
     }

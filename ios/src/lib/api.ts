@@ -801,3 +801,66 @@ export async function updateNotificationPrefs(prefs: { order_updates?: boolean; 
     body: JSON.stringify(prefs),
   });
 }
+
+// Membership
+export async function fetchMyMembership(): Promise<{ membership: any | null; fund: { balance_cents: number; cycle_start: string } }> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/memberships/me`, { headers });
+  if (!r.ok) return { membership: null, fund: { balance_cents: 0, cycle_start: new Date().toISOString() } };
+  return r.json();
+}
+
+export async function createMembershipIntent(tier: string): Promise<{ client_secret: string; amount_cents: number }> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/memberships/payment-intent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ tier }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function fetchMembers(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/members`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function createFundContributionIntent(toUserId: number, amount_cents: number, note?: string): Promise<{ client_secret: string }> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/fund/contribute/${toUserId}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ amount_cents, note }),
+  });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function fetchEditorialFeed(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/editorial`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchEditorialPiece(id: number): Promise<any | null> {
+  const r = await fetch(`${BASE_URL}/api/editorial/${id}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function submitEditorialPiece(title: string, body: string): Promise<any> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/editorial`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ title, body }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function fetchMyPieces(): Promise<any[]> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/editorial/mine`, { headers });
+  if (!r.ok) return [];
+  return r.json();
+}

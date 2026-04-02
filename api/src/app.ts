@@ -24,6 +24,8 @@ import popupRequestsRouter from './routes/popup-requests';
 import campaignCommissionsRouter from './routes/campaign-commissions';
 import contractsRouter from './routes/contracts';
 import searchRouter from './routes/search';
+import { membershipsRouter, membersRouter, fundRouter } from './routes/memberships';
+import editorialRouter from './routes/editorial';
 import { logger } from './lib/logger';
 
 const app = express();
@@ -64,6 +66,10 @@ app.use('/api/popup-requests', popupRequestsRouter);
 app.use('/api/campaign-commissions', campaignCommissionsRouter);
 app.use('/api/contracts', contractsRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/memberships', membershipsRouter);
+app.use('/api/members', membersRouter);
+app.use('/api/fund', fundRouter);
+app.use('/api/editorial', editorialRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

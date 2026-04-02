@@ -29,7 +29,13 @@ export type PanelId =
   | 'activity-feed'
   | 'search'
   | 'following-list'
-  | 'nomination-history';
+  | 'nomination-history'
+  | 'membership'
+  | 'editorial-feed'
+  | 'editorial-piece'
+  | 'write-piece'
+  | 'member-directory'
+  | 'fund-contribute';
 
 export interface OrderState {
   variety_id: number | null;

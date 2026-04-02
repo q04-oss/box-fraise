@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -846,6 +846,23 @@ router.post('/migrate', async (_req: Request, res: Response) => {
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating INTEGER`);
     await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS rating_note TEXT`);
 
+    // Membership + editorial enums (use DO block for idempotency)
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'membership_tier') THEN
+          CREATE TYPE membership_tier AS ENUM ('maison','reserve','atelier','fondateur','patrimoine','souverain','unnamed');
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'editorial_status') THEN
+          CREATE TYPE editorial_status AS ENUM ('draft','submitted','commissioned','published','declined');
+        END IF;
+      END $$
+    `);
+
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS memberships (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), tier membership_tier NOT NULL, status TEXT NOT NULL DEFAULT 'pending', started_at TIMESTAMP, renews_at TIMESTAMP, amount_cents INTEGER NOT NULL, stripe_payment_intent_id TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS membership_funds (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) UNIQUE, balance_cents INTEGER NOT NULL DEFAULT 0, cycle_start TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW())`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS fund_contributions (id SERIAL PRIMARY KEY, from_user_id INTEGER REFERENCES users(id), to_user_id INTEGER NOT NULL REFERENCES users(id), amount_cents INTEGER NOT NULL, stripe_payment_intent_id TEXT, note TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`);
+    await db.execute(sql`CREATE TABLE IF NOT EXISTS editorial_pieces (id SERIAL PRIMARY KEY, author_user_id INTEGER NOT NULL REFERENCES users(id), title TEXT NOT NULL, body TEXT NOT NULL, status editorial_status NOT NULL DEFAULT 'draft', commission_cents INTEGER, published_at TIMESTAMP, editor_note TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW())`);
+
     res.json({ ok: true, message: 'Migration complete' });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -1387,6 +1404,135 @@ router.get('/referrals', async (_req: Request, res: Response) => {
       .innerJoin(users, eq(referralCodes.user_id, users.id))
       .orderBy(desc(referralCodes.uses))
       .limit(20);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/editorial — all editorial pieces with author info
+router.get('/editorial', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: editorialPieces.id,
+        title: editorialPieces.title,
+        status: editorialPieces.status,
+        author_display_name: users.display_name,
+        author_email: users.email,
+        commission_cents: editorialPieces.commission_cents,
+        created_at: editorialPieces.created_at,
+        published_at: editorialPieces.published_at,
+        editor_note: editorialPieces.editor_note,
+      })
+      .from(editorialPieces)
+      .innerJoin(users, eq(editorialPieces.author_user_id, users.id))
+      .orderBy(desc(editorialPieces.created_at));
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/editorial/:id — review/update an editorial piece
+router.patch('/editorial/:id', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  const { status, commission_cents, editor_note } = req.body;
+
+  try {
+    // Fetch current piece + author
+    const [piece] = await db
+      .select({
+        id: editorialPieces.id,
+        author_user_id: editorialPieces.author_user_id,
+        status: editorialPieces.status,
+        commission_cents: editorialPieces.commission_cents,
+      })
+      .from(editorialPieces)
+      .where(eq(editorialPieces.id, id));
+
+    if (!piece) { res.status(404).json({ error: 'Not found' }); return; }
+
+    const updates: Record<string, any> = {};
+    if (status !== undefined) updates.status = status;
+    if (commission_cents !== undefined) updates.commission_cents = commission_cents;
+    if (editor_note !== undefined) updates.editor_note = editor_note;
+    updates.updated_at = new Date();
+
+    if (status === 'published') {
+      updates.published_at = new Date();
+    }
+
+    const [updated] = await db
+      .update(editorialPieces)
+      .set(updates)
+      .where(eq(editorialPieces.id, id))
+      .returning();
+
+    // Post-update side-effects
+    const authorId = piece.author_user_id;
+    const [author] = await db.select().from(users).where(eq(users.id, authorId));
+
+    if (status === 'published') {
+      const effectiveCommission = commission_cents ?? piece.commission_cents ?? 0;
+      if (effectiveCommission > 0) {
+        await db
+          .insert(membershipFunds)
+          .values({ user_id: authorId, balance_cents: effectiveCommission })
+          .onConflictDoUpdate({
+            target: membershipFunds.user_id,
+            set: {
+              balance_cents: sql`${membershipFunds.balance_cents} + ${effectiveCommission}`,
+              updated_at: new Date(),
+            },
+          });
+      }
+      if (author?.push_token) {
+        sendPushNotification(author.push_token, {
+          title: 'Your piece has been published',
+          body: 'Your piece has been published',
+          data: { screen: 'editorial' },
+        }).catch(() => {});
+      }
+    } else if (status === 'declined') {
+      if (author?.push_token) {
+        const noteBody = editor_note ? editor_note : 'Your submission was reviewed';
+        sendPushNotification(author.push_token, {
+          title: 'Your submission was reviewed',
+          body: noteBody,
+          data: { screen: 'editorial' },
+        }).catch(() => {});
+      }
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/memberships — all memberships with user info and fund balance
+router.get('/memberships', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: memberships.id,
+        user_id: memberships.user_id,
+        display_name: users.display_name,
+        email: users.email,
+        tier: memberships.tier,
+        status: memberships.status,
+        started_at: memberships.started_at,
+        renews_at: memberships.renews_at,
+        amount_cents: memberships.amount_cents,
+        fund_balance: membershipFunds.balance_cents,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(memberships.user_id, users.id))
+      .leftJoin(membershipFunds, eq(memberships.user_id, membershipFunds.user_id))
+      .orderBy(desc(memberships.tier), memberships.started_at);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });

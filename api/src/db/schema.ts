@@ -369,3 +369,60 @@ export const referralCodes = pgTable('referral_codes', {
   uses: integer('uses').notNull().default(0),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
+
+export const membershipTierEnum = pgEnum('membership_tier', [
+  'maison',
+  'reserve',
+  'atelier',
+  'fondateur',
+  'patrimoine',
+  'souverain',
+  'unnamed',
+]);
+
+export const memberships = pgTable('memberships', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  tier: membershipTierEnum('tier').notNull(),
+  status: text('status').notNull().default('pending'),
+  started_at: timestamp('started_at'),
+  renews_at: timestamp('renews_at'),
+  amount_cents: integer('amount_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const membershipFunds = pgTable('membership_funds', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id).unique(),
+  balance_cents: integer('balance_cents').notNull().default(0),
+  cycle_start: timestamp('cycle_start').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const fundContributions = pgTable('fund_contributions', {
+  id: serial('id').primaryKey(),
+  from_user_id: integer('from_user_id').references(() => users.id),
+  to_user_id: integer('to_user_id').notNull().references(() => users.id),
+  amount_cents: integer('amount_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  note: text('note'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const editorialStatusEnum = pgEnum('editorial_status', [
+  'draft', 'submitted', 'commissioned', 'published', 'declined'
+]);
+
+export const editorialPieces = pgTable('editorial_pieces', {
+  id: serial('id').primaryKey(),
+  author_user_id: integer('author_user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  status: editorialStatusEnum('status').notNull().default('draft'),
+  commission_cents: integer('commission_cents'),
+  published_at: timestamp('published_at'),
+  editor_note: text('editor_note'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
+});

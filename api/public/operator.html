@@ -353,6 +353,8 @@
       { id:'varieties', label:'Varieties' },
       { id:'talent',    label:'Talent' },
       { id:'revenue',   label:'Revenue' },
+      { id:'editorial', label:'Editorial' },
+      { id:'members',   label:'Members' },
     ];
     document.getElementById('tab-row').innerHTML = tabs.map(t =>
       `<div class="tab ${t.id === currentTab ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</div>`
@@ -370,6 +372,8 @@
     else if (tab === 'varieties')  renderVarietiesTab();
     else if (tab === 'talent')     renderTalentTab();
     else if (tab === 'revenue')    renderRevenueTab();
+    else if (tab === 'editorial')  renderEditorialTab();
+    else if (tab === 'members')    renderMembersTab();
   }
 
   // ── ORDERS TAB ────────────────────────────────────────
@@ -1233,6 +1237,190 @@
         <span style="font-family:DM Mono,monospace;color:#f5f5f5;font-size:13px">${r.uses} use${r.uses !== 1 ? 's' : ''}</span>
       </div>
     `).join('');
+  }
+
+  // ── EDITORIAL TAB ─────────────────────────────────────
+  let allEditorial = [];
+  let editorialFilter = 'all';
+
+  async function renderEditorialTab() {
+    const body = document.getElementById('dash-body');
+    body.innerHTML = '<div class="empty">Loading…</div>';
+    const res = await fetch(BASE + '/api/admin/editorial', { headers: { 'X-Admin-PIN': currentPin } });
+    allEditorial = res.ok ? await res.json() : [];
+
+    const filters = ['all', 'submitted', 'commissioned', 'published', 'declined'];
+    const pills = filters.map(f =>
+      `<div class="pill ${editorialFilter === f ? 'active' : ''}" onclick="setEditorialFilter('${f}')">${f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</div>`
+    ).join('');
+
+    const visible = editorialFilter === 'all'
+      ? allEditorial
+      : allEditorial.filter(p => p.status === editorialFilter);
+
+    const ED_STATUS_CLASS = {
+      submitted: 'background:rgba(201,151,58,0.18);color:#D4A843;',
+      commissioned: 'background:rgba(201,151,58,0.25);color:var(--amber2);',
+      published: 'background:rgba(80,200,120,0.12);color:rgba(100,210,140,0.9);',
+      declined: 'background:rgba(255,255,255,0.06);color:rgba(242,242,247,0.4);',
+      draft: 'background:rgba(255,255,255,0.05);color:#666;',
+    };
+
+    const cards = visible.length === 0
+      ? '<div class="empty">No pieces.</div>'
+      : visible.map(p => {
+          const badgeStyle = ED_STATUS_CLASS[p.status] || '';
+          const commission = p.commission_cents ? ` · CA$${(p.commission_cents / 100).toFixed(2)}` : '';
+          const author = p.author_display_name || p.author_email;
+          return `<div class="order-card">
+            <div class="order-top">
+              <div>
+                <div class="order-id">#${p.id} · ${fmtDate(p.created_at)}${commission}</div>
+                <div class="order-email">${author}</div>
+              </div>
+              <div class="status-badge" style="${badgeStyle}">${p.status}</div>
+            </div>
+            <div class="order-variety" style="font-size:15px;">${p.title}</div>
+            <div class="action-row">
+              <button class="action-btn primary" onclick="openEditorialModal(${p.id})">Review</button>
+            </div>
+          </div>`;
+        }).join('');
+
+    body.innerHTML = `
+      <div class="filter-row">${pills}</div>
+      ${cards}`;
+  }
+
+  function setEditorialFilter(f) {
+    editorialFilter = f;
+    renderEditorialTab();
+  }
+
+  function openEditorialModal(id) {
+    const p = allEditorial.find(x => x.id === id);
+    if (!p) return;
+    const existing = document.getElementById('editorial-modal');
+    if (existing) existing.remove();
+
+    const bodyPreview = (p.body || '').slice(0, 500) + ((p.body || '').length > 500 ? '…' : '');
+    const commissionDollars = p.commission_cents ? (p.commission_cents / 100).toFixed(2) : '0';
+    const statusOptions = ['submitted', 'commissioned', 'published', 'declined'].map(s =>
+      `<option value="${s}" ${p.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'editorial-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">${p.title.replace(/</g,'&lt;')}</div>
+          <button class="modal-close" onclick="closeEditorialModal()">×</button>
+        </div>
+        <div class="modal-body" style="gap:14px;">
+          <div class="modal-summary">${bodyPreview.replace(/</g,'&lt;')}</div>
+          <div class="form-row">
+            <div class="form-label">Status</div>
+            <select class="form-select" id="ed-status-${id}">${statusOptions}</select>
+          </div>
+          <div class="form-row">
+            <div class="form-label">Commission (CA$)</div>
+            <input class="form-input" id="ed-commission-${id}" type="number" step="0.01" min="0" value="${commissionDollars}" />
+          </div>
+          <div class="form-row">
+            <div class="form-label">Editor Note</div>
+            <textarea class="form-textarea" id="ed-note-${id}">${(p.editor_note || '').replace(/</g,'&lt;')}</textarea>
+          </div>
+          <div class="action-row">
+            <button class="action-btn primary" onclick="saveEditorialDecision(${id})">Save</button>
+            <button class="action-btn" onclick="closeEditorialModal()">Cancel</button>
+          </div>
+          <div id="ed-result-${id}" style="font-family:'DM Mono',monospace;font-size:12px;min-height:16px;"></div>
+        </div>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) closeEditorialModal(); });
+    document.body.appendChild(modal);
+  }
+
+  function closeEditorialModal() {
+    const modal = document.getElementById('editorial-modal');
+    if (modal) modal.remove();
+  }
+
+  async function saveEditorialDecision(id) {
+    const status = document.getElementById(`ed-status-${id}`).value;
+    const commissionDollars = parseFloat(document.getElementById(`ed-commission-${id}`).value) || 0;
+    const editorNote = document.getElementById(`ed-note-${id}`).value;
+    const resultEl = document.getElementById(`ed-result-${id}`);
+    if (resultEl) { resultEl.textContent = 'Saving…'; resultEl.style.color = 'var(--muted)'; }
+    const res = await fetch(`/api/admin/editorial/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify({ status, commission_cents: Math.round(commissionDollars * 100), editor_note: editorNote })
+    });
+    if (res.ok) {
+      closeEditorialModal();
+      renderEditorialTab();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      if (resultEl) { resultEl.textContent = err.error || 'Failed.'; resultEl.style.color = '#E05A5A'; }
+    }
+  }
+
+  // ── MEMBERS TAB ───────────────────────────────────────
+  async function renderMembersTab() {
+    const body = document.getElementById('dash-body');
+    body.innerHTML = '<div class="empty">Loading…</div>';
+    const res = await fetch(BASE + '/api/admin/memberships', { headers: { 'X-Admin-PIN': currentPin } });
+    const members = res.ok ? await res.json() : [];
+
+    const activeCount = members.filter(m => m.status === 'active').length;
+    const totalFunds = members.reduce((sum, m) => sum + (m.fund_balance || 0), 0);
+
+    const TIER_STYLE = {
+      maison:     'background:rgba(255,255,255,0.06);color:rgba(242,242,247,0.5);',
+      reserve:    'background:rgba(201,151,58,0.25);color:var(--amber2);',
+      atelier:    'background:rgba(255,215,0,0.18);color:#FFD700;',
+      fondateur:  'background:rgba(155,89,182,0.2);color:#9B59B6;',
+      patrimoine: 'background:rgba(220,80,80,0.15);color:rgba(220,110,110,0.9);',
+      souverain:  'background:rgba(255,255,255,0.12);color:#F2F2F7;',
+      unnamed:    'background:rgba(255,255,255,0.04);color:rgba(242,242,247,0.3);',
+    };
+
+    const rows = members.length === 0
+      ? '<div class="empty">No members.</div>'
+      : members.map(m => {
+          const tierStyle = TIER_STYLE[m.tier] || '';
+          const name = m.display_name || m.email;
+          const fund = m.fund_balance != null ? `CA$${(m.fund_balance / 100).toFixed(2)}` : 'CA$0.00';
+          return `<div class="order-card" style="flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div class="status-badge" style="${tierStyle}">${m.tier}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="order-email">${name}</div>
+              <div class="order-id">${m.email}</div>
+              <div class="order-meta">${fmtDate(m.started_at)} → ${fmtDate(m.renews_at)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--amber);">${fund}</div>
+              <div class="order-id" style="margin-top:2px;">fund</div>
+            </div>
+          </div>`;
+        }).join('');
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="stat-card">
+          <div class="stat-value">${activeCount}</div>
+          <div class="stat-label">ACTIVE MEMBERS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">CA$${(totalFunds / 100).toFixed(2)}</div>
+          <div class="stat-label">TOTAL FUND BALANCES</div>
+        </div>
+      </div>
+      <div class="section-label">All Members</div>
+      ${rows}`;
   }
 
   // ── CHOCOLATIER ───────────────────────────────────────
