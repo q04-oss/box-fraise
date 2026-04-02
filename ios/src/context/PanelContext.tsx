@@ -42,7 +42,10 @@ export type PanelId =
   | 'portal-subscriber'
   | 'portal-upload'
   | 'portal-consent'
-  | 'receipt';
+  | 'receipt'
+  | 'my-tokens'
+  | 'token-detail'
+  | 'token-offers';
 
 export interface OrderState {
   variety_id: number | null;
@@ -154,7 +157,7 @@ interface PanelContextValue {
   setActiveLocation: (b: Business | null) => void;
   panelData: Record<string, any> | null;
   setPanelData: (data: Record<string, any> | null) => void;
-  showPanel: (id: PanelId) => void;
+  showPanel: (id: PanelId, data?: Record<string, any>) => void;
   jumpToPanel: (id: PanelId) => void;
   goBack: () => void;
   goHome: () => void;
@@ -189,9 +192,10 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     setOrderState(prev => ({ ...prev, ...partial }));
   }, []);
 
-  const showPanel = useCallback((id: PanelId) => {
+  const showPanel = useCallback((id: PanelId, data?: Record<string, any>) => {
     if (isAnimating) return;
     setIsAnimating(true);
+    if (data !== undefined) setPanelData(data);
     slideAnim.setValue(1);
     setCurrentPanel(id);
     setStack(prev => [...prev, id]);

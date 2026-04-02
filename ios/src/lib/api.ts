@@ -137,6 +137,7 @@ export async function createOrder(body: {
   push_token?: string | null;
   gift_note?: string | null;
   ordered_at_popup?: boolean;
+  excess_amount_cents?: number;
 }) {
   const res = await fetch(`${BASE_URL}/api/orders`, {
     method: 'POST',
@@ -1027,6 +1028,78 @@ export async function fetchOrderReceipt(orderId: number): Promise<any> {
   if (!r.ok) throw new Error('receipt_not_found');
   return r.json();
 }
+
+// ─── Token API ────────────────────────────────────────────────────────────────
+
+export async function fetchMyTokens(): Promise<any[]> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/tokens/mine`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch tokens');
+  return res.json();
+}
+
+export async function fetchToken(tokenId: number): Promise<any> {
+  const res = await fetch(`${BASE_URL}/api/tokens/${tokenId}`);
+  if (!res.ok) throw new Error('Failed to fetch token');
+  return res.json();
+}
+
+export async function fetchTokensByVariety(varietyId: number): Promise<any[]> {
+  const res = await fetch(`${BASE_URL}/api/tokens/variety/${varietyId}`);
+  if (!res.ok) throw new Error('Failed to fetch tokens by variety');
+  return res.json();
+}
+
+export async function offerTokenTrade(
+  tokenId: number,
+  toUserId: number,
+  note?: string,
+): Promise<{ offer_id: number }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/tokens/offer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ token_id: tokenId, to_user_id: toUserId, note: note ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to create trade offer');
+  }
+  return res.json();
+}
+
+export async function acceptTokenOffer(offerId: number): Promise<void> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/tokens/offer/${offerId}/accept`, {
+    method: 'POST',
+    headers: auth,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to accept offer');
+  }
+}
+
+export async function declineTokenOffer(offerId: number): Promise<void> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/tokens/offer/${offerId}/decline`, {
+    method: 'POST',
+    headers: auth,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to decline offer');
+  }
+}
+
+export async function fetchMyTokenOffers(): Promise<any[]> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/tokens/offers/mine`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch token offers');
+  return res.json();
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 export async function placeStandingOrderFromFund(
   varietyId: number,

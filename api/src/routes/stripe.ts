@@ -4,12 +4,13 @@ import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
 import { logger } from '../lib/logger';
 import { TIER_LABELS } from '../lib/membership';
 import { calculateCut } from '../lib/portal';
+import { computeTokenVisuals, getNextTokenNumber } from '../lib/tokenAlgorithm';
 
 const router = Router();
 
@@ -99,6 +100,70 @@ router.post('/webhook', async (req: Request, res: Response) => {
           .returning();
 
         logger.info(`Order ${newOrder.id} created + paid via payment_intent webhook`);
+
+        // Mint token if excess_amount_cents > 0
+        const metadata = pi.metadata;
+        const excessCents = parseInt(metadata.excess_amount_cents ?? '0', 10);
+        if (!isNaN(excessCents) && excessCents > 0) {
+          try {
+            // Resolve user_id from customer_email
+            const [orderUser] = await db
+              .select({ id: users.id, push_token: users.push_token })
+              .from(users)
+              .where(eq(users.email, customer_email));
+
+            if (orderUser) {
+              // Fetch variety and location names for denormalization
+              const [variety] = await db
+                .select({ name: varieties.name })
+                .from(varieties)
+                .where(eq(varieties.id, variety_id));
+              const [location] = await db
+                .select({ name: timeSlots.time })
+                .from(timeSlots)
+                .where(eq(timeSlots.id, time_slot_id));
+
+              const visuals = computeTokenVisuals(excessCents);
+              const tokenNumber = await getNextTokenNumber(variety_id, db, tokens, eq);
+
+              const [mintedToken] = await db
+                .insert(tokens)
+                .values({
+                  token_number: tokenNumber,
+                  variety_id: newOrder.variety_id,
+                  order_id: newOrder.id,
+                  original_owner_id: orderUser.id,
+                  current_owner_id: orderUser.id,
+                  excess_amount_cents: excessCents,
+                  visual_size: visuals.size,
+                  visual_color: visuals.color,
+                  visual_seeds: visuals.seeds,
+                  visual_irregularity: visuals.irregularity,
+                  nfc_token: nfc_token,
+                  variety_name: variety?.name ?? '',
+                  location_name: location?.name ?? '',
+                })
+                .returning();
+
+              await db
+                .update(orders)
+                .set({ token_id: mintedToken.id })
+                .where(eq(orders.id, newOrder.id));
+
+              if (orderUser.push_token) {
+                sendPushNotification(orderUser.push_token, {
+                  title: `Token #${tokenNumber} minted`,
+                  body: `${variety?.name ?? 'Variety'} · CA$${(excessCents / 100).toFixed(2)} excess`,
+                  data: { screen: 'tokens', token_id: mintedToken.id },
+                }).catch(() => {});
+              }
+
+              logger.info(`Token #${tokenNumber} minted for order ${newOrder.id}`);
+            }
+          } catch (tokenErr) {
+            logger.error('Token minting failed', tokenErr);
+          }
+        }
 
         // Send confirmation email (fire-and-forget)
         Promise.all([

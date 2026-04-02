@@ -29,6 +29,7 @@ import editorialRouter from './routes/editorial';
 import nfcRouter, { contactsRouter } from './routes/nfc';
 import portalRouter from './routes/portal';
 import profilesRouter from './routes/profiles';
+import tokensRouter from './routes/tokens';
 import { logger } from './lib/logger';
 import { db } from './db';
 import { editorialPieces, users, memberships } from './db/schema';
@@ -82,6 +83,7 @@ app.use('/api/nfc', nfcRouter);
 app.use('/api/contacts', contactsRouter);
 app.use('/api/portal', portalRouter);
 app.use('/api/profiles', profilesRouter);
+app.use('/api/tokens', tokensRouter);
 
 // POST /api/upload — Cloudinary media upload (50mb limit on this route only)
 app.post('/api/upload', express.json({ limit: '50mb' }), requireUser, async (req: any, res: any) => {

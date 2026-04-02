@@ -129,6 +129,8 @@ export const orders = pgTable('orders', {
   discount_applied: boolean('discount_applied').notNull().default(false),
   worker_id: integer('worker_id').references(() => users.id),
   payment_method: text('payment_method'),
+  excess_amount_cents: integer('excess_amount_cents').notNull().default(0),
+  token_id: integer('token_id'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -485,4 +487,44 @@ export const portalConsents = pgTable('portal_consents', {
   user_id: integer('user_id').notNull().references(() => users.id).unique(),
   consented_at: timestamp('consented_at').notNull().defaultNow(),
   ip_address: text('ip_address'),
+});
+
+// ─── Token system ─────────────────────────────────────────────────────────────
+
+export const tokens = pgTable('tokens', {
+  id: serial('id').primaryKey(),
+  token_number: integer('token_number').notNull(),
+  variety_id: integer('variety_id').notNull().references(() => varieties.id),
+  order_id: integer('order_id').notNull().references(() => orders.id),
+  original_owner_id: integer('original_owner_id').notNull().references(() => users.id),
+  current_owner_id: integer('current_owner_id').notNull().references(() => users.id),
+  excess_amount_cents: integer('excess_amount_cents').notNull(),
+  visual_size: integer('visual_size').notNull(),
+  visual_color: text('visual_color').notNull(),
+  visual_seeds: integer('visual_seeds').notNull(),
+  visual_irregularity: integer('visual_irregularity').notNull(),
+  nfc_token: text('nfc_token').unique(),
+  minted_at: timestamp('minted_at').notNull().defaultNow(),
+  variety_name: text('variety_name').notNull(),
+  location_name: text('location_name').notNull(),
+});
+
+export const tokenTrades = pgTable('token_trades', {
+  id: serial('id').primaryKey(),
+  token_id: integer('token_id').notNull().references(() => tokens.id),
+  from_user_id: integer('from_user_id').notNull().references(() => users.id),
+  to_user_id: integer('to_user_id').notNull().references(() => users.id),
+  platform_cut_cents: integer('platform_cut_cents').notNull().default(0),
+  traded_at: timestamp('traded_at').notNull().defaultNow(),
+  note: text('note'),
+});
+
+export const tokenTradeOffers = pgTable('token_trade_offers', {
+  id: serial('id').primaryKey(),
+  token_id: integer('token_id').notNull().references(() => tokens.id),
+  from_user_id: integer('from_user_id').notNull().references(() => users.id),
+  to_user_id: integer('to_user_id').notNull().references(() => users.id),
+  note: text('note'),
+  status: text('status').notNull().default('pending'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });

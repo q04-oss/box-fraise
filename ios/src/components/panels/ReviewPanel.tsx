@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +10,8 @@ import { useStripe } from '@stripe/stripe-react-native';
 import * as Haptics from 'expo-haptics';
 import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
+import { TokenVisual } from '../TokenVisual';
+import { computeTokenVisuals } from '../../lib/tokenAlgorithm';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -28,6 +30,10 @@ export default function ReviewPanel() {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState(order.customer_email);
   const [loading, setLoading] = useState(false);
+  const [excessInput, setExcessInput] = useState('');
+
+  const excessCents = Math.max(0, Math.round(parseFloat(excessInput || '0') * 100));
+  const tokenPreview = excessCents > 0 ? computeTokenVisuals(excessCents) : null;
 
   // Refresh email from storage whenever this panel becomes active (e.g. returning from profile sign-in)
   useEffect(() => {
@@ -38,7 +44,8 @@ export default function ReviewPanel() {
     }
   }, [currentPanel]);
 
-  const totalCents = (order.price_cents ?? 0) * order.quantity;
+  const baseCents = (order.price_cents ?? 0) * order.quantity;
+  const totalCents = baseCents + excessCents;
 
   const activeBiz = businesses.find(b => b.id === order.location_id);
   const isPopupLive = (() => {
@@ -102,6 +109,7 @@ export default function ReviewPanel() {
         push_token: pushToken,
         gift_note: order.gift_note ?? null,
         ordered_at_popup: isPopupLive,
+        excess_amount_cents: excessCents > 0 ? excessCents : undefined,
       });
 
       let confirmed;
@@ -171,7 +179,7 @@ export default function ReviewPanel() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.body}>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={[styles.variety, { color: c.text }]}>{order.variety_name ?? '—'}</Text>
         <Text style={[styles.spec, { color: c.muted }]}>{spec}</Text>
         {isSoldOut && <Text style={styles.stockAlert}>Sold out</Text>}
@@ -211,7 +219,39 @@ export default function ReviewPanel() {
             <Text style={[styles.signInNudgeText, { color: c.muted }]}>Sign in with Apple to save your order history →</Text>
           </TouchableOpacity>
         )}
-      </View>
+
+        {/* Excess payment */}
+        <View style={[styles.divider, { backgroundColor: c.border }]} />
+        <Text style={[styles.detailLabel, { color: c.muted }]}>EXCESS PAYMENT  (optional)</Text>
+        <View style={styles.detailRow}>
+          <Text style={[styles.detailLabel, { color: c.muted }]}>{'> CA$'}</Text>
+          <TextInput
+            style={[styles.excessInput, { color: c.text, borderBottomColor: c.border }]}
+            value={excessInput}
+            onChangeText={setExcessInput}
+            placeholder="0.00"
+            placeholderTextColor={c.muted}
+            keyboardType="decimal-pad"
+            onFocus={() => TrueSheet.present('main-sheet', 2)}
+          />
+        </View>
+        <Text style={[styles.excessHint, { color: c.muted }]}>
+          Pay above the order cost. Excess mints a unique token.
+        </Text>
+        {tokenPreview && (
+          <View style={styles.tokenPreviewWrapper}>
+            <Text style={[styles.detailLabel, { color: c.muted }]}>Token preview:</Text>
+            <TokenVisual
+              tokenId={0}
+              size={tokenPreview.size}
+              color={tokenPreview.color}
+              seeds={tokenPreview.seeds}
+              irregularity={tokenPreview.irregularity}
+              width={80}
+            />
+          </View>
+        )}
+      </ScrollView>
 
       <View style={[styles.totalRow, { borderTopColor: c.border }]}>
         <Text style={[styles.totalLabel, { color: c.muted }]}>TOTAL</Text>
@@ -246,7 +286,8 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
-  body: { flex: 1, paddingHorizontal: SPACING.md, justifyContent: 'center', gap: SPACING.md },
+  scrollArea: { flex: 1 },
+  body: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.md },
   variety: { fontSize: 36, fontFamily: fonts.playfair },
   spec: { fontSize: 14, fontFamily: fonts.dmSans, marginTop: -8 },
   divider: { height: StyleSheet.hairlineWidth },
@@ -257,6 +298,23 @@ const styles = StyleSheet.create({
   stockAlert: { fontSize: 12, fontFamily: fonts.dmSans, color: '#FF3B30', marginTop: -4 },
   signInNudge: { marginTop: -8 },
   signInNudgeText: { fontSize: 12, fontFamily: fonts.dmSans, fontStyle: 'italic', textAlign: 'right' },
+  excessInput: {
+    fontSize: 15,
+    fontFamily: fonts.dmSans,
+    textAlign: 'right',
+    flex: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 2,
+  },
+  excessHint: {
+    fontSize: 11,
+    fontFamily: fonts.dmSans,
+    marginTop: -8,
+  },
+  tokenPreviewWrapper: {
+    alignItems: 'flex-start',
+    gap: 4,
+  },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, borderTopWidth: StyleSheet.hairlineWidth },
   totalLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.8 },
   totalAmount: { fontSize: 28, fontFamily: fonts.playfair },

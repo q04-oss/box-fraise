@@ -17,6 +17,7 @@ import {
   fetchLegitimacyBreakdown, updateDisplayName, cancelPopupRsvp, fetchAuthToken,
   demoLogin, fetchSetupIntent, savePaymentMethod, fetchMyReferralCode, applyReferralCode,
   fetchNotificationPrefs, updateNotificationPrefs, fetchMyMembership,
+  fetchMyTokenOffers,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts } from '../../theme';
@@ -57,6 +58,7 @@ export default function ProfilePanel() {
   const [referralUses, setReferralUses] = useState(0);
   const [notifPrefs, setNotifPrefs] = useState<{ order_updates: boolean; social: boolean; popup_updates: boolean; marketing: boolean } | null>(null);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
+  const [pendingOffers, setPendingOffers] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -93,6 +95,7 @@ export default function ProfilePanel() {
         fetchMyReferralCode().then(r => { setReferralCode(r.code); setReferralUses(r.uses); }).catch(() => {});
         fetchNotificationPrefs().then(setNotifPrefs).catch(() => {});
         fetchMyMembership().then(data => { if (data.membership?.tier) setMembershipTier(data.membership.tier); }).catch(() => {});
+        fetchMyTokenOffers().then(offers => setPendingOffers(offers.length)).catch(() => {});
         if (verifiedBool) {
           fetchUserPopupRsvps(uid).then(setUpcomingPopups).catch(() => {});
           fetchHostedPopups(uid).then(setHostedPopups).catch(() => {});
@@ -617,13 +620,44 @@ export default function ProfilePanel() {
                 <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
 
                 <TouchableOpacity
-                  style={[styles.actionRow, styles.actionRowLast]}
+                  style={styles.actionRow}
                   onPress={() => showPanel('portal-owner')}
                   activeOpacity={0.75}
                 >
                   <View style={styles.actionInfo}>
                     <Text style={[styles.actionTitle, { color: c.text }]}>My Portal</Text>
                     <Text style={[styles.actionSub, { color: c.muted }]}>Manage your exclusive content</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
+
+                <TouchableOpacity
+                  style={styles.actionRow}
+                  onPress={() => showPanel('my-tokens')}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.accent, fontFamily: fonts.dmMono }]}>{'> tokens_'}</Text>
+                    <Text style={[styles.actionSub, { color: c.muted }]}>Your minted strawberry tokens</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.actionRowDivider, { backgroundColor: c.border }]} />
+
+                <TouchableOpacity
+                  style={[styles.actionRow, styles.actionRowLast]}
+                  onPress={() => showPanel('token-offers')}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.accent, fontFamily: fonts.dmMono }]}>
+                      {'> trade offers_'}
+                      {pendingOffers > 0 ? `  [${pendingOffers}]` : ''}
+                    </Text>
+                    <Text style={[styles.actionSub, { color: c.muted }]}>Incoming token trade requests</Text>
                   </View>
                   <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
                 </TouchableOpacity>

@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -1765,6 +1765,131 @@ router.get('/portal/activity', async (_req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Token admin endpoints ─────────────────────────────────────────────────────
+
+// GET /api/admin/tokens — all tokens with owner info
+router.get('/tokens', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: tokens.id,
+        token_number: tokens.token_number,
+        variety_name: tokens.variety_name,
+        location_name: tokens.location_name,
+        excess_amount_cents: tokens.excess_amount_cents,
+        minted_at: tokens.minted_at,
+        nfc_token: tokens.nfc_token,
+        variety_id: tokens.variety_id,
+        order_id: tokens.order_id,
+        original_owner_id: tokens.original_owner_id,
+        current_owner_id: tokens.current_owner_id,
+      })
+      .from(tokens)
+      .orderBy(desc(tokens.minted_at))
+      .limit(100);
+
+    // Enrich with owner display names
+    const enriched = await Promise.all(
+      rows.map(async (token) => {
+        const [originalOwner] = await db
+          .select({ display_name: users.display_name, email: users.email })
+          .from(users)
+          .where(eq(users.id, token.original_owner_id));
+        const [currentOwner] = await db
+          .select({ display_name: users.display_name, email: users.email })
+          .from(users)
+          .where(eq(users.id, token.current_owner_id));
+        return {
+          ...token,
+          original_owner_display_name:
+            originalOwner?.display_name ?? originalOwner?.email?.split('@')[0] ?? 'Unknown',
+          current_owner_display_name:
+            currentOwner?.display_name ?? currentOwner?.email?.split('@')[0] ?? 'Unknown',
+        };
+      })
+    );
+
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/tokens/:id/nfc — assign NFC token to a token (at fulfillment)
+router.patch('/tokens/:id/nfc', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid token id' }); return; }
+  const { nfc_token } = req.body;
+  if (!nfc_token || typeof nfc_token !== 'string') {
+    res.status(400).json({ error: 'nfc_token is required' });
+    return;
+  }
+  try {
+    const [updated] = await db
+      .update(tokens)
+      .set({ nfc_token })
+      .where(eq(tokens.id, id))
+      .returning();
+    if (!updated) { res.status(404).json({ error: 'Token not found' }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Migration additions for token tables
+// (appended to the existing /migrate endpoint via separate route for tokens)
+router.post('/migrate/tokens', async (_req: Request, res: Response) => {
+  try {
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS excess_amount_cents integer NOT NULL DEFAULT 0`);
+    await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS token_id integer`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS tokens (
+        id serial PRIMARY KEY,
+        token_number integer NOT NULL,
+        variety_id integer NOT NULL REFERENCES varieties(id),
+        order_id integer NOT NULL REFERENCES orders(id),
+        original_owner_id integer NOT NULL REFERENCES users(id),
+        current_owner_id integer NOT NULL REFERENCES users(id),
+        excess_amount_cents integer NOT NULL,
+        visual_size integer NOT NULL,
+        visual_color text NOT NULL,
+        visual_seeds integer NOT NULL,
+        visual_irregularity integer NOT NULL,
+        nfc_token text UNIQUE,
+        minted_at timestamp NOT NULL DEFAULT now(),
+        variety_name text NOT NULL,
+        location_name text NOT NULL
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS token_trades (
+        id serial PRIMARY KEY,
+        token_id integer NOT NULL REFERENCES tokens(id),
+        from_user_id integer NOT NULL REFERENCES users(id),
+        to_user_id integer NOT NULL REFERENCES users(id),
+        platform_cut_cents integer NOT NULL DEFAULT 0,
+        traded_at timestamp NOT NULL DEFAULT now(),
+        note text
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS token_trade_offers (
+        id serial PRIMARY KEY,
+        token_id integer NOT NULL REFERENCES tokens(id),
+        from_user_id integer NOT NULL REFERENCES users(id),
+        to_user_id integer NOT NULL REFERENCES users(id),
+        note text,
+        status text NOT NULL DEFAULT 'pending',
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    res.json({ ok: true, message: 'Token migration complete' });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
