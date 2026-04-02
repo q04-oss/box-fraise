@@ -117,6 +117,7 @@ export default function MapScreen() {
   const [bizError, setBizError] = useState(false);
   const [bizLoading, setBizLoading] = useState(true);
   const [mapFilter, setMapFilter] = useState<'all' | 'collection' | 'partner' | 'popup'>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const mapRef = useRef<MapView>(null);
   const userCoords = useRef<{ latitude: number; longitude: number } | null>(null);
@@ -495,18 +496,30 @@ export default function MapScreen() {
       </MapView>
 
       <View style={[styles.filterBar, { top: insets.top + 60 }]}>
-        {(['all', 'collection', 'partner', 'popup'] as const).map(f => (
+        {filterOpen ? (
+          (['all', 'collection', 'partner', 'popup'] as const).map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterPill, { backgroundColor: mapFilter === f ? c.accent : c.card, borderColor: c.border }]}
+              onPress={() => { setMapFilter(f); setFilterOpen(false); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterPillText, { color: mapFilter === f ? '#0C0C0E' : c.muted }]}>
+                {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))
+        ) : (
           <TouchableOpacity
-            key={f}
-            style={[styles.filterPill, { backgroundColor: mapFilter === f ? c.accent : c.card, borderColor: c.border }]}
-            onPress={() => setMapFilter(f)}
+            style={[styles.filterPill, { backgroundColor: c.accent, borderColor: c.border }]}
+            onPress={() => setFilterOpen(true)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterPillText, { color: mapFilter === f ? '#0C0C0E' : c.muted }]}>
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+            <Text style={[styles.filterPillText, { color: '#0C0C0E' }]}>
+              {mapFilter === 'all' ? 'All' : mapFilter.charAt(0).toUpperCase() + mapFilter.slice(1)}
             </Text>
           </TouchableOpacity>
-        ))}
+        )}
       </View>
 
       <TrueSheet
