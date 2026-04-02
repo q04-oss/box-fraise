@@ -56,7 +56,6 @@ export default function HomePanel() {
     : '冬';
 
   useEffect(() => {
-    if (expandedId !== null) return;
     if (activeLocation) {
       setExpandedId(activeLocation.id);
     } else {
@@ -239,7 +238,7 @@ export default function HomePanel() {
               </View>
             );
           })}
-          <View style={{ height: 32 }} />
+          <View style={{ height: 8 }} />
         </ScrollView>
       )}
     </View>

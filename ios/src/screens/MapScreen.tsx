@@ -141,7 +141,9 @@ export default function MapScreen() {
 
   const onPositionChange = useCallback((event: any) => {
     const { position } = event.nativeEvent;
-    setSheetHeight(SCREEN_HEIGHT - position);
+    const h = SCREEN_HEIGHT - position;
+    setSheetHeight(h);
+    setContentHeight(h);
   }, [SCREEN_HEIGHT, setSheetHeight]);
 
   useEffect(() => {
@@ -183,8 +185,7 @@ export default function MapScreen() {
     setActiveLocation(biz);
     goHome();
     setOrder({ location_id: biz.id, location_name: biz.name });
-    jumpToPanel('location');
-    setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
+    setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
     mapRef.current?.animateToRegion({
       latitude: biz.lat - 0.003,
       longitude: biz.lng,
@@ -442,6 +443,7 @@ export default function MapScreen() {
           const idx = e.nativeEvent.index;
           const h = [COLLAPSED_HEIGHT, Math.round(SCREEN_HEIGHT * 0.5), SCREEN_HEIGHT][idx] ?? COLLAPSED_HEIGHT;
           setSheetHeight(h);
+          setContentHeight(h);
         }}
         scrollable
       >

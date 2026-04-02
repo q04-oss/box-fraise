@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import appleSignin from 'apple-signin-auth';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { users } from '../db/schema';
 import { logger } from '../lib/logger';
@@ -97,13 +97,22 @@ router.post('/demo', async (req: Request, res: Response) => {
   const demoPassword = process.env.DEMO_PASSWORD ?? 'demo1234';
   if (email !== demoEmail || password !== demoPassword) { res.status(401).json({ error: 'invalid_credentials' }); return; }
   try {
-    let [user] = await db.select().from(users).where(eq(users.email, demoEmail));
-    if (!user) {
-      [user] = await db.insert(users).values({ email: demoEmail, display_name: 'Demo User', verified: true }).returning();
+    const existing = await db.execute<{ id: number }>(sql`SELECT id FROM users WHERE email = ${demoEmail} LIMIT 1`);
+    const rows = (existing as any).rows ?? existing;
+    let userId: number;
+    if (rows.length > 0) {
+      userId = rows[0].id;
+    } else {
+      const inserted = await db.execute<{ id: number }>(sql`
+        INSERT INTO users (email, display_name, verified) VALUES (${demoEmail}, 'Demo User', true) RETURNING id
+      `);
+      const insertedRows = (inserted as any).rows ?? inserted;
+      userId = insertedRows[0].id;
     }
-    res.json({ user_id: user.id, token: signToken(user.id), is_new: false });
+    res.json({ user_id: userId, token: signToken(userId), is_new: false });
   } catch (e) {
-    res.status(500).json({ error: 'internal' });
+    logger.error('Demo login error: ' + String(e));
+    res.status(500).json({ error: 'internal', detail: String(e) });
   }
 });
 
