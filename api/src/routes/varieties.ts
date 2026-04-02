@@ -25,7 +25,8 @@ router.get('/', async (_req: Request, res: Response) => {
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg });
   }
 });
 
