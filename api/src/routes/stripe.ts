@@ -4,13 +4,14 @@ import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
 import { logger } from '../lib/logger';
 import { TIER_LABELS } from '../lib/membership';
 import { calculateCut } from '../lib/portal';
 import { computeTokenVisuals, getNextTokenNumber } from '../lib/tokenAlgorithm';
+import { checkAndTriggerAutoOrder } from '../lib/autoOrder';
 
 const router = Router();
 
@@ -330,6 +331,8 @@ router.post('/webhook', async (req: Request, res: Response) => {
             data: { screen: 'membership' },
           }).catch(() => {});
         }
+        // Check if fund now covers membership — trigger auto-order if so
+        checkAndTriggerAutoOrder(toUserId, db).catch(() => {});
       } else if (type === 'patronage_claim') {
         const patronageId = parseInt(pi.metadata.patronage_id);
         const userId = parseInt(pi.metadata.user_id);
@@ -413,6 +416,67 @@ router.post('/webhook', async (req: Request, res: Response) => {
             data: { screen: 'membership' },
           }).catch(() => {});
         }
+        // Check if fund now covers membership — trigger auto-order if so
+        checkAndTriggerAutoOrder(ownerId, db).catch(() => {});
+      } else if (type === 'greenhouse_fund') {
+        const greenhouseId = parseInt(pi.metadata.greenhouse_id);
+        const userId = parseInt(pi.metadata.user_id);
+        const years = parseInt(pi.metadata.years);
+        const greenhouseName = pi.metadata.greenhouse_name;
+        const greenhouseLocation = pi.metadata.greenhouse_location ?? '';
+
+        // Get user display_name
+        const [user] = await db.select({ display_name: users.display_name }).from(users).where(eq(users.id, userId));
+
+        // Update greenhouse
+        const termEndsAt = new Date();
+        termEndsAt.setFullYear(termEndsAt.getFullYear() + years);
+
+        await db.update(greenhouses).set({
+          founding_patron_id: userId,
+          founding_years: years,
+          founding_term_ends_at: termEndsAt,
+          funded_cents: pi.amount,
+          status: 'open',
+          opened_at: new Date(),
+        }).where(eq(greenhouses.id, greenhouseId));
+
+        // Update funding record
+        await db.update(greenhouseFunding).set({ status: 'confirmed' })
+          .where(eq(greenhouseFunding.stripe_payment_intent_id, pi.id));
+
+        // Create provenance token with initial ledger entry
+        const currentYear = new Date().getFullYear();
+        const ledger = JSON.stringify([{
+          user_id: userId,
+          display_name: user?.display_name ?? 'Unknown',
+          from_year: currentYear,
+          to_year: currentYear + years,
+          role: 'founder',
+        }]);
+
+        // Check if provenance token already exists for this greenhouse
+        const [existing] = await db.select().from(provenanceTokens).where(eq(provenanceTokens.greenhouse_id, greenhouseId));
+        if (!existing) {
+          await db.insert(provenanceTokens).values({
+            greenhouse_id: greenhouseId,
+            provenance_ledger: ledger,
+            greenhouse_name: greenhouseName,
+            greenhouse_location: greenhouseLocation,
+          });
+        }
+
+        // Push notification to founding patron
+        const [foundingUser] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId));
+        if (foundingUser?.push_token) {
+          sendPushNotification(foundingUser.push_token, {
+            title: 'Your greenhouse is open.',
+            body: `${greenhouseName} · ${years}-year founding term begins now.`,
+            data: { screen: 'greenhouses' },
+          }).catch(() => {});
+        }
+
+        logger.info(`Greenhouse ${greenhouseId} funded by user ${userId} for ${years} year(s)`);
       }
     }
 

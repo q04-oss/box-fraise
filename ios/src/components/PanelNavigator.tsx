@@ -48,6 +48,8 @@ import TokenDetailPanel from './panels/TokenDetailPanel';
 import TokenOffersPanel from './panels/TokenOffersPanel';
 import PatronagesPanel from './panels/PatronagesPanel';
 import PatronageDetailPanel from './panels/PatronageDetailPanel';
+import GreenhousesPanel from './panels/GreenhousesPanel';
+import GreenhouseDetailPanel from './panels/GreenhouseDetailPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
@@ -96,6 +98,8 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'token-offers': TokenOffersPanel,
   'patronages': PatronagesPanel,
   'patronage-detail': PatronageDetailPanel,
+  'greenhouses': GreenhousesPanel,
+  'greenhouse-detail': GreenhouseDetailPanel,
 };
 
 // Panels that should always expand the sheet to full height
@@ -109,6 +113,7 @@ const FULL_HEIGHT_PANELS = new Set([
   'portal-consent', 'receipt',
   'my-tokens', 'token-detail', 'token-offers',
   'patronages', 'patronage-detail',
+  'greenhouses', 'greenhouse-detail',
 ]);
 
 // Panels that expand to medium height

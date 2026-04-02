@@ -47,7 +47,9 @@ export type PanelId =
   | 'token-detail'
   | 'token-offers'
   | 'patronages'
-  | 'patronage-detail';
+  | 'patronage-detail'
+  | 'greenhouses'
+  | 'greenhouse-detail';
 
 export interface OrderState {
   variety_id: number | null;

@@ -357,7 +357,8 @@
       { id:'editorial', label:'Editorial' },
       { id:'members',   label:'Members' },
       { id:'portal',      label:'Portal' },
-      { id:'patronages',  label:'Patronages' },
+      { id:'patronages',   label:'Patronages' },
+      { id:'greenhouses',  label:'Greenhouses' },
     ];
     document.getElementById('tab-row').innerHTML = tabs.map(t =>
       `<div class="tab ${t.id === currentTab ? 'active' : ''}" onclick="switchTab('${t.id}')">${t.label}</div>`
@@ -379,7 +380,8 @@
     else if (tab === 'editorial')  renderEditorialTab();
     else if (tab === 'members')    renderMembersTab();
     else if (tab === 'portal')      loadPortalActivity();
-    else if (tab === 'patronages')  loadPatronages();
+    else if (tab === 'patronages')   loadPatronages();
+    else if (tab === 'greenhouses')  loadGreenhousesTab();
   }
 
   // ── ORDERS TAB ────────────────────────────────────────
@@ -2550,6 +2552,329 @@
       const err = await res.json().catch(() => ({}));
       resultEl.style.color = '#E05A5A';
       resultEl.textContent = err.error || 'Failed to adjust price.';
+    }
+  }
+
+  // ── GREENHOUSES TAB ──────────────────────────────────
+  let allGreenhouses = [];
+
+  async function loadGreenhousesTab() {
+    const body = document.getElementById('dash-body');
+    body.innerHTML = '<div class="empty">Loading…</div>';
+    const res = await fetch(BASE + '/api/admin/greenhouses', { headers: { 'X-Admin-PIN': currentPin } });
+    if (!res.ok) { body.innerHTML = '<div class="empty">Failed to load greenhouses.</div>'; return; }
+    allGreenhouses = await res.json();
+    renderGreenhousesTab();
+  }
+
+  function renderGreenhousesTab() {
+    const body = document.getElementById('dash-body');
+
+    const total    = allGreenhouses.length;
+    const open     = allGreenhouses.filter(g => g.status === 'open').length;
+    const funding  = allGreenhouses.filter(g => g.status === 'funding').length;
+    const raised   = allGreenhouses.reduce((s, g) => s + (g.funded_cents || 0), 0);
+
+    const summaryHtml = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div class="stat-card">
+          <div class="stat-value">${total}</div>
+          <div class="stat-label">TOTAL GREENHOUSES</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${open}</div>
+          <div class="stat-label">OPEN</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${funding}</div>
+          <div class="stat-label">FUNDING</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${fmtCAD(raised)}</div>
+          <div class="stat-label">TOTAL RAISED</div>
+        </div>
+      </div>`;
+
+    const createFormHtml = `
+      <div class="section-label">Create Greenhouse</div>
+      <div class="form-card">
+        <div class="form-title">Create Greenhouse</div>
+        <div class="form-grid">
+          <div class="form-row"><div class="form-label">Name</div><input class="form-input" id="gh-name" placeholder="Greenhouse name" /></div>
+          <div class="form-row"><div class="form-label">Location</div><input class="form-input" id="gh-location" placeholder="City or address" /></div>
+        </div>
+        <div class="form-row"><div class="form-label">Description <span style="font-weight:400;opacity:0.5;">(optional)</span></div><textarea class="form-textarea" id="gh-description" placeholder="Describe this greenhouse…"></textarea></div>
+        <div class="form-row">
+          <div class="form-label">Funding Goal</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);white-space:nowrap;">CA$</span>
+            <input class="form-input" id="gh-goal" type="number" step="0.01" min="0" placeholder="0.00" style="flex:1;" />
+          </div>
+        </div>
+        <button class="action-btn primary" onclick="createGreenhouse()" style="align-self:flex-start;padding:12px 28px;">Create</button>
+        <div id="gh-create-error" style="font-family:'DM Mono',monospace;font-size:12px;color:#E05A5A;min-height:16px;"></div>
+      </div>`;
+
+    const thStyle = `padding:10px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);white-space:nowrap;`;
+    const tdStyle = `padding:10px 8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);`;
+    const tdMono  = `padding:10px 8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);`;
+
+    const tableRows = allGreenhouses.length === 0
+      ? `<tr><td colspan="9" style="text-align:center;padding:24px 0;color:var(--muted);font-style:italic;font-family:'DM Sans',sans-serif;font-size:14px;">No greenhouses yet.</td></tr>`
+      : allGreenhouses.map(g => {
+          let badgeHtml;
+          if (g.status === 'open') {
+            badgeHtml = `<span class="status-badge" style="background:rgba(80,200,120,0.12);color:rgba(100,210,140,0.9);">Open</span>`;
+          } else if (g.status === 'funding') {
+            badgeHtml = `<span class="status-badge" style="background:rgba(201,151,58,0.18);color:#D4A843;">Funding</span>`;
+          } else {
+            badgeHtml = `<span class="status-badge" style="background:rgba(255,255,255,0.06);color:rgba(242,242,247,0.4);">Closed</span>`;
+          }
+          const goalCents  = g.funding_goal_cents || 0;
+          const raisedCents = g.funded_cents || 0;
+          const pct = goalCents > 0 ? Math.round((raisedCents / goalCents) * 100) + '%' : '—';
+          return `<tr>
+            <td style="${tdStyle}">${(g.name || '—').replace(/</g,'&lt;')}</td>
+            <td style="${tdStyle}">${(g.location || '—').replace(/</g,'&lt;')}</td>
+            <td style="padding:10px 8px;">${badgeHtml}</td>
+            <td style="${tdMono}">${goalCents > 0 ? fmtCAD(goalCents) : '—'}</td>
+            <td style="${tdMono}">${fmtCAD(raisedCents)}</td>
+            <td style="${tdMono};color:var(--muted);">${pct}</td>
+            <td style="${tdStyle}">${(g.founding_patron_name || g.founding_patron_email || '—').replace(/</g,'&lt;')}</td>
+            <td style="${tdMono}">${fmtDate(g.term_ends_at)}</td>
+            <td style="padding:10px 8px;">
+              <button class="action-btn" style="font-size:10px;padding:6px 12px;white-space:nowrap;" onclick="openEditGreenhouseModal(${g.id})">Edit</button>
+            </td>
+          </tr>`;
+        }).join('');
+
+    const tableHtml = `
+      <div class="section-label" style="margin-top:8px;">Greenhouses</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="${thStyle}">Name</th>
+              <th style="${thStyle}">Location</th>
+              <th style="${thStyle}">Status</th>
+              <th style="${thStyle}">Funding Goal</th>
+              <th style="${thStyle}">Raised</th>
+              <th style="${thStyle}">%</th>
+              <th style="${thStyle}">Founding Patron</th>
+              <th style="${thStyle}">Term Ends</th>
+              <th style="${thStyle}">Actions</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>`;
+
+    const provenanceHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;margin-bottom:8px;">
+        <div class="section-label" style="margin:0;">Provenance Tokens</div>
+        <button class="action-btn" onclick="loadProvenanceTokens()" style="flex-shrink:0;">Load Provenance Tokens</button>
+      </div>
+      <div id="provenance-tokens-container"></div>`;
+
+    body.innerHTML = summaryHtml + createFormHtml + tableHtml + provenanceHtml;
+  }
+
+  async function createGreenhouse() {
+    const errEl = document.getElementById('gh-create-error');
+    errEl.textContent = '';
+    const name        = document.getElementById('gh-name').value.trim();
+    const location    = document.getElementById('gh-location').value.trim();
+    const description = document.getElementById('gh-description').value.trim() || null;
+    const goalDollars = parseFloat(document.getElementById('gh-goal').value);
+    const funding_goal_cents = !isNaN(goalDollars) && goalDollars > 0 ? Math.round(goalDollars * 100) : null;
+    if (!name || !location) { errEl.textContent = 'Name and location are required.'; return; }
+    const res = await fetch(BASE + '/api/admin/greenhouses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify({ name, location, description, funding_goal_cents }),
+    });
+    if (res.ok) {
+      await loadGreenhousesTab();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      errEl.textContent = err.error || 'Failed to create greenhouse.';
+    }
+  }
+
+  function openEditGreenhouseModal(id) {
+    const g = allGreenhouses.find(x => x.id === id);
+    const existing = document.getElementById('edit-greenhouse-modal');
+    if (existing) existing.remove();
+
+    const nameVal     = g ? (g.name || '') : '';
+    const locVal      = g ? (g.location || '') : '';
+    const descVal     = g ? (g.description || '') : '';
+    const goalDollars = g && g.funding_goal_cents ? (g.funding_goal_cents / 100).toFixed(2) : '';
+    const statusVal   = g ? (g.status || 'funding') : 'funding';
+    const statusOpts  = ['open', 'funding', 'closed'].map(s =>
+      `<option value="${s}" ${statusVal === s ? 'selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-greenhouse-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">Edit Greenhouse</div>
+          <button class="modal-close" onclick="closeEditGreenhouseModal()">×</button>
+        </div>
+        <div class="modal-body" style="gap:14px;">
+          <div class="form-row"><div class="form-label">Name</div><input class="form-input" id="egh-name" value="${nameVal.replace(/"/g,'&quot;')}" /></div>
+          <div class="form-row"><div class="form-label">Location</div><input class="form-input" id="egh-location" value="${locVal.replace(/"/g,'&quot;')}" /></div>
+          <div class="form-row"><div class="form-label">Description</div><textarea class="form-textarea" id="egh-description">${descVal.replace(/</g,'&lt;')}</textarea></div>
+          <div class="form-row">
+            <div class="form-label">Funding Goal (CA$)</div>
+            <input class="form-input" id="egh-goal" type="number" step="0.01" min="0" value="${goalDollars}" placeholder="0.00" />
+          </div>
+          <div class="form-row"><div class="form-label">Status</div><select class="form-select" id="egh-status">${statusOpts}</select></div>
+          <div class="action-row">
+            <button class="action-btn primary" onclick="saveGreenhouseEdit(${id})">Save Changes</button>
+            <button class="action-btn" onclick="closeEditGreenhouseModal()">Cancel</button>
+          </div>
+          <div id="egh-error" style="font-family:'DM Mono',monospace;font-size:12px;color:#E05A5A;min-height:16px;"></div>
+        </div>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) closeEditGreenhouseModal(); });
+    document.body.appendChild(modal);
+  }
+
+  function closeEditGreenhouseModal() {
+    const modal = document.getElementById('edit-greenhouse-modal');
+    if (modal) modal.remove();
+  }
+
+  async function saveGreenhouseEdit(id) {
+    const errEl       = document.getElementById('egh-error');
+    const name        = document.getElementById('egh-name').value.trim();
+    const location    = document.getElementById('egh-location').value.trim();
+    const description = document.getElementById('egh-description').value.trim() || null;
+    const goalDollars = parseFloat(document.getElementById('egh-goal').value);
+    const funding_goal_cents = !isNaN(goalDollars) && goalDollars > 0 ? Math.round(goalDollars * 100) : null;
+    const status      = document.getElementById('egh-status').value;
+    if (!name || !location) { errEl.textContent = 'Name and location are required.'; return; }
+    errEl.textContent = '';
+    const res = await fetch(`${BASE}/api/admin/greenhouses/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify({ name, location, description, funding_goal_cents, status }),
+    });
+    if (res.ok) {
+      closeEditGreenhouseModal();
+      await loadGreenhousesTab();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      errEl.textContent = err.error || 'Failed to save.';
+    }
+  }
+
+  async function loadProvenanceTokens() {
+    const container = document.getElementById('provenance-tokens-container');
+    if (!container) return;
+    container.innerHTML = '<div class="empty">Loading…</div>';
+    const res = await fetch(BASE + '/api/admin/provenance-tokens', { headers: { 'X-Admin-PIN': currentPin } });
+    if (!res.ok) { container.innerHTML = '<div class="empty">Failed to load provenance tokens.</div>'; return; }
+    const tokens = await res.json();
+    if (!tokens.length) { container.innerHTML = '<div class="empty">No provenance tokens yet.</div>'; return; }
+
+    const thStyle = `padding:10px 8px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--amber);white-space:nowrap;`;
+    const tdStyle = `padding:10px 8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);`;
+    const tdMono  = `padding:10px 8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);`;
+
+    const rows = tokens.map(t => {
+      const nfcBadge = t.nfc_token
+        ? `<span class="status-badge" style="background:rgba(80,200,120,0.12);color:rgba(100,210,140,0.9);">Written</span>`
+        : `<span class="status-badge" style="background:rgba(201,151,58,0.18);color:#D4A843;">Pending</span>`;
+      const ledgerCount = Array.isArray(t.ledger) ? t.ledger.length : (t.ledger_count != null ? t.ledger_count : '—');
+      return `<tr>
+        <td style="${tdStyle}">${(t.greenhouse_name || '—').replace(/</g,'&lt;')}</td>
+        <td style="${tdStyle}">${(t.location || '—').replace(/</g,'&lt;')}</td>
+        <td style="${tdMono}">${fmtDate(t.minted_at || t.created_at)}</td>
+        <td style="padding:10px 8px;">${nfcBadge}</td>
+        <td style="${tdMono}">${ledgerCount} entries</td>
+        <td style="padding:10px 8px;">
+          <button class="action-btn" style="font-size:10px;padding:6px 12px;white-space:nowrap;" onclick="openSetProvenanceNfcModal(${t.id})">Set NFC</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="${thStyle}">Greenhouse</th>
+              <th style="${thStyle}">Location</th>
+              <th style="${thStyle}">Minted</th>
+              <th style="${thStyle}">NFC Status</th>
+              <th style="${thStyle}">Ledger</th>
+              <th style="${thStyle}">Actions</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function openSetProvenanceNfcModal(tokenId) {
+    const existing = document.getElementById('set-provenance-nfc-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'set-provenance-nfc-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal-box" style="max-width:420px;">
+        <div class="modal-header">
+          <div class="modal-title">Set NFC — Provenance Token #${tokenId}</div>
+          <button class="modal-close" onclick="closeSetProvenanceNfcModal()">×</button>
+        </div>
+        <div class="modal-body" style="gap:14px;">
+          <div class="form-row">
+            <div class="form-label">NFC Token</div>
+            <input class="form-input" id="set-prov-nfc-value" type="text" placeholder="e.g. A3F9C12E" autocomplete="off"
+              onkeydown="if(event.key==='Enter')saveProvenanceNfc(${tokenId})" />
+          </div>
+          <div class="action-row">
+            <button class="action-btn primary" onclick="saveProvenanceNfc(${tokenId})">Save</button>
+            <button class="action-btn" onclick="closeSetProvenanceNfcModal()">Cancel</button>
+          </div>
+          <div id="set-prov-nfc-result" style="font-family:'DM Mono',monospace;font-size:12px;min-height:16px;"></div>
+        </div>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) closeSetProvenanceNfcModal(); });
+    document.body.appendChild(modal);
+    document.getElementById('set-prov-nfc-value').focus();
+  }
+
+  function closeSetProvenanceNfcModal() {
+    const modal = document.getElementById('set-provenance-nfc-modal');
+    if (modal) modal.remove();
+  }
+
+  async function saveProvenanceNfc(tokenId) {
+    const inputEl  = document.getElementById('set-prov-nfc-value');
+    const resultEl = document.getElementById('set-prov-nfc-result');
+    const nfc_token = inputEl ? inputEl.value.trim() : '';
+    if (!nfc_token) { resultEl.style.color = '#E05A5A'; resultEl.textContent = 'NFC token value is required.'; return; }
+    resultEl.style.color = 'var(--muted)'; resultEl.textContent = 'Saving…';
+    const res = await fetch(`${BASE}/api/admin/provenance-tokens/${tokenId}/nfc`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
+      body: JSON.stringify({ nfc_token }),
+    });
+    if (res.ok) {
+      closeSetProvenanceNfcModal();
+      loadProvenanceTokens();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      resultEl.style.color = '#E05A5A';
+      resultEl.textContent = err.error || 'Failed to save NFC token.';
     }
   }
 

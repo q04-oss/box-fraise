@@ -557,3 +557,43 @@ export const patronTokens = pgTable('patron_tokens', {
   nfc_token: text('nfc_token').unique(),
   minted_at: timestamp('minted_at').notNull().defaultNow(),
 });
+
+// ─── Greenhouse system ────────────────────────────────────────────────────────
+
+export const greenhouses = pgTable('greenhouses', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  location: text('location').notNull(),
+  description: text('description'),
+  status: text('status').notNull().default('funding'), // funding | open | closed
+  funding_goal_cents: integer('funding_goal_cents').notNull(),
+  funded_cents: integer('funded_cents').notNull().default(0),
+  founding_patron_id: integer('founding_patron_id').references(() => users.id),
+  founding_years: integer('founding_years'), // 3, 5, or 10
+  founding_term_ends_at: timestamp('founding_term_ends_at'),
+  opened_at: timestamp('opened_at'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  approved_by_admin: boolean('approved_by_admin').notNull().default(false),
+});
+
+export const provenanceTokens = pgTable('provenance_tokens', {
+  id: serial('id').primaryKey(),
+  greenhouse_id: integer('greenhouse_id').notNull().references(() => greenhouses.id).unique(),
+  // Provenance ledger stored as JSON array of { user_id, display_name, from_year, to_year, role: 'founder' | 'patron' }
+  provenance_ledger: text('provenance_ledger').notNull().default('[]'),
+  nfc_token: text('nfc_token').unique(),
+  minted_at: timestamp('minted_at').notNull().defaultNow(),
+  greenhouse_name: text('greenhouse_name').notNull(),
+  greenhouse_location: text('greenhouse_location').notNull(),
+});
+
+export const greenhouseFunding = pgTable('greenhouse_funding', {
+  id: serial('id').primaryKey(),
+  greenhouse_id: integer('greenhouse_id').notNull().references(() => greenhouses.id),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  amount_cents: integer('amount_cents').notNull(),
+  years: integer('years').notNull(), // 3, 5, or 10
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  status: text('status').notNull().default('pending'), // pending | confirmed
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});

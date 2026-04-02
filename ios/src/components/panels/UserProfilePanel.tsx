@@ -4,6 +4,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { PatronTokenCard } from '../PatronTokenCard';
+import { ProvenanceTokenCard } from '../ProvenanceTokenCard';
+import type { ProvenanceLedgerEntry } from '../ProvenanceTokenCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePanel } from '../../context/PanelContext';
 import {
@@ -133,6 +135,8 @@ export default function UserProfilePanel() {
   const editorialPieces: any[] = profile?.editorial_pieces ?? [];
   const patronTokens: any[] = profile?.patron_tokens ?? [];
   const isPatron: boolean = profile?.is_patron ?? false;
+  const isFounder: boolean = profile?.is_founder ?? false;
+  const foundedGreenhouses: any[] = profile?.founded_greenhouses ?? [];
 
   const showFollowBtn = currentUserId !== null && userId !== null && currentUserId !== userId;
 
@@ -178,6 +182,11 @@ export default function UserProfilePanel() {
                 {isPatron && (
                   <View style={styles.patronBadge}>
                     <Text style={styles.patronBadgeText}>{'PATRON'}</Text>
+                  </View>
+                )}
+                {isFounder && (
+                  <View style={styles.founderBadge}>
+                    <Text style={styles.founderBadgeText}>{'FOUNDER'}</Text>
                   </View>
                 )}
               </View>
@@ -250,6 +259,33 @@ export default function UserProfilePanel() {
                     />
                   ))}
                 </ScrollView>
+              </>
+            )}
+
+            {/* Founded greenhouses section */}
+            {foundedGreenhouses.length > 0 && (
+              <>
+                <Text style={[styles.separator, { color: c.border }]}>{'────────────────────────────────'}</Text>
+                <Text style={[styles.sectionHeader, { color: c.muted }]}>
+                  {`FOUNDED [${foundedGreenhouses.length}]`}
+                </Text>
+                {foundedGreenhouses.map((gh: any, i: number) => {
+                  const rawLedger = gh.provenance_token?.provenance_ledger;
+                  let ledger: ProvenanceLedgerEntry[] = [];
+                  try {
+                    const parsed = typeof rawLedger === 'string' ? JSON.parse(rawLedger) : rawLedger;
+                    if (Array.isArray(parsed)) ledger = parsed as ProvenanceLedgerEntry[];
+                  } catch {}
+                  return (
+                    <ProvenanceTokenCard
+                      key={gh.id ?? i}
+                      greenhouseName={gh.name ?? ''}
+                      greenhouseLocation={gh.location ?? ''}
+                      ledger={ledger}
+                      tokenId={gh.provenance_token?.id ?? i + 1}
+                    />
+                  );
+                })}
               </>
             )}
 
@@ -329,6 +365,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   patronBadgeText: { fontFamily: fonts.dmMono, fontSize: 9, color: '#fff', letterSpacing: 1 },
+  founderBadge: {
+    backgroundColor: '#D4A843',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  founderBadgeText: { fontFamily: fonts.dmMono, fontSize: 9, color: '#fff', letterSpacing: 1 },
   workerText: { fontFamily: fonts.dmMono, fontSize: 12 },
   tokenScrollRow: { marginTop: 4 },
 

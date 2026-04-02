@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -2039,6 +2039,172 @@ router.get('/patron-tokens', async (_req: Request, res: Response) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Greenhouse admin endpoints ────────────────────────────────────────────────
+
+// POST /api/admin/greenhouses — create a greenhouse
+router.post('/greenhouses', async (req: Request, res: Response) => {
+  const { name, location, description, funding_goal_cents } = req.body;
+  if (!name || !location || !funding_goal_cents) {
+    res.status(400).json({ error: 'name, location, and funding_goal_cents are required' });
+    return;
+  }
+  try {
+    const [greenhouse] = await db.insert(greenhouses).values({
+      name,
+      location,
+      description: description ?? null,
+      funding_goal_cents,
+      approved_by_admin: true,
+    }).returning({ id: greenhouses.id });
+    res.status(201).json({ id: greenhouse.id });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/greenhouses — all greenhouses with founding patron display_name
+router.get('/greenhouses', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: greenhouses.id,
+        name: greenhouses.name,
+        location: greenhouses.location,
+        description: greenhouses.description,
+        status: greenhouses.status,
+        funding_goal_cents: greenhouses.funding_goal_cents,
+        funded_cents: greenhouses.funded_cents,
+        founding_patron_id: greenhouses.founding_patron_id,
+        founding_years: greenhouses.founding_years,
+        founding_term_ends_at: greenhouses.founding_term_ends_at,
+        opened_at: greenhouses.opened_at,
+        created_at: greenhouses.created_at,
+        approved_by_admin: greenhouses.approved_by_admin,
+        founding_patron_display_name: users.display_name,
+      })
+      .from(greenhouses)
+      .leftJoin(users, eq(greenhouses.founding_patron_id, users.id))
+      .orderBy(desc(greenhouses.created_at));
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/greenhouses/:id — update greenhouse fields
+router.patch('/greenhouses/:id', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  const allowed = ['name', 'location', 'description', 'funding_goal_cents', 'status'];
+  const body: Record<string, any> = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) body[key] = req.body[key];
+  }
+  if (Object.keys(body).length === 0) { res.status(400).json({ error: 'No valid fields to update' }); return; }
+  try {
+    const [updated] = await db.update(greenhouses).set(body).where(eq(greenhouses.id, id)).returning();
+    if (!updated) { res.status(404).json({ error: 'Not found' }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/admin/provenance-tokens — all provenance tokens with ledger parsed
+router.get('/provenance-tokens', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: provenanceTokens.id,
+        greenhouse_id: provenanceTokens.greenhouse_id,
+        greenhouse_name: provenanceTokens.greenhouse_name,
+        greenhouse_location: provenanceTokens.greenhouse_location,
+        nfc_token: provenanceTokens.nfc_token,
+        minted_at: provenanceTokens.minted_at,
+        provenance_ledger: provenanceTokens.provenance_ledger,
+      })
+      .from(provenanceTokens)
+      .orderBy(desc(provenanceTokens.minted_at));
+    res.json(rows.map(r => ({
+      ...r,
+      provenance_ledger: JSON.parse(r.provenance_ledger),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/provenance-tokens/:id/nfc — assign NFC token
+router.patch('/provenance-tokens/:id/nfc', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  const { nfc_token } = req.body;
+  if (!nfc_token || typeof nfc_token !== 'string') {
+    res.status(400).json({ error: 'nfc_token is required' });
+    return;
+  }
+  try {
+    const [updated] = await db
+      .update(provenanceTokens)
+      .set({ nfc_token })
+      .where(eq(provenanceTokens.id, id))
+      .returning();
+    if (!updated) { res.status(404).json({ error: 'Not found' }); return; }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Migration for greenhouse tables
+router.post('/migrate/greenhouses', async (_req: Request, res: Response) => {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS greenhouses (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        location text NOT NULL,
+        description text,
+        status text NOT NULL DEFAULT 'funding',
+        funding_goal_cents integer NOT NULL,
+        funded_cents integer NOT NULL DEFAULT 0,
+        founding_patron_id integer REFERENCES users(id),
+        founding_years integer,
+        founding_term_ends_at timestamp,
+        opened_at timestamp,
+        created_at timestamp NOT NULL DEFAULT now(),
+        approved_by_admin boolean NOT NULL DEFAULT false
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS provenance_tokens (
+        id serial PRIMARY KEY,
+        greenhouse_id integer NOT NULL REFERENCES greenhouses(id) UNIQUE,
+        provenance_ledger text NOT NULL DEFAULT '[]',
+        nfc_token text UNIQUE,
+        minted_at timestamp NOT NULL DEFAULT now(),
+        greenhouse_name text NOT NULL,
+        greenhouse_location text NOT NULL
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS greenhouse_funding (
+        id serial PRIMARY KEY,
+        greenhouse_id integer NOT NULL REFERENCES greenhouses(id),
+        user_id integer NOT NULL REFERENCES users(id),
+        amount_cents integer NOT NULL,
+        years integer NOT NULL,
+        stripe_payment_intent_id text,
+        status text NOT NULL DEFAULT 'pending',
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    res.json({ ok: true, message: 'Greenhouse migration complete' });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 

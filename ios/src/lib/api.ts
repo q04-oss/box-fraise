@@ -1116,6 +1116,34 @@ export async function placeStandingOrderFromFund(
   return r.json();
 }
 
+// ─── Greenhouse API ───────────────────────────────────────────────────────────
+
+export async function fetchGreenhouses(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/greenhouses`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchGreenhouse(id: number): Promise<any> {
+  const r = await fetch(`${BASE_URL}/api/greenhouses/${id}`);
+  if (!r.ok) throw new Error('greenhouse_not_found');
+  return r.json();
+}
+
+export async function fundGreenhouse(
+  id: number,
+  years: 3 | 5 | 10,
+): Promise<{ client_secret: string; amount_cents: number; years: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/greenhouses/${id}/fund`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ years }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'fund_failed'); }
+  return r.json();
+}
+
 // ─── Patronage API ────────────────────────────────────────────────────────────
 
 export async function fetchPatronages(): Promise<any[]> {

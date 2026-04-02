@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
-import { users, memberships, editorialPieces, employmentContracts, patronTokens } from '../db/schema';
+import { users, memberships, editorialPieces, employmentContracts, patronTokens, greenhouses } from '../db/schema';
 
 const router = Router();
 
@@ -82,6 +82,18 @@ router.get('/:userId', async (req: Request, res: Response) => {
       .from(patronTokens)
       .where(eq(patronTokens.patron_user_id, userId));
 
+    const founded_greenhouses = await db
+      .select({
+        id: greenhouses.id,
+        name: greenhouses.name,
+        location: greenhouses.location,
+        founding_years: greenhouses.founding_years,
+        founding_term_ends_at: greenhouses.founding_term_ends_at,
+        status: greenhouses.status,
+      })
+      .from(greenhouses)
+      .where(eq(greenhouses.founding_patron_id, userId));
+
     res.json({
       user: {
         id: user.id,
@@ -91,9 +103,11 @@ router.get('/:userId', async (req: Request, res: Response) => {
         worker_status: workerStatus,
         portal_opted_in: user.portal_opted_in,
         is_patron: patron_tokens_list.length > 0,
+        is_founder: founded_greenhouses.length > 0,
       },
       editorial_pieces,
       patron_tokens: patron_tokens_list,
+      founded_greenhouses,
     });
   } catch (err) {
     res.status(500).json({ error: 'internal_error' });
