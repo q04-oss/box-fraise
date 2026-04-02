@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, asc } from 'drizzle-orm';
 import { db } from '../db';
 import { varieties } from '../db/schema';
 
@@ -7,7 +7,7 @@ const router = Router();
 
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    const vars = await db.select().from(varieties).where(eq(varieties.active, true));
+    const vars = await db.select().from(varieties).where(eq(varieties.active, true)).orderBy(asc(varieties.sort_order), asc(varieties.id));
 
     const ratings = await db.execute<{ variety_id: number; avg_rating: number; rating_count: number }>(sql`
       SELECT variety_id,

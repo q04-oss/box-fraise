@@ -2306,6 +2306,7 @@ router.post('/migrate/locations', async (_req: Request, res: Response) => {
     await db.execute(sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS approved_by_admin boolean NOT NULL DEFAULT false`);
     await db.execute(sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS created_at timestamp NOT NULL DEFAULT now()`);
     await db.execute(sql`ALTER TABLE varieties ADD COLUMN IF NOT EXISTS variety_type text NOT NULL DEFAULT 'strawberry'`);
+    await db.execute(sql`ALTER TABLE varieties ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0`);
     await db.execute(sql`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS token_type text NOT NULL DEFAULT 'standard'`);
     await db.execute(sql`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS partner_name text`);
     await db.execute(sql`ALTER TABLE tokens ADD COLUMN IF NOT EXISTS location_type text`);
@@ -2325,6 +2326,28 @@ router.post('/migrate/locations', async (_req: Request, res: Response) => {
     res.json({ ok: true, message: 'Location migration complete' });
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  }
+});
+
+// PATCH /api/admin/varieties/:id/sort-order — update variety sort order
+router.patch('/varieties/:id/sort-order', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid variety id' }); return; }
+  const { sort_order } = req.body;
+  if (typeof sort_order !== 'number') {
+    res.status(400).json({ error: 'sort_order must be a number' });
+    return;
+  }
+  try {
+    const [updated] = await db
+      .update(varieties)
+      .set({ sort_order })
+      .where(eq(varieties.id, id))
+      .returning();
+    if (!updated) { res.status(404).json({ error: 'Variety not found' }); return; }
+    res.json({ ok: true, id: updated.id, sort_order: updated.sort_order });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -59,6 +59,7 @@ export default function ProfilePanel() {
   const [notifPrefs, setNotifPrefs] = useState<{ order_updates: boolean; social: boolean; popup_updates: boolean; marketing: boolean } | null>(null);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
   const [pendingOffers, setPendingOffers] = useState(0);
+  const [workerStatus, setWorkerStatus] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -68,8 +69,10 @@ export default function ProfilePanel() {
       AsyncStorage.getItem('is_dj'),
       AppleAuthentication.isAvailableAsync().catch(() => false),
       AsyncStorage.getItem('display_name'),
-    ]).then(([email, verified, dbId, djFlag, available, storedDisplayName]) => {
+      AsyncStorage.getItem('worker_status'),
+    ]).then(([email, verified, dbId, djFlag, available, storedDisplayName, storedWorkerStatus]) => {
       if (storedDisplayName) setDisplayName(storedDisplayName);
+      if (storedWorkerStatus) setWorkerStatus(storedWorkerStatus);
       const verifiedBool = verified === 'true';
       setIsVerifiedState(verifiedBool);
       setAppleAvailable(available as boolean);
@@ -1042,6 +1045,33 @@ export default function ProfilePanel() {
                     )}
                   </View>
                 ))}
+              </View>
+            )}
+
+            {/* Operator panel — visible to workers */}
+            {workerStatus && (
+              <View style={[styles.verifiedActions, { borderColor: c.border }]}>
+                <TouchableOpacity
+                  style={[styles.actionRow, styles.actionRowLast]}
+                  onPress={() => {
+                    Alert.prompt(
+                      'Operator PIN',
+                      'Enter your admin PIN to manage variety order.',
+                      (pin) => {
+                        if (!pin || !pin.trim()) return;
+                        showPanel('operator-varieties', { adminPin: pin.trim() });
+                      },
+                      'secure-text',
+                    );
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.actionInfo}>
+                    <Text style={[styles.actionTitle, { color: c.accent, fontFamily: fonts.dmMono }]}>{'> variety order_'}</Text>
+                    <Text style={[styles.actionSub, { color: c.muted }]}>Reorder varieties for the storefront</Text>
+                  </View>
+                  <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
+                </TouchableOpacity>
               </View>
             )}
 

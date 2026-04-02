@@ -51,7 +51,8 @@ export type PanelId =
   | 'greenhouses'
   | 'greenhouse-detail'
   | 'chocolate-locations'
-  | 'chocolate-location-detail';
+  | 'chocolate-location-detail'
+  | 'operator-varieties';
 
 export interface OrderState {
   variety_id: number | null;
@@ -94,6 +95,7 @@ export interface Variety {
   image_url?: string;
   avg_rating?: number | null;
   rating_count?: number;
+  sort_order?: number;
 }
 
 export interface Business {

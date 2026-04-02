@@ -77,6 +77,7 @@ export const varieties = pgTable('varieties', {
   image_url: text('image_url'),
   active: boolean('active').notNull().default(true),
   variety_type: text('variety_type').notNull().default('strawberry'), // 'strawberry' | 'chocolate'
+  sort_order: integer('sort_order').notNull().default(0),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 

@@ -1183,6 +1183,15 @@ export async function fetchChocolateLocations(): Promise<any[]> {
   );
 }
 
+export async function updateVarietySortOrder(id: number, sort_order: number, adminPin: string): Promise<void> {
+  const r = await fetch(`${BASE_URL}/api/admin/varieties/${id}/sort-order`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': adminPin },
+    body: JSON.stringify({ sort_order }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'sort_order_update_failed'); }
+}
+
 export async function fundChocolateLocation(
   businessId: number,
 ): Promise<{ client_secret: string; amount_cents: number }> {
