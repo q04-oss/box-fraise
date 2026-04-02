@@ -130,7 +130,7 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
       return;
     }
     if (order.status !== 'pending') {
-      res.status(400).json({ error: 'Order already processed' });
+      res.json({ success: true, order_id: order.id, status: order.status });
       return;
     }
 

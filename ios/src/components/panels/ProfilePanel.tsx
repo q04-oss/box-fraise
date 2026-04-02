@@ -97,8 +97,10 @@ export default function ProfilePanel() {
     try {
       const result = await demoLogin();
       await AsyncStorage.setItem('user_db_id', String(result.user_id));
+      await AsyncStorage.setItem('user_email', 'demo@maison-fraise.com');
       await setAuthToken(result.token);
       setUserDbId(result.user_id);
+      setUserEmail('demo@maison-fraise.com');
       if (pushToken) {
         const { updatePushToken } = await import('../../lib/api');
         updatePushToken(result.user_id, pushToken).catch(() => {});
