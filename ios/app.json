@@ -16,7 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.maisonfraise.app",
       "entitlements": {
-        "com.apple.developer.in-app-payments": ["merchant.com.maisonfraise.app"],
+        "com.apple.developer.in-app-payments": ["merchant.maison.fraise"],
         "com.apple.developer.nfc.readersession.formats": ["NDEF"]
       },
       "infoPlist": {
