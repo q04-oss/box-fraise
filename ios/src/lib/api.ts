@@ -335,6 +335,84 @@ export async function submitPopupRequest(body: {
   return res.json() as Promise<{ id: number; client_secret: string }>;
 }
 
+export async function fetchContractOffer(userId: number) {
+  const res = await fetch(`${BASE_URL}/api/users/${userId}/contract-offer`);
+  if (!res.ok) throw new Error('Failed to fetch contract offer');
+  return res.json() as Promise<{
+    id: number;
+    status: string;
+    starts_at: string;
+    ends_at: string;
+    note: string | null;
+    business_id: number;
+    business_name: string;
+    business_address: string;
+    business_neighbourhood: string | null;
+    business_instagram: string | null;
+  } | null>;
+}
+
+export async function fetchActiveContract(userId: number) {
+  const res = await fetch(`${BASE_URL}/api/users/${userId}/active-contract`);
+  if (!res.ok) throw new Error('Failed to fetch active contract');
+  return res.json() as Promise<{
+    id: number;
+    starts_at: string;
+    ends_at: string;
+    business_id: number;
+    business_name: string;
+    business_address: string;
+  } | null>;
+}
+
+export async function acceptContract(contractId: number, userId: number) {
+  const res = await fetch(`${BASE_URL}/api/contracts/${contractId}/accept`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to accept contract');
+  }
+  return res.json();
+}
+
+export async function declineContract(contractId: number, userId: number) {
+  const res = await fetch(`${BASE_URL}/api/contracts/${contractId}/decline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  if (!res.ok) throw new Error('Failed to decline contract');
+  return res.json();
+}
+
+export async function logMemberVisit(businessId: number, contractedUserId: number) {
+  const res = await fetch(`${BASE_URL}/api/businesses/${businessId}/visits`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contracted_user_id: contractedUserId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to log visit');
+  }
+  return res.json();
+}
+
+export async function fetchBusinessVisitCount(businessId: number) {
+  const res = await fetch(`${BASE_URL}/api/businesses/${businessId}/visits/count`);
+  if (!res.ok) throw new Error('Failed to fetch visit count');
+  return res.json() as Promise<{ visit_count: number }>;
+}
+
+export async function fetchFollowerCount(userId: number) {
+  const res = await fetch(`${BASE_URL}/api/users/${userId}/followers`);
+  if (!res.ok) throw new Error('Failed to fetch followers');
+  return res.json() as Promise<{ follower_count: number }>;
+}
+
 export async function verifyNfc(nfc_token: string, user_db_id: number) {
   const res = await fetch(`${BASE_URL}/api/verify/nfc`, {
     method: 'POST',
