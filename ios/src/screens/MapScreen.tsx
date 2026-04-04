@@ -151,6 +151,11 @@ export default function MapScreen() {
       jumpToPanel('profile');
       setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
     }
+    if (pendingScreen === 'NFCVerify') {
+      clearPendingScreen();
+      showPanel('verifyNFC');
+      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
+    }
   }, [pendingScreen, businesses]);
 
   const loadBusinesses = () => {

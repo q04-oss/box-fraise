@@ -22,6 +22,7 @@ export default function ProfilePanel() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userDbId, setUserDbId] = useState<number | null>(null);
   const [isVerified, setIsVerified] = useState(false);
+  const [fraiseChatEmail, setFraiseChatEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
@@ -31,9 +32,11 @@ export default function ProfilePanel() {
       AsyncStorage.getItem('user_email'),
       AsyncStorage.getItem('verified'),
       AsyncStorage.getItem('user_db_id'),
-    ]).then(([email, verified, dbId]) => {
+      AsyncStorage.getItem('fraise_chat_email'),
+    ]).then(([email, verified, dbId, chatEmail]) => {
       setIsVerified(verified === 'true');
       if (dbId) setUserDbId(parseInt(dbId, 10));
+      if (chatEmail) setFraiseChatEmail(chatEmail);
       if (email) {
         setUserEmail(email);
         fetchOrdersByEmail()
@@ -118,10 +121,11 @@ export default function ProfilePanel() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out', style: 'destructive', onPress: async () => {
-          await AsyncStorage.multiRemove(['user_email', 'user_db_id', 'verified', 'is_dj', 'auth_token']);
+          await AsyncStorage.multiRemove(['user_email', 'user_db_id', 'verified', 'is_dj', 'auth_token', 'fraise_chat_email']);
           setUserEmail(null);
           setUserDbId(null);
           setIsVerified(false);
+          setFraiseChatEmail(null);
           setRecentOrders([]);
           setOrder({ customer_email: '' });
         },
@@ -168,6 +172,7 @@ export default function ProfilePanel() {
             <>
               <Text style={[styles.headerEmail, { color: c.text }]}>{userEmail}</Text>
               {isVerified && <Text style={[styles.headerVerified, { color: c.accent }]}>Verified member</Text>}
+              {fraiseChatEmail && <Text style={[styles.headerChatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>}
             </>
           ) : !loading ? (
             signingIn ? <ActivityIndicator color={c.accent} /> : (
@@ -282,6 +287,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, paddingHorizontal: SPACING.sm, gap: 2 },
   headerEmail: { fontSize: 15, fontFamily: fonts.playfair },
   headerVerified: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1 },
+  headerChatEmail: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   headerSpacer: { width: 40 },
   signOutBtn: { paddingVertical: 4, paddingHorizontal: 4 },
   signOutText: { fontSize: 13, fontFamily: fonts.dmSans },

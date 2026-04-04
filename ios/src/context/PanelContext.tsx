@@ -17,7 +17,8 @@ export type PanelId =
   | 'partner-detail'
   | 'order-history'
   | 'search'
-  | 'receipt';
+  | 'receipt'
+  | 'verifyNFC';
 
 export interface OrderState {
   variety_id: number | null;
