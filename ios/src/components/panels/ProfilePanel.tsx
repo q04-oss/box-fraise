@@ -150,7 +150,7 @@ export default function ProfilePanel() {
   const handleSaveName = async (name: string) => {
     setEditingName(false);
     const trimmed = name.trim();
-    if (!trimmed || trimmed === displayName) return;
+    if (!trimmed) return;
     setDisplayName(trimmed);
     await AsyncStorage.setItem('display_name', trimmed);
     updateDisplayName(trimmed).catch(() => {});
