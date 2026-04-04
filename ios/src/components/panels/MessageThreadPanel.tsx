@@ -22,6 +22,7 @@ export default function MessageThreadPanel() {
 
   const otherId: number = panelData?.userId;
   const otherName: string = panelData?.displayName ?? panelData?.userCode ?? 'Unknown';
+  const otherCode: string = panelData?.userCode ?? otherName;
 
   useEffect(() => {
     AsyncStorage.getItem('user_db_id').then(id => { if (id) setMyId(parseInt(id, 10)); });
@@ -95,21 +96,16 @@ export default function MessageThreadPanel() {
           renderItem={({ item }) => {
             const isMine = item.sender_id === myId;
             return (
-              <View style={[styles.bubble, isMine ? [styles.bubbleMine, { backgroundColor: c.accent }] : [styles.bubbleTheirs, { backgroundColor: c.card }]]}>
-                <Text style={[
-                  styles.bubbleText,
-                  { color: isMine ? '#fff' : c.text },
-                ]}>{item.body}</Text>
-                <View style={styles.bubbleMeta}>
-                  <Text style={[styles.bubbleTime, { color: isMine ? 'rgba(255,255,255,0.55)' : c.muted }]}>
-                    {formatTime(item.created_at)}
+              <View style={[styles.message, { borderBottomColor: c.border }]}>
+                <View style={styles.messageMeta}>
+                  <Text style={[styles.senderLabel, { color: c.accent }]}>
+                    {isMine ? 'you' : otherCode.toLowerCase()}
                   </Text>
-                  {isMine && (
-                    <Text style={[styles.readReceipt, { color: item.read ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)' }]}>
-                      {item.read ? '✓✓' : '✓'}
-                    </Text>
-                  )}
+                  <Text style={[styles.messageTime, { color: c.muted }]}>
+                    {formatTime(item.created_at)}{isMine ? `  ${item.read ? '✓✓' : '✓'}` : ''}
+                  </Text>
                 </View>
+                <Text style={[styles.messageText, { color: c.text }]}>{item.body}</Text>
               </View>
             );
           }}
@@ -145,16 +141,12 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: fonts.playfair },
   headerSpacer: { width: 28 },
-  messageList: { padding: SPACING.md, gap: 8 },
-  bubble: {
-    maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 2,
-  },
-  bubbleMine: { alignSelf: 'flex-end' },
-  bubbleTheirs: { alignSelf: 'flex-start' },
-  bubbleText: { fontSize: 15, fontFamily: fonts.dmSans, lineHeight: 21 },
-  bubbleMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  bubbleTime: { fontSize: 10, fontFamily: fonts.dmMono },
-  readReceipt: { fontSize: 10, fontFamily: fonts.dmMono },
+  messageList: { paddingVertical: SPACING.sm },
+  message: { paddingHorizontal: SPACING.md, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, gap: 5 },
+  messageMeta: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  senderLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1, textTransform: 'uppercase' },
+  messageTime: { fontSize: 10, fontFamily: fonts.dmMono },
+  messageText: { fontSize: 15, fontFamily: fonts.dmSans, lineHeight: 22 },
   composer: {
     flexDirection: 'row', alignItems: 'flex-end',
     paddingHorizontal: SPACING.md, paddingTop: SPACING.sm,
