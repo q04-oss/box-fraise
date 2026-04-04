@@ -14,6 +14,7 @@ import {
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 
 export default function ProfilePanel() {
   const { goHome, jumpToPanel, showPanel, setOrder, setActiveLocation, varieties, businesses } = usePanel();
@@ -269,7 +270,9 @@ export default function ProfilePanel() {
         ) : (
           /* Signed out state */
           <View style={styles.signInBlock}>
-            <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
+            <TouchableOpacity onPress={() => TrueSheet.present('main-sheet', 1)} activeOpacity={0.6}>
+              <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
+            </TouchableOpacity>
             <View style={styles.signInButtons}>
               {signingIn ? <ActivityIndicator color={c.accent} /> : (
                 <>
