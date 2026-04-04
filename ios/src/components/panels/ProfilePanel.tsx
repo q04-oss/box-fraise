@@ -213,7 +213,7 @@ export default function ProfilePanel() {
                   placeholderTextColor={c.muted}
                 />
               ) : (
-                <TouchableOpacity onPress={() => setEditingName(true)} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => setEditingName(true)} onLongPress={handleSignOut} delayLongPress={600} activeOpacity={0.7}>
                   <Text style={[styles.name, { color: c.text }]}>{displayName || 'Add a name'}</Text>
                 </TouchableOpacity>
               )}
@@ -266,10 +266,6 @@ export default function ProfilePanel() {
               </>
             )}
 
-            {/* Sign out */}
-            <TouchableOpacity onPress={handleSignOut} activeOpacity={0.6} style={styles.block}>
-              <Text style={[styles.label, { color: c.muted }]}>SIGN OUT</Text>
-            </TouchableOpacity>
           </>
         ) : (
           /* Signed out state */
