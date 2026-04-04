@@ -10,7 +10,6 @@ import PanelNavigator from '../components/PanelNavigator';
 import OfflineBanner from '../components/OfflineBanner';
 import PanelErrorBoundary from '../components/PanelErrorBoundary';
 import BeaconNudge from '../components/BeaconNudge';
-import JobNudge from '../components/JobNudge';
 import { loadAndMonitorBeacons } from '../lib/beaconService';
 import { fetchBusinesses, fetchVarieties, updatePushToken, deleteAuthToken } from '../lib/api';
 import { STRAWBERRIES } from '../data/seed';
@@ -325,7 +324,6 @@ export default function MapScreen() {
     <View style={styles.container}>
       <OfflineBanner />
       <BeaconNudge />
-      <JobNudge />
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}

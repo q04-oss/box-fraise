@@ -37,6 +37,7 @@ export default function BeaconNudge() {
       userId: nudge.shopUserId,
       displayName: nudge.shopName,
       isShop: true,
+      businessId: nudge.businessId,
     });
   };
 
