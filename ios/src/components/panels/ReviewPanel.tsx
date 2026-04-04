@@ -216,7 +216,7 @@ export default function ReviewPanel() {
             </View>
           </View>
           {!email && (
-            <TouchableOpacity onPress={() => showPanel('profile')} activeOpacity={0.7} style={styles.signInNudge}>
+            <TouchableOpacity onPress={() => showPanel('terminal')} activeOpacity={0.7} style={styles.signInNudge}>
               <Text style={[styles.signInNudgeText, { color: c.muted }]}>Sign in with Apple to save your order history →</Text>
             </TouchableOpacity>
           )}

@@ -3,7 +3,7 @@ import { Animated, Dimensions } from 'react-native';
 
 export type PanelId =
   | 'home'
-  | 'profile'
+  | 'terminal'
   | 'location'
   | 'gift-note'
   | 'chocolate'

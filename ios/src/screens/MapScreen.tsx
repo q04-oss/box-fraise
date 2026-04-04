@@ -148,7 +148,7 @@ export default function MapScreen() {
     }
     if (pendingScreen === 'profile') {
       clearPendingScreen();
-      jumpToPanel('profile');
+      jumpToPanel('terminal');
       setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
     }
     if (pendingScreen === 'NFCVerify') {
@@ -455,7 +455,7 @@ export default function MapScreen() {
 
       <TouchableOpacity
         style={[styles.profileBtn, { backgroundColor: c.card, top: insets.top + 12 }]}
-        onPress={() => { jumpToPanel('profile'); setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350); }}
+        onPress={() => { jumpToPanel('terminal'); setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350); }}
         activeOpacity={0.8}
       >
         <Text style={styles.fabIcon}>❋</Text>

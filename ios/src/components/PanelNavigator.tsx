@@ -11,7 +11,7 @@ import ReviewPanel from './panels/ReviewPanel';
 import ConfirmationPanel from './panels/ConfirmationPanel';
 import VerifiedPanel from './panels/VerifiedPanel';
 import StandingOrderPanel from './panels/StandingOrderPanel';
-import ProfilePanel from './panels/ProfilePanel';
+import TerminalPanel from './panels/TerminalPanel';
 import LocationPanel from './panels/LocationPanel';
 import GiftNotePanel from './panels/GiftNotePanel';
 import PartnerDetailPanel from './panels/PartnerDetailPanel';
@@ -24,7 +24,7 @@ import MessageThreadPanel from './panels/MessageThreadPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
-  profile: ProfilePanel,
+  terminal: TerminalPanel,
   location: LocationPanel,
   'gift-note': GiftNotePanel,
   chocolate: ChocolatePanel,

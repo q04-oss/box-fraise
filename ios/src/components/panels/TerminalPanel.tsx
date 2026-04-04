@@ -15,7 +15,7 @@ import {
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
 
-export default function ProfilePanel() {
+export default function TerminalPanel() {
   const { goHome, jumpToPanel, showPanel, setOrder, setActiveLocation, varieties, businesses } = usePanel();
   const { pushToken } = useApp();
   const c = useColors();
