@@ -49,6 +49,21 @@ router.post('/nfc', requireUser, async (req: Request, res: Response) => {
       });
     });
 
+    // Create per-user forwarding rule in ImprovMX
+    if (fraiseChatEmail && currentUser?.user_code) {
+      const appleEmail = order.customer_email;
+      if (appleEmail && process.env.IMPROVMX_API_KEY) {
+        fetch('https://api.improvmx.com/v3/domains/fraise.chat/aliases/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${Buffer.from(`api:${process.env.IMPROVMX_API_KEY}`).toString('base64')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ alias: currentUser.user_code, forward: appleEmail }),
+        }).catch(() => {}); // fire and forget — don't block verification on email routing
+      }
+    }
+
     res.json({ verified: true, user_id, fraise_chat_email: fraiseChatEmail, unlocked: ['standing_orders', 'campaigns'] });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
