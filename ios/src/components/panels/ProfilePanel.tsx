@@ -178,7 +178,6 @@ export default function ProfilePanel() {
         <View style={styles.headerCenter}>
           {userEmail ? (
             <>
-              <Text style={[styles.headerEmail, { color: c.text }]}>{userEmail}</Text>
               {isVerified && <Text style={[styles.headerVerified, { color: c.accent }]}>Verified member</Text>}
               {fraiseChatEmail && (
                 <TouchableOpacity onPress={() => showPanel('conversations')} activeOpacity={0.7}>
