@@ -70,6 +70,14 @@ export default function ProfilePanel() {
       await AsyncStorage.setItem('user_db_id', String(result.user_id));
       await setAuthToken(result.token);
       setUserDbId(result.user_id);
+      if (result.verified) {
+        await AsyncStorage.setItem('verified', 'true');
+        setIsVerified(true);
+      }
+      if (result.fraise_chat_email) {
+        await AsyncStorage.setItem('fraise_chat_email', result.fraise_chat_email);
+        setFraiseChatEmail(result.fraise_chat_email);
+      }
       const email = credential.email ?? result.email ?? null;
       if (email) {
         await AsyncStorage.setItem('user_email', email);

@@ -49,7 +49,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
     const [byApple] = await db.select().from(users).where(eq(users.apple_user_id, appleId));
     if (byApple) {
       const token = signToken(byApple.id);
-      res.json({ user_id: byApple.id, token, is_new: false, email: byApple.email });
+      res.json({ user_id: byApple.id, token, is_new: false, email: byApple.email, verified: byApple.verified, fraise_chat_email: byApple.fraise_chat_email });
       return;
     }
 
@@ -59,7 +59,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
       if (byEmail) {
         await db.update(users).set({ apple_user_id: appleId }).where(eq(users.id, byEmail.id));
         const token = signToken(byEmail.id);
-        res.json({ user_id: byEmail.id, token, is_new: false, email: byEmail.email });
+        res.json({ user_id: byEmail.id, token, is_new: false, email: byEmail.email, verified: byEmail.verified, fraise_chat_email: byEmail.fraise_chat_email });
         return;
       }
 
@@ -75,7 +75,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
         })
         .returning();
       const token = signToken(created.id);
-      res.json({ user_id: created.id, token, is_new: true, email: created.email });
+      res.json({ user_id: created.id, token, is_new: true, email: created.email, verified: created.verified, fraise_chat_email: created.fraise_chat_email });
       return;
     }
 
