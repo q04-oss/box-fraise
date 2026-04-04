@@ -82,7 +82,7 @@ router.post('/', async (req: Request, res: Response) => {
           variety_id: String(variety_id),
           time_slot_id: String(time_slot_id),
         },
-      });
+      }, { idempotencyKey: `order-${customer_email}-${variety_id}-${time_slot_id}` });
       stripePaymentIntentId = paymentIntent.id;
       clientSecret = paymentIntent.client_secret!;
     }
@@ -147,13 +147,18 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
     const nfc_token = randomUUID();
 
     // Atomically mark order paid, decrement stock, and increment slot booking
+    // Re-check stock inside the transaction to prevent race conditions
     await db.transaction(async (tx) => {
       await tx.update(orders).set({ status: 'paid', nfc_token }).where(eq(orders.id, id));
       if (!isReview) {
-        await tx
+        const result = await tx
           .update(varieties)
           .set({ stock_remaining: sql`${varieties.stock_remaining} - ${order.quantity}` })
-          .where(eq(varieties.id, order.variety_id));
+          .where(and(eq(varieties.id, order.variety_id), sql`${varieties.stock_remaining} >= ${order.quantity}`))
+          .returning({ stock_remaining: varieties.stock_remaining });
+        if (result.length === 0) {
+          throw new Error('sold_out');
+        }
         await tx
           .update(timeSlots)
           .set({ booked: sql`${timeSlots.booked} + ${order.quantity}` })

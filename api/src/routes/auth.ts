@@ -132,7 +132,7 @@ router.post('/demo', async (req: Request, res: Response) => {
     res.status(503).json({ error: 'demo_unavailable' }); return;
   }
   if (email !== demoEmail || password !== demoPassword) {
-    logger.warn('Demo login rejected', { receivedEmail: email, expectedEmail: demoEmail, passwordMatch: password === demoPassword });
+    logger.warn('Demo login rejected', { passwordMatch: password === demoPassword });
     res.status(401).json({ error: 'invalid_credentials' }); return;
   }
   try {

@@ -46,12 +46,18 @@ router.get('/shop/:businessId', requireUser, async (req: Request, res: Response)
 
 // POST /api/admin/beacons — register a beacon to a business (operator only)
 router.post('/admin', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
   const { business_id, uuid, major, minor, name } = req.body;
   if (!business_id || !uuid) {
     res.status(400).json({ error: 'business_id and uuid required' });
     return;
   }
   try {
+    const [operator] = await db.select({ business_id: users.business_id, is_shop: users.is_shop }).from(users).where(eq(users.id, userId));
+    if (!operator?.is_shop || operator.business_id !== business_id) {
+      res.status(403).json({ error: 'Not authorized for this business' });
+      return;
+    }
     const [beacon] = await db
       .insert(beacons)
       .values({ business_id, uuid: uuid.toUpperCase(), major: major ?? 1, minor: minor ?? 1, name: name ?? null })
@@ -64,9 +70,17 @@ router.post('/admin', requireUser, async (req: Request, res: Response) => {
 
 // DELETE /api/admin/beacons/:id — deactivate a beacon
 router.delete('/admin/:id', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
   try {
+    const [beacon] = await db.select({ business_id: beacons.business_id }).from(beacons).where(eq(beacons.id, id));
+    if (!beacon) { res.status(404).json({ error: 'Beacon not found' }); return; }
+    const [operator] = await db.select({ business_id: users.business_id, is_shop: users.is_shop }).from(users).where(eq(users.id, userId));
+    if (!operator?.is_shop || operator.business_id !== beacon.business_id) {
+      res.status(403).json({ error: 'Not authorized for this business' });
+      return;
+    }
     await db.update(beacons).set({ active: false }).where(eq(beacons.id, id));
     res.json({ ok: true });
   } catch (err) {

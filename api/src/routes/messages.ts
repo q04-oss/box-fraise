@@ -258,7 +258,7 @@ router.post('/offer/:messageId/accept', requireUser, async (req: Request, res: R
         variety_id: String(meta.variety_id),
         time_slot_id: String(meta.time_slot_id),
       },
-    });
+    }, { idempotencyKey: `offer-${messageId}` });
 
     // Mark offer as accepted, store payment intent id
     await db.update(messages).set({
