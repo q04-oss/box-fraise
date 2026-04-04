@@ -186,17 +186,23 @@ export default function ProfilePanel() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
-      <View style={[styles.header, { borderBottomColor: c.border }]}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+
+        {/* Back */}
         <TouchableOpacity onPress={goHome} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          {userEmail ? (
-            <>
+
+        {loading ? (
+          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
+        ) : userEmail ? (
+          <>
+            {/* Identity block */}
+            <View style={styles.identityBlock}>
               {editingName ? (
                 <TextInput
                   ref={nameInputRef}
-                  style={[styles.headerNameInput, { color: c.text }]}
+                  style={[styles.nameInput, { color: c.text }]}
                   value={displayName}
                   onChangeText={setDisplayName}
                   onSubmitEditing={e => handleSaveName(e.nativeEvent.text)}
@@ -208,20 +214,74 @@ export default function ProfilePanel() {
                 />
               ) : (
                 <TouchableOpacity onPress={() => setEditingName(true)} activeOpacity={0.7}>
-                  <Text style={[styles.headerName, { color: c.text }]}>
-                    {displayName || 'Add a name'}
-                  </Text>
+                  <Text style={[styles.name, { color: c.text }]}>{displayName || 'Add a name'}</Text>
                 </TouchableOpacity>
               )}
-              {fraiseChatEmail && (
+              {fraiseChatEmail ? (
                 <TouchableOpacity onPress={() => showPanel('conversations')} activeOpacity={0.7}>
-                  <Text style={[styles.headerChatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
+                  <Text style={[styles.chatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
                 </TouchableOpacity>
+              ) : isVerified ? null : (
+                <Text style={[styles.chatEmail, { color: c.muted }]}>collect in person to verify</Text>
               )}
-            </>
-          ) : !loading ? (
-            signingIn ? <ActivityIndicator color={c.accent} /> : (
-              <View style={styles.signInStack}>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+
+            {/* Last order */}
+            {lastOrder && (
+              <View style={styles.block}>
+                <View style={styles.blockRow}>
+                  <Text style={[styles.label, { color: c.muted }]}>LAST ORDER</Text>
+                  <Text style={[styles.label, { color: c.muted }]}>
+                    {new Date(lastOrder.created_at ?? Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={[styles.orderVariety, { color: c.text }]}>{lastOrder.variety_name ?? '—'}</Text>
+                <View style={styles.blockRow}>
+                  <Text style={[styles.orderDetail, { color: c.muted }]}>
+                    {CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
+                    {'  ·  '}{FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
+                    {'  ·  '}{lastOrder.quantity}
+                  </Text>
+                  <TouchableOpacity onPress={handleOrderAgain} activeOpacity={0.6}>
+                    <Text style={[styles.action, { color: c.accent }]}>ORDER AGAIN</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* History */}
+            {recentOrders.length > 1 && (
+              <>
+                <View style={[styles.divider, { backgroundColor: c.border }]} />
+                <View style={styles.block}>
+                  <Text style={[styles.label, { color: c.muted }]}>HISTORY</Text>
+                  {recentOrders.slice(1).map((o: any) => (
+                    <View key={o.id} style={styles.historyRow}>
+                      <Text style={[styles.historyVariety, { color: c.text }]}>{o.variety_name ?? '—'}</Text>
+                      <Text style={[styles.historyDetail, { color: c.muted }]}>
+                        {CHOCOLATES.find(choc => choc.id === o.chocolate)?.name ?? o.chocolate ?? '—'}{'  ·  '}{o.quantity}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+
+            {/* Sign out */}
+            <TouchableOpacity onPress={handleSignOut} activeOpacity={0.6} style={styles.block}>
+              <Text style={[styles.label, { color: c.muted }]}>SIGN OUT</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          /* Signed out state */
+          <View style={styles.signInBlock}>
+            <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
+            {signingIn ? <ActivityIndicator color={c.accent} /> : (
+              <>
                 <AppleAuthentication.AppleAuthenticationButton
                   buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
                   buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
@@ -229,84 +289,15 @@ export default function ProfilePanel() {
                   style={styles.appleBtn}
                   onPress={handleAppleSignIn}
                 />
-                <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6} style={styles.demoBtn}>
-                  <Text style={[styles.demoBtnText, { color: c.muted }]}>Use demo account</Text>
+                <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6}>
+                  <Text style={[styles.demoText, { color: c.muted }]}>use demo account</Text>
                 </TouchableOpacity>
-              </View>
-            )
-          ) : null}
-        </View>
-        {userEmail ? (
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutBtn} activeOpacity={0.7}>
-            <Text style={[styles.signOutText, { color: c.muted }]}>Sign out</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerSpacer} />
+              </>
+            )}
+          </View>
         )}
-      </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
-        ) : (
-          <>
-            {lastOrder && (
-              <View style={styles.lastOrderBlock}>
-                <View style={styles.lastOrderTop}>
-                  <Text style={[styles.lastOrderDate, { color: c.muted }]}>
-                    {new Date(lastOrder.created_at ?? Date.now()).toLocaleDateString([], { month: 'long', day: 'numeric' })}
-                  </Text>
-                  <TouchableOpacity onPress={handleOrderAgain} activeOpacity={0.6}>
-                    <Text style={[styles.reorderLinkText, { color: c.accent }]}>Order again</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={[styles.lastOrderName, { color: c.text }]}>{lastOrder.variety_name ?? '—'}</Text>
-                <Text style={[styles.lastOrderSub, { color: c.muted }]}>
-                  {CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
-                  {'  ·  '}{FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
-                  {'  ·  '}{lastOrder.quantity}
-                </Text>
-              </View>
-            )}
-
-            {recentOrders.length > 1 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: c.muted }]}>RECENT ORDERS</Text>
-                <View style={[styles.card, { backgroundColor: c.card }]}>
-                  {recentOrders.slice(1).map((o: any, i: number) => (
-                    <React.Fragment key={o.id}>
-                      {i > 0 && <View style={[styles.divider, { backgroundColor: c.border }]} />}
-                      <View style={styles.orderRow}>
-                        <Text style={[styles.orderName, { color: c.text }]}>{o.variety_name ?? '—'}</Text>
-                        <Text style={[styles.orderMeta, { color: c.muted }]}>
-                          {CHOCOLATES.find(choc => choc.id === o.chocolate)?.name ?? o.chocolate ?? '—'}
-                          {' · '}{o.quantity}
-                        </Text>
-                      </View>
-                    </React.Fragment>
-                  ))}
-                </View>
-              </View>
-            )}
-
-
-            {(!isVerified || !userDbId) && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: c.muted }]}>VERIFICATION</Text>
-                <View style={[styles.card, { backgroundColor: c.card }]}>
-                  <View style={styles.verifyRow}>
-                    <Text style={[styles.verifyText, { color: c.muted }]}>
-                      {userDbId
-                        ? 'Collect your first order in person to become a verified member.'
-                        : 'Sign in, place an order, and collect it in person. Verified members unlock standing orders and member features.'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </>
-        )}
-        <View style={{ height: 32 }} />
+        <View style={{ height: 48 }} />
       </ScrollView>
     </View>
   );
@@ -314,47 +305,25 @@ export default function ProfilePanel() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingTop: 18,
-    paddingBottom: 18,
-    gap: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backBtn: { paddingVertical: 4, flexShrink: 0 },
+  body: { paddingTop: 18, paddingHorizontal: SPACING.md },
+  backBtn: { paddingVertical: 4, marginBottom: SPACING.md },
   backBtnText: { fontSize: 28, lineHeight: 34 },
-  headerCenter: { flex: 1, paddingHorizontal: SPACING.sm, gap: 2 },
-  headerName: { fontSize: 17, fontFamily: fonts.playfair },
-  headerNameInput: { fontSize: 17, fontFamily: fonts.playfair, padding: 0 },
-  headerChatEmail: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  headerSpacer: { width: 40 },
-  signOutBtn: { paddingVertical: 4, paddingHorizontal: 4 },
-  signOutText: { fontSize: 13, fontFamily: fonts.dmSans },
+  identityBlock: { paddingVertical: SPACING.md, gap: 6 },
+  name: { fontSize: 32, fontFamily: fonts.playfair },
+  nameInput: { fontSize: 32, fontFamily: fonts.playfair, padding: 0 },
+  chatEmail: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  divider: { height: StyleSheet.hairlineWidth },
+  block: { paddingVertical: SPACING.md, gap: 8 },
+  blockRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  label: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  action: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  orderVariety: { fontSize: 22, fontFamily: fonts.playfair },
+  orderDetail: { fontSize: 12, fontFamily: fonts.dmMono, flex: 1 },
+  historyRow: { gap: 2 },
+  historyVariety: { fontSize: 15, fontFamily: fonts.playfair },
+  historyDetail: { fontSize: 11, fontFamily: fonts.dmMono },
+  signInBlock: { paddingTop: SPACING.md, gap: 16, alignItems: 'center' },
+  signInPrompt: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1 },
   appleBtn: { height: 44, width: '100%' },
-  signInStack: { gap: 8, alignItems: 'center' },
-  demoBtn: { paddingVertical: 4, paddingHorizontal: 8 },
-  demoBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  body: { padding: SPACING.md, gap: SPACING.md },
-  section: { gap: 8 },
-  sectionLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, marginLeft: 4 },
-  card: { borderRadius: 12, overflow: 'hidden' },
-  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: SPACING.md },
-  orderAgainRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
-  orderAgainInfo: { flex: 1, gap: 4 },
-  orderAgainName: { fontSize: 17, fontFamily: fonts.playfair },
-  orderAgainSub: { fontSize: 12, fontFamily: fonts.dmSans },
-  chevron: { fontSize: 20 },
-  orderRow: { paddingHorizontal: SPACING.md, paddingVertical: 12, gap: 3 },
-  orderName: { fontSize: 15, fontFamily: fonts.playfair },
-  orderMeta: { fontSize: 12, fontFamily: fonts.dmSans },
-  verifyRow: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
-  verifyText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
-  lastOrderBlock: { gap: 6, paddingVertical: SPACING.md, paddingHorizontal: SPACING.md, marginHorizontal: -SPACING.md },
-  lastOrderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  lastOrderDate: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, textTransform: 'uppercase' },
-  lastOrderName: { fontSize: 26, fontFamily: fonts.playfair },
-  lastOrderSub: { fontSize: 12, fontFamily: fonts.dmSans },
-  reorderLinkText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, textTransform: 'uppercase' },
+  demoText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
