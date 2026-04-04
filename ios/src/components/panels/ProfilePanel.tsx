@@ -188,11 +188,6 @@ export default function ProfilePanel() {
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* Back */}
-        <TouchableOpacity onPress={goHome} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
-        </TouchableOpacity>
-
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
         ) : userEmail ? (
