@@ -218,27 +218,14 @@ export default function ProfilePanel() {
         ) : (
           <>
             {lastOrder && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: c.muted }]}>ORDER AGAIN</Text>
-                <TouchableOpacity
-                  style={[styles.card, { backgroundColor: c.card }]}
-                  onPress={handleOrderAgain}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.orderAgainRow}>
-                    <View style={styles.orderAgainInfo}>
-                      <Text style={[styles.orderAgainName, { color: c.text }]}>{lastOrder.variety_name ?? '—'}</Text>
-                      <Text style={[styles.orderAgainSub, { color: c.muted }]}>
-                        {CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
-                        {' · '}
-                        {FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
-                        {' · '}{lastOrder.quantity}
-                      </Text>
-                    </View>
-                    <Text style={[styles.chevron, { color: c.accent }]}>→</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity onPress={handleOrderAgain} activeOpacity={0.6} style={styles.reorderLine}>
+                <Text style={[styles.reorderText, { color: c.text }]}>
+                  {'↺  '}{lastOrder.variety_name ?? '—'}
+                  {'  ·  '}{CHOCOLATES.find(choc => choc.id === lastOrder.chocolate)?.name ?? lastOrder.chocolate ?? '—'}
+                  {'  ·  '}{FINISHES.find(f => f.id === lastOrder.finish)?.name ?? lastOrder.finish ?? '—'}
+                  {'  ·  '}{lastOrder.quantity}
+                </Text>
+              </TouchableOpacity>
             )}
 
             {recentOrders.length > 1 && (
@@ -323,4 +310,6 @@ const styles = StyleSheet.create({
   orderMeta: { fontSize: 12, fontFamily: fonts.dmSans },
   verifyRow: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
   verifyText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
+  reorderLine: { paddingVertical: 4, marginLeft: 4 },
+  reorderText: { fontSize: 13, fontFamily: fonts.dmMono },
 });
