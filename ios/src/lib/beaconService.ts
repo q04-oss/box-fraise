@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, NativeEventEmitter, NativeModules } from 'react-native';
 import Beacons from 'react-native-beacons-manager';
 import * as Notifications from 'expo-notifications';
 import { fetchBeacons, fetchBeaconShopUser } from './api';
@@ -37,7 +37,8 @@ export async function loadAndMonitorBeacons() {
     }
 
     // Region entry — user walked into range
-    Beacons.BeaconsEventEmitter.addListener('regionDidEnter', async (region: any) => {
+    const BeaconsEventEmitter = new NativeEventEmitter(NativeModules.RNiBeacon);
+    BeaconsEventEmitter.addListener('regionDidEnter', async (region: any) => {
       const match = knownBeacons.find(b => b.uuid.toLowerCase() === region.uuid?.toLowerCase());
       if (!match) return;
 
