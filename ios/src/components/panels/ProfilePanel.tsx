@@ -300,12 +300,12 @@ export default function ProfilePanel() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  body: { paddingTop: 18, paddingHorizontal: SPACING.md },
+  body: { paddingTop: 28, paddingHorizontal: SPACING.md },
   backBtn: { paddingVertical: 4, marginBottom: SPACING.md },
   backBtnText: { fontSize: 28, lineHeight: 34 },
-  identityBlock: { paddingVertical: SPACING.md, gap: 6 },
-  name: { fontSize: 32, fontFamily: fonts.playfair },
-  nameInput: { fontSize: 32, fontFamily: fonts.playfair, padding: 0 },
+  identityBlock: { paddingVertical: SPACING.md, gap: 6, alignItems: 'center' },
+  name: { fontSize: 32, fontFamily: fonts.playfair, textAlign: 'center' },
+  nameInput: { fontSize: 32, fontFamily: fonts.playfair, padding: 0, textAlign: 'center' },
   chatEmail: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   divider: { height: StyleSheet.hairlineWidth },
   block: { paddingVertical: SPACING.md, gap: 8 },
