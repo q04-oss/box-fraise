@@ -93,8 +93,15 @@ export default function TerminalPanel() {
   };
 
   useEffect(() => {
-    if (orderOpen) scrollToBottom();
-  }, [orderStep, orderOpen]);
+    if (orderOpen && orderStep !== 'variety') scrollToBottom();
+  }, [orderStep]);
+
+  // Auto-set popup date on inline order when location is a popup
+  useEffect(() => {
+    if (isPopup && location?.launched_at && !inlineOrder.date) {
+      setInlineOrder(p => ({ ...p, date: location.launched_at!.split('T')[0] }));
+    }
+  }, [isPopup, location?.launched_at]);
 
   // Auto-open or reset order based on how terminal was triggered
   useEffect(() => {
@@ -274,6 +281,7 @@ export default function TerminalPanel() {
     })();
 
     setPaying(true);
+    let paymentCollected = false;
     try {
       const { order: created, client_secret } = await createOrder({
         variety_id: inlineOrder.variety_id!,
@@ -316,6 +324,7 @@ export default function TerminalPanel() {
           if (presentErr.code === 'Canceled') { setPaying(false); return; }
           throw new Error(presentErr.message);
         }
+        paymentCollected = true;
         confirmed = await confirmOrder(created.id);
       }
 
@@ -331,7 +340,12 @@ export default function TerminalPanel() {
           setRecentOrders(paid.slice(0, 5));
         }).catch(() => {});
     } catch (err: unknown) {
-      Alert.alert('Something went wrong.', err instanceof Error ? err.message : 'Try again.');
+      if (paymentCollected) {
+        Alert.alert('Payment received.', 'Your order is confirmed — check your order history for details.');
+        setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 150);
+      } else {
+        Alert.alert('Something went wrong.', err instanceof Error ? err.message : 'Try again.');
+      }
     } finally {
       setPaying(false);
     }
@@ -420,20 +434,24 @@ export default function TerminalPanel() {
 
             {/* ORDER section */}
             <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity
-              style={styles.orderToggle}
-              onPress={() => {
-                if (orderStep === 'confirmed') { resetInlineOrder(); setOrderOpen(true); }
-                else setOrderOpen(v => !v);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.label, { color: c.muted }]}>ORDER</Text>
-              {location && (
-                <Text style={[styles.orderHint, { color: c.muted }]}>{location.name}</Text>
-              )}
-              <Text style={[styles.label, { color: c.accent }]}>{orderOpen && orderStep !== 'confirmed' ? '−' : '+'}</Text>
-            </TouchableOpacity>
+            <View style={styles.orderToggle}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (orderStep === 'confirmed') { resetInlineOrder(); setOrderOpen(true); }
+                  else setOrderOpen(v => !v);
+                }}
+                activeOpacity={0.7}
+                style={styles.orderToggleLeft}
+              >
+                <Text style={[styles.label, { color: c.muted }]}>ORDER</Text>
+                {location && (
+                  <Text style={[styles.orderHint, { color: c.muted }]}>{location.name}</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('order-history')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 12, right: 4 }}>
+                <Text style={[styles.label, { color: c.accent }]}>→</Text>
+              </TouchableOpacity>
+            </View>
 
             {orderOpen && (
               <View style={styles.orderBody}>
@@ -633,9 +651,6 @@ export default function TerminalPanel() {
                                 })}
                               </ScrollView>
                             )}
-                            {isPopup && location?.launched_at && !inlineOrder.date && (
-                              (() => { setInlineOrder(p => ({ ...p, date: location.launched_at!.split('T')[0] })); return null; })()
-                            )}
                             {loadingSlots ? (
                               <ActivityIndicator color={c.accent} style={{ marginVertical: 12 }} />
                             ) : visibleSlots.length === 0 && inlineOrder.date ? (
@@ -765,6 +780,7 @@ const styles = StyleSheet.create({
   blockRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   label: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   orderToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
+  orderToggleLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 },
   noLocationBlock: { paddingVertical: 12, gap: 6 },
   noLocationText: { fontSize: 13, fontFamily: fonts.playfair, fontStyle: 'italic' },
   noLocationHint: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },

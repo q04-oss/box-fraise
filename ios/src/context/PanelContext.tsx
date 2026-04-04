@@ -129,6 +129,7 @@ interface PanelContextValue {
   setPanelData: (data: Record<string, any> | null) => void;
   showPanel: (id: PanelId, data?: Record<string, any>) => void;
   jumpToPanel: (id: PanelId) => void;
+  lastNavType: React.MutableRefObject<'show' | 'jump'>;
   goBack: () => void;
   goHome: () => void;
   sheetHeight: number;
@@ -149,6 +150,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   const [panelData, setPanelData] = useState<Record<string, any> | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const animSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNavType = useRef<'show' | 'jump'>('show');
 
   const clearAnimSafety = () => {
     if (animSafetyRef.current) { clearTimeout(animSafetyRef.current); animSafetyRef.current = null; }
@@ -164,8 +166,9 @@ export function PanelProvider({ children }: { children: ReactNode }) {
 
   const showPanel = useCallback((id: PanelId, data?: Record<string, any>) => {
     if (isAnimating) return;
+    lastNavType.current = 'show';
     setIsAnimating(true);
-    if (data !== undefined) setPanelData(data);
+    setPanelData(data ?? null);
     slideAnim.setValue(1);
     setCurrentPanel(id);
     setStack(prev => [...prev, id]);
@@ -209,6 +212,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
 
   // Direct navigation that bypasses isAnimating — for external triggers like map marker presses
   const jumpToPanel = useCallback((id: PanelId) => {
+    lastNavType.current = 'jump';
     setIsAnimating(false);
     slideAnim.setValue(0);
     setCurrentPanel(id);
@@ -221,7 +225,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
       order, varieties, businesses, activeLocation,
       setOrder, setVarieties, setBusinesses, setActiveLocation,
       panelData, setPanelData,
-      showPanel, jumpToPanel, goBack, goHome,
+      showPanel, jumpToPanel, goBack, goHome, lastNavType,
       sheetHeight, setSheetHeight,
     }}>
       {children}

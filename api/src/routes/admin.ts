@@ -415,11 +415,17 @@ router.get('/nfc-pending', async (_req: Request, res: Response) => {
       .select({
         id: orders.id,
         nfc_token: orders.nfc_token,
-        nfc_token_used: orders.nfc_token_used,
         customer_email: orders.customer_email,
+        quantity: orders.quantity,
+        chocolate: orders.chocolate,
+        finish: orders.finish,
         created_at: orders.created_at,
+        variety_name: varieties.name,
+        slot_time: timeSlots.time,
       })
       .from(orders)
+      .leftJoin(varieties, eq(orders.variety_id, varieties.id))
+      .leftJoin(timeSlots, eq(orders.time_slot_id, timeSlots.id))
       .where(eq(orders.nfc_token_used, false));
     const pending = rows.filter(r => r.nfc_token !== null);
     res.json(pending);

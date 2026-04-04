@@ -1,18 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { isReviewMode } from './reviewMode';
 import { API_BASE_URL as BASE_URL } from '../config/api';
 
 export async function getAuthToken(): Promise<string | null> {
-  return SecureStore.getItemAsync('auth_token');
+  return AsyncStorage.getItem('auth_token');
 }
 
 export async function setAuthToken(token: string): Promise<void> {
-  await SecureStore.setItemAsync('auth_token', token);
+  await AsyncStorage.setItem('auth_token', token);
 }
 
 export async function deleteAuthToken(): Promise<void> {
-  await SecureStore.deleteItemAsync('auth_token');
+  await AsyncStorage.removeItem('auth_token');
 }
 
 

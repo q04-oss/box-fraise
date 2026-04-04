@@ -1,22 +1,28 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePanel } from '../../context/PanelContext';
 import { fetchOrderHistory, rateOrder } from '../../lib/api';
-import { useColors, fonts } from '../../theme';
-import { SPACING } from '../../theme';
+import { useColors, fonts, SPACING } from '../../theme';
 
 const CHOC: Record<string, string> = {
-  guanaja_70: 'Guanaja 70%', caraibe_66: 'Caraïbe 66%',
-  jivara_40: 'Jivara 40%', ivoire_blanc: 'Ivoire Blanc',
+  guanaja_70: 'guanaja 70%',
+  caraibe_66: 'caraïbe 66%',
+  jivara_40: 'jivara 40%',
+  ivoire_blanc: 'ivoire blanc',
 };
-const FIN: Record<string, string> = { plain: 'Plain', fleur_de_sel: 'Fleur de sel', or_fin: 'Or fin' };
+const FIN: Record<string, string> = {
+  plain: 'plain',
+  fleur_de_sel: 'fleur de sel',
+  or_fin: 'or fin',
+};
 
-function statusColor(status: string, accent: string): string {
-  if (status === 'ready') return '#34C759';
-  if (status === 'paid' || status === 'completed') return accent;
-  if (status === 'cancelled') return '#FF3B30';
-  return '#8E8E93'; // pending/muted
+function formatSlot(date: string, time: string): string {
+  if (!date) return time ?? '';
+  const d = new Date(date);
+  const months = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
+  const label = `${d.getDate()} ${months[d.getMonth()]}`;
+  return time ? `${label}  ·  ${time}` : label;
 }
 
 export default function OrderHistoryPanel() {
@@ -45,7 +51,7 @@ export default function OrderHistoryPanel() {
   useEffect(() => {
     AsyncStorage.getItem('user_db_id').then(id => {
       if (!id) { setLoading(false); return; }
-      const uid = parseInt(id);
+      const uid = parseInt(id, 10);
       userDbIdRef.current = uid;
       loadPage(uid, 0, false);
     });
@@ -53,9 +59,9 @@ export default function OrderHistoryPanel() {
 
   const handleLoadMore = () => {
     if (!userDbIdRef.current || loadingMore || !hasMore) return;
-    const nextOffset = offset + 20;
-    setOffset(nextOffset);
-    loadPage(userDbIdRef.current, nextOffset, true);
+    const next = offset + 20;
+    setOffset(next);
+    loadPage(userDbIdRef.current, next, true);
   };
 
   const handleRate = async (orderId: number, stars: number) => {
@@ -63,149 +69,124 @@ export default function OrderHistoryPanel() {
     try {
       await rateOrder(orderId, stars);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, rating: stars } : o));
-    } catch {
-      // keep optimistic state, silently fail
-    }
+    } catch {}
   };
 
-  const readyOrders = orders.filter(o => o.status === 'ready');
+  const sorted = [...orders].sort((a, b) => {
+    if (a.status === 'ready' && b.status !== 'ready') return -1;
+    if (b.status === 'ready' && a.status !== 'ready') return 1;
+    return 0;
+  });
+
+  const renderItem = ({ item: o }: { item: any }) => {
+    const isReady = o.status === 'ready';
+    const isCancelled = o.status === 'cancelled';
+    const isCollected = o.status === 'collected';
+    const statusColor = isReady ? c.accent : isCancelled ? c.muted : c.muted;
+    const rating = pendingRating[o.id] ?? o.rating ?? 0;
+
+    return (
+      <View style={[styles.row, { borderBottomColor: c.border }]}>
+        <View style={styles.rowTop}>
+          <Text style={[styles.varietyName, { color: isCancelled ? c.muted : c.text }]}>{o.variety_name}</Text>
+          <Text style={[styles.total, { color: isCancelled ? c.muted : c.text }]}>
+            CA${(o.total_cents / 100).toFixed(0)}
+          </Text>
+        </View>
+
+        <Text style={[styles.meta, { color: c.muted }]}>
+          {[CHOC[o.chocolate] ?? o.chocolate, FIN[o.finish] ?? o.finish, `×${o.quantity}`].filter(Boolean).join('  ·  ')}
+        </Text>
+
+        <View style={styles.rowBottom}>
+          <Text style={[styles.slot, { color: c.muted }]}>{formatSlot(o.slot_date, o.slot_time)}</Text>
+          <Text style={[styles.status, { color: statusColor }]}>{o.status}</Text>
+        </View>
+
+        {isCollected && (
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map(star => {
+              const filled = rating >= star;
+              return rating > 0 ? (
+                <Text key={star} style={[styles.star, { color: filled ? '#FFD700' : c.border }]}>★</Text>
+              ) : (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => handleRate(o.id, star)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
+                >
+                  <Text style={[styles.star, { color: c.muted }]}>☆</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
+          <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>Order History</Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.title, { color: c.text }]}>order history</Text>
+        </View>
         <View style={styles.headerSpacer} />
       </View>
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
-        ) : orders.length === 0 ? (
-          <Text style={[styles.empty, { color: c.muted }]}>No orders yet.</Text>
-        ) : (
-          <>
-            {readyOrders.length > 0 && (
-              <View style={styles.readyBanner}>
-                <View style={styles.readyDot} />
-                <View style={styles.readyText}>
-                  <Text style={styles.readyTitle}>Ready for pickup!</Text>
-                  <Text style={styles.readyVarieties}>
-                    {readyOrders.map(o => o.variety_name).join(', ')}
-                  </Text>
-                </View>
-              </View>
-            )}
-            {orders.map(o => {
-              const sColor = statusColor(o.status, c.accent);
-              return (
-                <View key={o.id} style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-                  <View style={styles.cardTop}>
-                    <Text style={[styles.variety, { color: c.text }]}>{o.variety_name}</Text>
-                    <Text style={[styles.total, { color: c.text }]}>CA${(o.total_cents / 100).toFixed(2)}</Text>
-                  </View>
-                  <Text style={[styles.meta, { color: c.muted }]}>
-                    {CHOC[o.chocolate] ?? o.chocolate} · {FIN[o.finish] ?? o.finish} · ×{o.quantity}
-                  </Text>
-                  <View style={styles.cardBottom}>
-                    <Text style={[styles.slot, { color: c.muted }]}>{o.slot_date} · {o.slot_time}</Text>
-                    <View style={styles.statusRow}>
-                      <View style={[styles.statusDot, { backgroundColor: sColor }]} />
-                      <Text style={[styles.status, { color: sColor }]}>{o.status}</Text>
-                    </View>
-                  </View>
-                  {o.status === 'collected' && !o.rating && (
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map(star => {
-                        const filled = (pendingRating[o.id] ?? 0) >= star;
-                        return (
-                          <TouchableOpacity
-                            key={star}
-                            onPress={() => handleRate(o.id, star)}
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                          >
-                            <Text style={[styles.star, { color: filled ? '#FFD700' : '#444' }]}>
-                              {filled ? '★' : '☆'}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                  {o.status === 'collected' && (o.rating || pendingRating[o.id]) && (
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map(star => {
-                        const filled = (pendingRating[o.id] ?? o.rating ?? 0) >= star;
-                        return (
-                          <Text key={star} style={[styles.star, { color: filled ? '#FFD700' : '#444' }]}>
-                            {filled ? '★' : '☆'}
-                          </Text>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </>
-        )}
-        {hasMore && orders.length > 0 && (
-          <TouchableOpacity
-            style={{ alignItems: 'center', paddingVertical: 20 }}
-            onPress={handleLoadMore}
-            disabled={loadingMore}
-            activeOpacity={0.7}
-          >
-            {loadingMore
-              ? <ActivityIndicator color={c.accent} />
-              : <Text style={{ fontFamily: fonts.dmMono, color: c.muted, fontSize: 12, letterSpacing: 1 }}>Load more</Text>
-            }
-          </TouchableOpacity>
-        )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+
+      {loading ? (
+        <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
+      ) : orders.length === 0 ? (
+        <Text style={[styles.empty, { color: c.muted }]}>nothing here yet</Text>
+      ) : (
+        <FlatList
+          data={sorted}
+          keyExtractor={o => String(o.id)}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          onEndReached={hasMore ? handleLoadMore : undefined}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator color={c.accent} style={{ paddingVertical: 20 }} /> : <View style={{ height: 40 }} />
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth },
-  backBtn: { width: 40, paddingVertical: 4 },
-  backBtnText: { fontSize: 28, lineHeight: 34 },
-  title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
-  headerSpacer: { width: 40 },
-  body: { padding: SPACING.md, gap: 10 },
-  empty: { textAlign: 'center', marginTop: 60, fontFamily: fonts.dmSans, fontStyle: 'italic' },
-
-  readyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#E8F8ED',
-    borderRadius: 14,
-    padding: SPACING.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#34C759',
-    marginBottom: 2,
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  readyDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#34C759' },
-  readyText: { flex: 1, gap: 2 },
-  readyTitle: { fontSize: 14, fontFamily: fonts.dmSans, fontWeight: '700', color: '#1D6232' },
-  readyVarieties: { fontSize: 13, fontFamily: fonts.playfair, color: '#2A7A41' },
+  backBtn: { paddingVertical: 4 },
+  backArrow: { fontSize: 28, lineHeight: 34 },
+  headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  title: { textAlign: 'center', fontSize: 17, fontFamily: fonts.playfair },
+  headerSpacer: { width: 28 },
 
-  card: { borderRadius: 14, padding: SPACING.md, borderWidth: StyleSheet.hairlineWidth, gap: 6 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  variety: { fontSize: 17, fontFamily: fonts.playfair },
-  total: { fontSize: 15, fontFamily: fonts.dmMono },
-  meta: { fontSize: 12, fontFamily: fonts.dmSans },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  slot: { fontSize: 11, fontFamily: fonts.dmMono },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  status: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5, textTransform: 'uppercase' },
+  empty: { textAlign: 'center', marginTop: 60, fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic' },
+
+  row: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 5,
+  },
+  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  varietyName: { fontSize: 22, fontFamily: fonts.playfair, flex: 1 },
+  total: { fontSize: 13, fontFamily: fonts.dmMono },
+  meta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 },
+  slot: { fontSize: 10, fontFamily: fonts.dmMono },
+  status: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   starsRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
-  star: { fontSize: 20 },
+  star: { fontSize: 14, fontFamily: fonts.dmMono },
 });

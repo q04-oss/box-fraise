@@ -37,7 +37,7 @@ const FULL_HEIGHT_PANELS = new Set([
 ]);
 
 export default function PanelNavigator() {
-  const { currentPanel, slideAnim } = usePanel();
+  const { currentPanel, slideAnim, lastNavType } = usePanel();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const c = useColors();
   const CurrentComponent = PANELS[currentPanel] ?? HomePanel;
@@ -46,9 +46,9 @@ export default function PanelNavigator() {
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (FULL_HEIGHT_PANELS.has(currentPanel)) {
+    if (FULL_HEIGHT_PANELS.has(currentPanel) && lastNavType.current === 'show') {
       timerRef.current = setTimeout(() => TrueSheet.present('main-sheet', 2), 350);
-    } else if (currentPanel === 'terminal' || (currentPanel === 'home' && mountedRef.current)) {
+    } else if (currentPanel === 'home' && mountedRef.current) {
       timerRef.current = setTimeout(() => TrueSheet.present('main-sheet', 1), 350);
     }
     mountedRef.current = true;

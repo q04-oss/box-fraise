@@ -103,9 +103,19 @@ export default function HomePanel() {
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
 
       {/* Collapsed strip */}
-      <View style={styles.strip}>
-        <Text style={[styles.stripBrand, { color: c.text }]}>strawberry chat</Text>
-      </View>
+      <TouchableOpacity
+        style={styles.strip}
+        activeOpacity={activeLocation?.shop_user_id ? 0.6 : 1}
+        onPress={() => {
+          if (!activeLocation?.shop_user_id) return;
+          setPanelData({ userId: activeLocation.shop_user_id, displayName: activeLocation.name, isShop: true });
+          jumpToPanel('messageThread');
+        }}
+      >
+        <Text style={[styles.stripBrand, { color: c.text }]}>
+          {activeLocation ? `maison fraise × ${activeLocation.name.toLowerCase()}` : 'maison fraise'}
+        </Text>
+      </TouchableOpacity>
 
       {!isCollapsed && (
         <ScrollView
@@ -125,32 +135,33 @@ export default function HomePanel() {
 
           ) : (
             <>
-              {/* ── Collaboration header ── */}
-              <View style={styles.collab}>
-                <Text style={[styles.collabLabel, { color: c.muted }]}>maison fraise × {activeLocation.name.toLowerCase()}</Text>
-                {activeLocation.neighbourhood && (
-                  <Text style={[styles.collabNeighbourhood, { color: c.muted }]}>{activeLocation.neighbourhood}</Text>
+              {/* ── Location meta ── */}
+              <View style={styles.locationMeta}>
+                <Text style={[styles.locationMetaText, { color: c.muted }]} numberOfLines={1}>
+                  {[
+                    activeLocation.type === 'popup' ? 'popup' : null,
+                    activeLocation.address ?? activeLocation.neighbourhood ?? null,
+                    activeLocation.type === 'popup' && activeLocation.launched_at
+                      ? (activeLocation.hours ?? new Date(activeLocation.launched_at).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }))
+                      : todayLabel,
+                  ].filter(Boolean).join('  ·  ')}
+                </Text>
+                {order.order_id && order.location_id === activeLocation.id && (
+                  <Text style={[styles.orderPlaced, { color: c.accent }]}>order placed</Text>
                 )}
               </View>
 
               {/* ── Shop identity ── */}
-              <View style={styles.identityBlock}>
-                {activeLocation.type === 'popup' && (
-                  <Text style={[styles.badge, { color: '#C0392B' }]}>POPUP</Text>
-                )}
-                <Text style={[styles.shopName, { color: c.text }]}>{activeLocation.name}</Text>
-                {activeLocation.description && (
-                  <Text style={[styles.description, { color: c.muted }]}>{activeLocation.description}</Text>
-                )}
-                <View style={styles.shopMeta}>
+              {(activeLocation.description || activeLocation.instagram_handle) && (
+                <View style={styles.identityBlock}>
+                  {activeLocation.description && (
+                    <Text style={[styles.description, { color: c.muted }]}>{activeLocation.description}</Text>
+                  )}
                   {activeLocation.instagram_handle && (
                     <Text style={[styles.instagram, { color: c.muted }]}>@{activeLocation.instagram_handle}</Text>
                   )}
-                  {order.order_id && order.location_id === activeLocation.id && (
-                    <Text style={[styles.orderPlaced, { color: c.accent }]}>order placed</Text>
-                  )}
                 </View>
-              </View>
+              )}
 
               {/* ── Location switcher ── */}
               {otherLocations.length > 0 && (
@@ -176,8 +187,6 @@ export default function HomePanel() {
 
               {/* ── Today's varieties ── */}
               <View style={styles.varietiesBlock}>
-                <Text style={[styles.dateLabel, { color: c.muted }]}>{todayLabel}</Text>
-
                 {loading ? (
                   <ActivityIndicator color={c.accent} style={{ marginVertical: 32 }} />
                 ) : fetchError ? (
@@ -273,19 +282,15 @@ const styles = StyleSheet.create({
   emptySeason: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5, fontStyle: 'italic' },
   emptyHint: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5, marginTop: 20 },
 
-  // Collaboration header
-  collab: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: 3 },
-  collabLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1 },
-  collabNeighbourhood: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  // Location meta
+  locationMeta: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 4, gap: 4 },
+  locationMetaText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  orderPlaced: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
 
   // Shop identity
-  identityBlock: { paddingHorizontal: SPACING.md, paddingTop: 10, paddingBottom: SPACING.md, gap: 8 },
-  badge: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-  shopName: { fontSize: 34, fontFamily: fonts.playfair, lineHeight: 40 },
+  identityBlock: { paddingHorizontal: SPACING.md, paddingTop: 6, paddingBottom: SPACING.md, gap: 6 },
   description: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
-  shopMeta: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   instagram: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
-  orderPlaced: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
 
   // Location switcher
   switcherRow: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: 8, flexDirection: 'row' },
@@ -296,7 +301,6 @@ const styles = StyleSheet.create({
 
   // Varieties
   varietiesBlock: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: 0 },
-  dateLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5, marginBottom: SPACING.md },
   varietyDivider: { height: StyleSheet.hairlineWidth, marginVertical: SPACING.md },
   varietyBlock: { gap: 8 },
   varietyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
