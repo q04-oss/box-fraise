@@ -270,7 +270,7 @@ export default function ProfilePanel() {
         ) : (
           /* Signed out state */
           <View style={styles.signInBlock}>
-            <TouchableOpacity onPress={() => TrueSheet.present('main-sheet', 1)} activeOpacity={0.6}>
+            <TouchableOpacity onPress={() => TrueSheet.present('main-sheet', 2)} activeOpacity={0.6}>
               <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
             </TouchableOpacity>
             <View style={styles.signInButtons}>
