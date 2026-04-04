@@ -13,8 +13,9 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
   const userId = (req as any).userId as number;
   const { title, description, pay_cents, pay_type } = req.body;
 
-  if (!title || !pay_cents) {
-    res.status(400).json({ error: 'title and pay_cents required' });
+  const parsedPay = typeof pay_cents === 'number' ? pay_cents : parseInt(pay_cents, 10);
+  if (!title || isNaN(parsedPay) || parsedPay <= 0) {
+    res.status(400).json({ error: 'title and pay_cents (> 0) required' });
     return;
   }
 
@@ -35,7 +36,7 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
         business_id: operator.business_id,
         title: title.trim(),
         description: description?.trim() ?? null,
-        pay_cents: parseInt(pay_cents, 10),
+        pay_cents: parsedPay,
         pay_type: pay_type === 'salary' ? 'salary' : 'hourly',
       })
       .returning();
@@ -125,7 +126,11 @@ router.post('/:id/apply', requireUser, async (req: Request, res: Response) => {
       .returning();
 
     res.json(application);
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      res.status(409).json({ error: 'Already applied' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -209,13 +214,13 @@ router.patch('/applications/:id/outcome', requireUser, async (req: Request, res:
       return;
     }
 
-    await db.update(jobApplications).set({ status }).where(eq(jobApplications.id, applicationId));
-
-    // Create ledger entry if it doesn't exist yet
-    await db
-      .insert(jobLedgerEntries)
-      .values({ application_id: applicationId })
-      .onConflictDoNothing();
+    await db.transaction(async (tx) => {
+      await tx.update(jobApplications).set({ status }).where(eq(jobApplications.id, applicationId));
+      await tx
+        .insert(jobLedgerEntries)
+        .values({ application_id: applicationId })
+        .onConflictDoNothing();
+    });
 
     res.json({ ok: true });
   } catch (err) {
