@@ -218,7 +218,7 @@ export default function ProfilePanel() {
         ) : (
           <>
             {lastOrder && (
-              <View style={[styles.lastOrderBlock, { borderColor: c.border }]}>
+              <View style={styles.lastOrderBlock}>
                 <View style={styles.lastOrderTop}>
                   <Text style={[styles.lastOrderDate, { color: c.muted }]}>
                     {new Date(lastOrder.created_at ?? Date.now()).toLocaleDateString([], { month: 'long', day: 'numeric' })}
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   orderMeta: { fontSize: 12, fontFamily: fonts.dmSans },
   verifyRow: { paddingHorizontal: SPACING.md, paddingVertical: 14 },
   verifyText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
-  lastOrderBlock: { gap: 6, paddingVertical: SPACING.md, paddingHorizontal: SPACING.md, marginHorizontal: -SPACING.md, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  lastOrderBlock: { gap: 6, paddingVertical: SPACING.md, paddingHorizontal: SPACING.md, marginHorizontal: -SPACING.md },
   lastOrderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   lastOrderDate: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, textTransform: 'uppercase' },
   lastOrderName: { fontSize: 26, fontFamily: fonts.playfair },
