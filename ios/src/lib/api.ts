@@ -179,14 +179,6 @@ export async function updatePushToken(push_token: string): Promise<void> {
   });
 }
 
-export async function updateDisplayName(display_name: string): Promise<void> {
-  const auth = await authHeader();
-  await fetch(`${BASE_URL}/api/auth/display-name`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify({ display_name }),
-  });
-}
 
 export async function fetchHostedPopups(userId: number) {
   const res = await fetch(`${BASE_URL}/api/users/${userId}/hosted-popups`);
@@ -605,15 +597,13 @@ export async function markNotificationRead(notificationId: number) {
   return res.json();
 }
 
-export async function updateDisplayName(userId: number, display_name: string) {
+export async function updateDisplayName(display_name: string): Promise<void> {
   const auth = await authHeader();
-  const res = await fetch(`${BASE_URL}/api/users/me/display-name`, {
+  await fetch(`${BASE_URL}/api/auth/display-name`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...auth },
     body: JSON.stringify({ display_name }),
   });
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? 'Failed to update name'); }
-  return res.json() as Promise<{ success: boolean; display_name: string }>;
 }
 
 export async function searchUsers(q: string) {
