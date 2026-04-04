@@ -1,6 +1,21 @@
 import { Resend } from 'resend';
+import { db } from '../db';
+import { users } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Returns the user's fraise.chat address if verified, otherwise their Apple email
+export async function resolveEmailAddress(appleEmail: string): Promise<string> {
+  try {
+    const [user] = await db.select({ fraise_chat_email: users.fraise_chat_email })
+      .from(users)
+      .where(eq(users.email, appleEmail));
+    return user?.fraise_chat_email ?? appleEmail;
+  } catch {
+    return appleEmail;
+  }
+}
 
 const FROM = 'Maison Fraise <orders@fraise.chat>';
 const REPLY_TO = 'hello@fraise.chat';
@@ -87,6 +102,7 @@ export async function sendOrderConfirmation(params: {
   slotTime: string;
 }) {
   const { to, varietyName, chocolate, finish, quantity, isGift, totalCents, slotDate, slotTime } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const total = (totalCents / 100).toFixed(2);
   const slot = formatSlot(slotDate, slotTime);
 
@@ -125,7 +141,7 @@ export async function sendOrderConfirmation(params: {
 
   await resend.emails.send({
     from: FROM,
-    to,
+    to: resolvedTo,
     replyTo: REPLY_TO,
     subject: `Your ${varietyName} — confirmed.`,
     html: baseTemplate(content, 'Order confirmed.'),
@@ -139,6 +155,7 @@ export async function sendOrderReady(params: {
   slotTime: string;
 }) {
   const { to, varietyName, quantity, slotTime } = params;
+  const resolvedTo = await resolveEmailAddress(to);
 
   const content = `
     <p style="margin:0 0 28px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">
@@ -167,7 +184,7 @@ export async function sendOrderReady(params: {
 
   await resend.emails.send({
     from: FROM,
-    to,
+    to: resolvedTo,
     replyTo: REPLY_TO,
     subject: 'Your order is ready.',
     html: baseTemplate(content, 'Your order is ready.'),
@@ -182,6 +199,7 @@ export async function sendContractOffer(params: {
   endsAt: Date;
 }) {
   const { to, businessName, neighbourhood, startsAt, endsAt } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const fmt = (d: Date) => `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   const content = `
@@ -198,7 +216,7 @@ export async function sendContractOffer(params: {
     </p>
   `;
   await resend.emails.send({
-    from: FROM, to, replyTo: REPLY_TO,
+    from: FROM, to: resolvedTo, replyTo: REPLY_TO,
     subject: `Placement offer — ${businessName}`,
     html: baseTemplate(content, 'You\'ve been placed.'),
   });
@@ -211,6 +229,7 @@ export async function sendNominationReceived(params: {
   popupDate: string | null;
 }) {
   const { to, nominatorName, popupName, popupDate } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const content = `
     <p style="margin:0 0 24px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">
       <strong style="color:#F2F2F7;">${nominatorName}</strong> nominated you for <strong style="color:#F2F2F7;">${popupName}</strong>${popupDate ? ` on ${popupDate}` : ''}. Open the app to see the full nomination.
@@ -220,7 +239,7 @@ export async function sendNominationReceived(params: {
     </p>
   `;
   await resend.emails.send({
-    from: FROM, to, replyTo: REPLY_TO,
+    from: FROM, to: resolvedTo, replyTo: REPLY_TO,
     subject: `You've been nominated — ${popupName}`,
     html: baseTemplate(content, 'You\'ve been nominated.'),
   });
@@ -232,6 +251,7 @@ export async function sendAuditionResult(params: {
   passed: boolean;
 }) {
   const { to, popupName, passed } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const content = `
     <p style="margin:0 0 24px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">
       ${passed
@@ -241,7 +261,7 @@ export async function sendAuditionResult(params: {
     </p>
   `;
   await resend.emails.send({
-    from: FROM, to, replyTo: REPLY_TO,
+    from: FROM, to: resolvedTo, replyTo: REPLY_TO,
     subject: passed ? `${popupName} — approved.` : `${popupName} — not approved.`,
     html: baseTemplate(content, passed ? 'Your popup passed.' : 'Audition result.'),
   });
@@ -290,6 +310,7 @@ export async function sendTipReceived(params: {
   tipper_name?: string;
 }) {
   const { to, amount_cents, popup_name, tipper_name } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const amount = (amount_cents / 100).toFixed(2);
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
@@ -303,7 +324,7 @@ export async function sendTipReceived(params: {
   `;
   await resend.emails.send({
     from: FROM,
-    to,
+    to: resolvedTo,
     replyTo: REPLY_TO,
     subject: 'You received a tip',
     html: baseTemplate(content, `You received a CA$${amount} tip.`),
@@ -317,6 +338,7 @@ export async function sendRsvpConfirmed(params: {
   feeCents: number;
 }) {
   const { to, popupName, popupDate, feeCents } = params;
+  const resolvedTo = await resolveEmailAddress(to);
   const content = `
     <p style="margin:0 0 24px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">
       You're confirmed for <strong style="color:#F2F2F7;">${popupName}</strong>${popupDate ? ` on ${popupDate}` : ''}.
@@ -331,7 +353,7 @@ export async function sendRsvpConfirmed(params: {
     </p>
   `;
   await resend.emails.send({
-    from: FROM, to, replyTo: REPLY_TO,
+    from: FROM, to: resolvedTo, replyTo: REPLY_TO,
     subject: `You're in — ${popupName}`,
     html: baseTemplate(content, 'RSVP confirmed.'),
   });
