@@ -2,8 +2,8 @@ import { Resend } from 'resend';
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = 'Maison Fraise <orders@fraise.maison>';
-const REPLY_TO = 'austin@fraise.maison';
+const FROM = 'Maison Fraise <orders@fraise.chat>';
+const REPLY_TO = 'hello@fraise.chat';
 
 const CHOCOLATE_LABELS: Record<string, string> = {
   guanaja_70: 'Guanaja 70%',
@@ -62,7 +62,7 @@ function baseTemplate(content: string, heading: string): string {
             <td style="background:#1A1A1C;padding:32px 36px 36px;border-radius:0 0 14px 14px;">
               ${content}
               <p style="margin:28px 0 0;font-size:11px;color:#5A5A5E;letter-spacing:0.3px;border-top:1px solid #2A2A2E;padding-top:20px;font-family:'Courier New',Courier,monospace;">
-                Maison Fraise &nbsp;·&nbsp; Marché Atwater, Montréal &nbsp;·&nbsp; <a href="https://fraise.maison" style="color:#C9973A;text-decoration:none;">fraise.maison</a>
+                Maison Fraise &nbsp;·&nbsp; Marché Atwater, Montréal &nbsp;·&nbsp; <a href="https://fraise.chat" style="color:#C9973A;text-decoration:none;">fraise.chat</a>
               </p>
             </td>
           </tr>
