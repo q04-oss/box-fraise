@@ -180,7 +180,11 @@ export default function ProfilePanel() {
             <>
               <Text style={[styles.headerEmail, { color: c.text }]}>{userEmail}</Text>
               {isVerified && <Text style={[styles.headerVerified, { color: c.accent }]}>Verified member</Text>}
-              {fraiseChatEmail && <Text style={[styles.headerChatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>}
+              {fraiseChatEmail && (
+                <TouchableOpacity onPress={() => showPanel('conversations')} activeOpacity={0.7}>
+                  <Text style={[styles.headerChatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
+                </TouchableOpacity>
+              )}
             </>
           ) : !loading ? (
             signingIn ? <ActivityIndicator color={c.accent} /> : (
@@ -257,21 +261,6 @@ export default function ProfilePanel() {
               </View>
             )}
 
-            {isVerified && userDbId && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: c.muted }]}>MESSAGES</Text>
-                <TouchableOpacity
-                  style={[styles.card, { backgroundColor: c.card }]}
-                  onPress={() => showPanel('conversations')}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.orderAgainRow}>
-                    <Text style={[styles.orderAgainName, { color: c.text }]}>Conversations</Text>
-                    <Text style={[styles.chevron, { color: c.accent }]}>→</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            )}
 
             {(!isVerified || !userDbId) && (
               <View style={styles.section}>
