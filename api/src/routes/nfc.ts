@@ -1,18 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { eq, or, and, desc } from 'drizzle-orm';
+import { eq, or, and, desc, lt, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { db } from '../db';
-import { nfcConnections, users, memberships } from '../db/schema';
+import { nfcConnections, nfcPairingTokens, users, memberships } from '../db/schema';
 import { requireUser } from '../lib/auth';
 
 const router = Router();
-
-interface PairingEntry {
-  userId: number;
-  expiresAt: number;
-}
-
-const pairingTokens = new Map<string, PairingEntry>();
 
 function generateToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -23,15 +16,14 @@ function generateToken(): string {
 // POST /api/nfc/initiate
 router.post('/initiate', requireUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
+  const now = new Date();
 
   // Clean up expired tokens
-  const now = Date.now();
-  for (const [token, entry] of pairingTokens.entries()) {
-    if (entry.expiresAt < now) pairingTokens.delete(token);
-  }
+  await db.delete(nfcPairingTokens).where(lt(nfcPairingTokens.expires_at, now));
 
   const token = generateToken();
-  pairingTokens.set(token, { userId, expiresAt: now + 120_000 });
+  const expiresAt = new Date(now.getTime() + 120_000);
+  await db.insert(nfcPairingTokens).values({ token, user_id: userId, expires_at: expiresAt });
 
   res.json({ token });
 });
@@ -46,19 +38,21 @@ router.post('/confirm', requireUser, async (req: Request, res: Response) => {
     return;
   }
 
-  const entry = pairingTokens.get(token);
+  const now = new Date();
+  const [entry] = await db.select().from(nfcPairingTokens).where(eq(nfcPairingTokens.token, token)).limit(1);
+
   if (!entry) {
     res.status(404).json({ error: 'invalid_token' });
     return;
   }
 
-  if (entry.expiresAt < Date.now()) {
-    pairingTokens.delete(token);
+  if (entry.expires_at < now) {
+    await db.delete(nfcPairingTokens).where(eq(nfcPairingTokens.token, token));
     res.status(410).json({ error: 'token_expired' });
     return;
   }
 
-  const otherUserId = entry.userId;
+  const otherUserId = entry.user_id;
 
   if (otherUserId === userId) {
     res.status(400).json({ error: 'cannot_connect_self' });
@@ -79,7 +73,7 @@ router.post('/confirm', requireUser, async (req: Request, res: Response) => {
       .limit(1);
 
     if (existing) {
-      pairingTokens.delete(token);
+      await db.delete(nfcPairingTokens).where(eq(nfcPairingTokens.token, token));
       res.status(409).json({ error: 'already_connected' });
       return;
     }
@@ -90,7 +84,7 @@ router.post('/confirm', requireUser, async (req: Request, res: Response) => {
       location: location ?? null,
     });
 
-    pairingTokens.delete(token);
+    await db.delete(nfcPairingTokens).where(eq(nfcPairingTokens.token, token));
 
     // Get the other user's profile
     const [otherUser] = await db
@@ -155,7 +149,6 @@ contactsRouter.get('/', requireUser, async (req: Request, res: Response) => {
             display_name: users.display_name,
             portrait_url: users.portrait_url,
             worker_status: users.worker_status,
-            portal_opted_in: users.portal_opted_in,
           })
           .from(users)
           .where(eq(users.id, otherUserId))
@@ -173,7 +166,6 @@ contactsRouter.get('/', requireUser, async (req: Request, res: Response) => {
           membership_tier: activeMembership?.tier ?? null,
           portrait_url: otherUser?.portrait_url ?? null,
           worker_status: otherUser?.worker_status ?? null,
-          portal_opted_in: otherUser?.portal_opted_in ?? false,
           confirmed_at: conn.confirmed_at,
           location: conn.location,
         };

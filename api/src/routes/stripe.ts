@@ -62,8 +62,23 @@ router.post('/webhook', async (req: Request, res: Response) => {
         const quantity = parseInt(pi.metadata.quantity, 10);
         const location_id = parseInt(pi.metadata.location_id, 10);
         const time_slot_id = parseInt(pi.metadata.time_slot_id, 10);
-        const chocolate = pi.metadata.chocolate as 'guanaja_70' | 'caraibe_66' | 'jivara_40' | 'ivoire_blanc';
-        const finish = pi.metadata.finish as 'plain' | 'fleur_de_sel' | 'or_fin';
+
+        const VALID_CHOCOLATES = ['guanaja_70', 'caraibe_66', 'jivara_40', 'ivoire_blanc'] as const;
+        const VALID_FINISHES = ['plain', 'fleur_de_sel', 'or_fin'] as const;
+        const chocolate = pi.metadata.chocolate as typeof VALID_CHOCOLATES[number];
+        const finish = pi.metadata.finish as typeof VALID_FINISHES[number];
+
+        if (
+          isNaN(variety_id) || isNaN(quantity) || isNaN(location_id) || isNaN(time_slot_id) ||
+          quantity < 1 || quantity > 100 ||
+          !VALID_CHOCOLATES.includes(chocolate) ||
+          !VALID_FINISHES.includes(finish)
+        ) {
+          logger.error('Webhook metadata invalid', pi.metadata);
+          res.status(400).json({ received: false, error: 'invalid_metadata' });
+          return;
+        }
+
         const is_gift = pi.metadata.is_gift === 'true';
         const gift_note = pi.metadata.gift_note || null;
         const customer_email = pi.metadata.customer_email;

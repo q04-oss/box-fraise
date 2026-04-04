@@ -12,20 +12,25 @@ const router = Router();
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(businesses);
-    const contracts = await db
-      .select({
+    const [contracts, shopAccounts] = await Promise.all([
+      db.select({
         business_id: employmentContracts.business_id,
         display_name: users.display_name,
         email: users.email,
       })
       .from(employmentContracts)
       .innerJoin(users, eq(employmentContracts.user_id, users.id))
-      .where(eq(employmentContracts.status, 'active'));
+      .where(eq(employmentContracts.status, 'active')),
+      db.select({ id: users.id, business_id: users.business_id })
+        .from(users)
+        .where(eq(users.is_shop, true)),
+    ]);
 
     const placedByBiz = new Map(contracts.map(c => [
       c.business_id,
       c.display_name ?? c.email.split('@')[0],
     ]));
+    const shopByBiz = new Map(shopAccounts.map(u => [u.business_id, u.id]));
 
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     res.json(rows.map(b => ({
@@ -33,6 +38,7 @@ router.get('/', async (_req: Request, res: Response) => {
       lat: b.latitude ? parseFloat(String(b.latitude)) : null,
       lng: b.longitude ? parseFloat(String(b.longitude)) : null,
       placed_user_name: placedByBiz.get(b.id) ?? null,
+      shop_user_id: shopByBiz.get(b.id) ?? null,
     })));
   } catch (err) {
     logger.error('[businesses] GET / error:', err);
@@ -240,7 +246,7 @@ router.get('/:id/placed-history', async (req: Request, res: Response) => {
 });
 
 // POST /api/businesses/:id/tip — Stripe tip for placed user
-router.post('/:id/tip', async (req: Request, res: Response) => {
+router.post('/:id/tip', requireUser, async (req: Request, res: Response) => {
   const business_id = parseInt(req.params.id, 10);
   const { amount_cents } = req.body;
   if (isNaN(business_id) || !amount_cents || amount_cents < 100) {

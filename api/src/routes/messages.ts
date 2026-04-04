@@ -7,8 +7,21 @@ import { sendPushNotification } from '../lib/push';
 
 const router = Router();
 
-// Verify both users are verified and have an NFC connection
+// Verify messaging permission:
+// - Shop accounts can always be messaged (no NFC connection required)
+// - Peer-to-peer requires verified status + NFC connection
 async function canMessage(userA: number, userB: number): Promise<boolean> {
+  const [sender, recipient] = await Promise.all([
+    db.select({ verified: users.verified, is_shop: users.is_shop }).from(users).where(eq(users.id, userA)).then(r => r[0]),
+    db.select({ verified: users.verified, is_shop: users.is_shop }).from(users).where(eq(users.id, userB)).then(r => r[0]),
+  ]);
+  if (!sender || !recipient) return false;
+
+  // Either party is a shop account — always allowed
+  if (sender.is_shop || recipient.is_shop) return true;
+
+  // Peer-to-peer: both must be verified with an NFC connection
+  if (!sender.verified || !recipient.verified) return false;
   const [connection] = await db
     .select({ id: nfcConnections.id })
     .from(nfcConnections)
@@ -19,11 +32,7 @@ async function canMessage(userA: number, userB: number): Promise<boolean> {
       )
     )
     .limit(1);
-  if (!connection) return false;
-
-  const [sender] = await db.select({ verified: users.verified }).from(users).where(eq(users.id, userA));
-  const [recipient] = await db.select({ verified: users.verified }).from(users).where(eq(users.id, userB));
-  return !!(sender?.verified && recipient?.verified);
+  return !!connection;
 }
 
 // GET /api/messages/conversations — list all conversations for current user
@@ -35,6 +44,8 @@ router.get('/conversations', requireUser, async (req: Request, res: Response) =>
       other_user_id: number;
       display_name: string | null;
       user_code: string | null;
+      is_shop: boolean;
+      business_id: number | null;
       last_body: string;
       last_at: string;
       unread_count: number;
@@ -43,6 +54,8 @@ router.get('/conversations', requireUser, async (req: Request, res: Response) =>
         other_user_id,
         u.display_name,
         u.user_code,
+        u.is_shop,
+        u.business_id,
         last_body,
         last_at,
         unread_count

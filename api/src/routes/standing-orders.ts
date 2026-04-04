@@ -36,8 +36,8 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    res.status(400).json({ error: 'quantity must be a positive integer' });
+  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 24) {
+    res.status(400).json({ error: 'quantity must be between 1 and 24' });
     return;
   }
 

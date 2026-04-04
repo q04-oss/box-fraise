@@ -2394,4 +2394,44 @@ router.patch('/varieties/:id/sort-order', async (req: Request, res: Response) =>
   }
 });
 
+// POST /api/admin/businesses/:id/shop-account — create or return a fraise.chat shop account for a business
+router.post('/businesses/:id/shop-account', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const [biz] = await db.select().from(businesses).where(eq(businesses.id, id));
+    if (!biz) { res.status(404).json({ error: 'Business not found' }); return; }
+
+    // Check if a shop account already exists for this business
+    const [existing] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.is_shop, true), eq(users.business_id, id)));
+    if (existing) {
+      res.json({ user_id: existing.id, fraise_chat_email: existing.fraise_chat_email, already_existed: true });
+      return;
+    }
+
+    // Generate a fraise.chat email for the shop: slug@fraise.chat
+    const slug = biz.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const fraiseChatEmail = `${slug}@fraise.chat`;
+    const email = `shop+${id}@maison-fraise.com`;
+    const userCode = slug.substring(0, 6).toUpperCase().padEnd(6, '0');
+
+    const [shopUser] = await db.insert(users).values({
+      email,
+      display_name: biz.name,
+      fraise_chat_email: fraiseChatEmail,
+      user_code: userCode,
+      verified: true,
+      is_shop: true,
+      business_id: id,
+    }).returning();
+
+    res.json({ user_id: shopUser.id, fraise_chat_email: shopUser.fraise_chat_email, already_existed: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

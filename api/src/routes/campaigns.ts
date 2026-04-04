@@ -67,25 +67,34 @@ router.post('/:id/signup', requireUser, async (req: Request, res: Response) => {
       return;
     }
 
-    const onWaitlist = campaign.spots_remaining <= 0 || campaign.status === 'waitlist';
+    const signup = await db.transaction(async (tx) => {
+      // Re-read campaign inside transaction and lock the row
+      const [fresh] = await tx.execute<{ spots_remaining: number; status: string }>(
+        sql`SELECT spots_remaining, status FROM campaigns WHERE id = ${campaign_id} FOR UPDATE`
+      ).then((r: any) => (r.rows ?? r) as { spots_remaining: number; status: string }[]);
 
-    const [signup] = await db.insert(campaignSignups).values({
-      campaign_id,
-      user_id,
-      waitlist: onWaitlist,
-      status: onWaitlist ? 'waitlist' : 'confirmed',
-    }).returning();
+      const onWaitlist = !fresh || fresh.spots_remaining <= 0 || fresh.status === 'waitlist';
 
-    if (!onWaitlist) {
-      await db.update(campaigns)
-        .set({ spots_remaining: sql`${campaigns.spots_remaining} - 1` })
-        .where(eq(campaigns.id, campaign_id));
-    }
+      const [row] = await tx.insert(campaignSignups).values({
+        campaign_id,
+        user_id,
+        waitlist: onWaitlist,
+        status: onWaitlist ? 'waitlist' : 'confirmed',
+      }).returning();
 
-    await db.insert(legitimacyEvents).values({
-      user_id,
-      event_type: 'campaign_signup',
-      weight: 2,
+      if (!onWaitlist) {
+        await tx.update(campaigns)
+          .set({ spots_remaining: sql`${campaigns.spots_remaining} - 1` })
+          .where(and(eq(campaigns.id, campaign_id), sql`${campaigns.spots_remaining} > 0`));
+      }
+
+      await tx.insert(legitimacyEvents).values({
+        user_id,
+        event_type: 'campaign_signup',
+        weight: 2,
+      });
+
+      return row;
     });
 
     res.status(201).json(signup);

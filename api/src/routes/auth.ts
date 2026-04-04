@@ -90,6 +90,39 @@ async function handleAppleSignIn(req: Request, res: Response) {
 router.post('/apple', handleAppleSignIn);
 router.post('/apple/verify', handleAppleSignIn);
 
+// POST /api/auth/operator — shop account login with 6-char operator code
+router.post('/operator', async (req: Request, res: Response) => {
+  const { code } = req.body;
+  if (!code || typeof code !== 'string') {
+    res.status(400).json({ error: 'code is required' });
+    return;
+  }
+  try {
+    const [shopUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.user_code, code.trim().toUpperCase()))
+      .limit(1);
+
+    if (!shopUser || !shopUser.is_shop) {
+      res.status(401).json({ error: 'invalid_code' });
+      return;
+    }
+
+    const token = signToken(shopUser.id);
+    res.json({
+      user_id: shopUser.id,
+      token,
+      is_shop: true,
+      business_id: shopUser.business_id,
+      display_name: shopUser.display_name,
+      fraise_chat_email: shopUser.fraise_chat_email,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // POST /api/auth/demo — demo login for Apple reviewers
 router.post('/demo', async (req: Request, res: Response) => {
   const { email, password } = req.body;

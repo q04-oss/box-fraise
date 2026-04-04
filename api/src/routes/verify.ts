@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
 import { orders, users, legitimacyEvents } from '../db/schema';
 import { requireUser } from '../lib/auth';
@@ -18,7 +18,7 @@ router.post('/nfc', requireUser, async (req: Request, res: Response) => {
   try {
     const [order] = await db.select().from(orders).where(eq(orders.nfc_token, nfc_token));
 
-    if (!order || order.nfc_token_used) {
+    if (!order) {
       res.status(403).json({ error: 'This token is invalid or has already been used.' });
       return;
     }
@@ -29,9 +29,15 @@ router.post('/nfc', requireUser, async (req: Request, res: Response) => {
     const fraiseChatEmail = currentUser?.user_code ? `${currentUser.user_code}@fraise.chat` : null;
 
     await db.transaction(async (tx) => {
-      await tx.update(orders)
+      // Atomic claim: only succeeds if nfc_token_used is still false
+      const [claimed] = await tx.update(orders)
         .set({ nfc_token_used: true, nfc_verified_at: now })
-        .where(eq(orders.id, order.id));
+        .where(and(eq(orders.id, order.id), eq(orders.nfc_token_used, false)))
+        .returning({ id: orders.id });
+
+      if (!claimed) {
+        throw Object.assign(new Error('already_used'), { code: 'already_used' });
+      }
 
       await tx.update(users)
         .set({
@@ -65,7 +71,11 @@ router.post('/nfc', requireUser, async (req: Request, res: Response) => {
     }
 
     res.json({ verified: true, user_id, fraise_chat_email: fraiseChatEmail, unlocked: ['standing_orders', 'campaigns'] });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === 'already_used') {
+      res.status(403).json({ error: 'This token is invalid or has already been used.' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

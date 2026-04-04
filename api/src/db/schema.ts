@@ -162,6 +162,8 @@ export const users = pgTable('users', {
   portal_opted_in: boolean('portal_opted_in').notNull().default(false),
   banned: boolean('banned').notNull().default(false),
   ban_reason: text('ban_reason'),
+  is_shop: boolean('is_shop').notNull().default(false),
+  business_id: integer('business_id').references(() => businesses.id),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -466,6 +468,13 @@ export const membershipWaitlist = pgTable('membership_waitlist', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const nfcPairingTokens = pgTable('nfc_pairing_tokens', {
+  token: text('token').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  expires_at: timestamp('expires_at').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const nfcConnections = pgTable('nfc_connections', {
   id: serial('id').primaryKey(),
   user_a: integer('user_a').notNull().references(() => users.id),
@@ -631,6 +640,7 @@ export const messages = pgTable('messages', {
   recipient_id: integer('recipient_id').notNull().references(() => users.id),
   body: text('body').notNull(),
   read: boolean('read').notNull().default(false),
+  order_id: integer('order_id').references(() => orders.id),
   created_at: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   idx_sender: index('messages_sender_idx').on(t.sender_id),

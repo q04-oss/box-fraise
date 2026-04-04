@@ -3,7 +3,7 @@ import { eq, sql, and, desc, isNotNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import crypto from 'crypto';
 import { db } from '../db';
-import { orders, varieties, timeSlots, legitimacyEvents, users, referralCodes, locations, seasonPatronages, patronTokens } from '../db/schema';
+import { orders, varieties, timeSlots, legitimacyEvents, users, referralCodes, locations, seasonPatronages, patronTokens, messages, businesses } from '../db/schema';
 import { stripe } from '../lib/stripe';
 import { sendOrderConfirmation } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -178,6 +178,41 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
       }
     } catch (userErr) {
       logger.error('User upsert/legitimacy error (non-fatal)', userErr);
+    }
+
+    // Open shop thread — fire-and-forget
+    if (dbUserId && !isReview) {
+      (async () => {
+        try {
+          const [location] = await db.select({ business_id: locations.id }).from(locations).where(eq(locations.id, order.location_id));
+          if (!location) return;
+          // Find the shop user account linked to this business
+          const [shopUser] = await db
+            .select({ id: users.id, display_name: users.display_name, push_token: users.push_token })
+            .from(users)
+            .where(and(eq(users.is_shop, true), eq(users.business_id, location.business_id ?? order.location_id)));
+          if (!shopUser) return;
+          const [variety] = await db.select({ name: varieties.name }).from(varieties).where(eq(varieties.id, order.variety_id));
+          const [slot] = await db.select({ time: timeSlots.time, date: timeSlots.date }).from(timeSlots).where(eq(timeSlots.id, order.time_slot_id));
+          const timeStr = slot?.time ? slot.time.substring(0, 5) : '';
+          const body = `Order received — ${variety?.name ?? 'your order'} ready at ${timeStr}. See you then.`;
+          await db.insert(messages).values({
+            sender_id: shopUser.id,
+            recipient_id: dbUserId,
+            body,
+            order_id: order.id,
+          });
+          if (shopUser.push_token) {
+            sendPushNotification(shopUser.push_token, {
+              title: 'New order',
+              body: `Order #${order.id} placed`,
+              data: { screen: 'messages', user_id: dbUserId },
+            }).catch(() => {});
+          }
+        } catch (threadErr) {
+          logger.error('Order thread creation failed (non-fatal)', threadErr);
+        }
+      })();
     }
 
     // Send confirmation email — fire-and-forget
@@ -412,10 +447,10 @@ router.get('/:id/receipt', requireUser, async (req: Request, res: Response) => {
     if (!row) { res.status(404).json({ error: 'Order not found' }); return; }
     if (row.customer_email !== currentUser.email) { res.status(403).json({ error: 'forbidden' }); return; }
 
-    let worker: { id: number; display_name: string | null; portrait_url: string | null; portal_opted_in: boolean } | null = null;
+    let worker: { id: number; display_name: string | null; portrait_url: string | null } | null = null;
     if (row.worker_id !== null && row.worker_id !== undefined) {
       const [w] = await db
-        .select({ id: users.id, display_name: users.display_name, portrait_url: users.portrait_url, portal_opted_in: users.portal_opted_in })
+        .select({ id: users.id, display_name: users.display_name, portrait_url: users.portrait_url })
         .from(users)
         .where(eq(users.id, row.worker_id))
         .limit(1);
