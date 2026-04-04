@@ -241,6 +241,7 @@ export default function TerminalPanel() {
           setUserEmail(null); setUserDbId(null); setIsVerified(false); setIsShop(false);
           setFraiseChatEmail(null); setDisplayName(''); setRecentOrders([]);
           setOrder({ customer_email: '' });
+          goHome();
         },
       },
     ]);

@@ -445,7 +445,7 @@ export default function MapScreen() {
         }}
         scrollable
       >
-        <View style={{ height: contentHeight }} onLayout={onSheetLayout}>
+        <View style={{ height: contentHeight, backgroundColor: c.sheetBg }} onLayout={onSheetLayout}>
           <PanelErrorBoundary onReset={() => goHome()}>
             <PanelNavigator />
           </PanelErrorBoundary>

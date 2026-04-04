@@ -6,7 +6,7 @@ import { useColors, fonts, SPACING } from '../../theme';
 import { fetchConversations } from '../../lib/api';
 
 export default function ConversationsPanel() {
-  const { showPanel, setPanelData } = usePanel();
+  const { showPanel } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<any[]>([]);
@@ -21,14 +21,13 @@ export default function ConversationsPanel() {
   useEffect(() => { load(); }, []);
 
   const openThread = (conv: any) => {
-    setPanelData({
+    showPanel('messageThread', {
       userId: conv.other_user_id,
       displayName: conv.display_name,
       userCode: conv.user_code,
       isShop: conv.is_shop ?? false,
       businessId: conv.business_id ?? null,
     });
-    showPanel('messageThread');
   };
 
   const formatTime = (iso: string) => {

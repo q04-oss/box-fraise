@@ -39,7 +39,7 @@ export default function MessageThreadPanel() {
   }, []);
 
   const load = useCallback(() => {
-    if (!otherId) return;
+    if (!otherId) { setLoading(false); return; }
     fetchThread(otherId)
       .then(setMessages)
       .finally(() => setLoading(false));
