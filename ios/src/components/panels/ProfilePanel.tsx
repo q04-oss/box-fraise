@@ -270,20 +270,22 @@ export default function ProfilePanel() {
           /* Signed out state */
           <View style={styles.signInBlock}>
             <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
-            {signingIn ? <ActivityIndicator color={c.accent} /> : (
-              <>
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={14}
-                  style={styles.appleBtn}
-                  onPress={handleAppleSignIn}
-                />
-                <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6}>
-                  <Text style={[styles.demoText, { color: c.muted }]}>use demo account</Text>
-                </TouchableOpacity>
-              </>
-            )}
+            <View style={styles.signInButtons}>
+              {signingIn ? <ActivityIndicator color={c.accent} /> : (
+                <>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={14}
+                    style={styles.appleBtn}
+                    onPress={handleAppleSignIn}
+                  />
+                  <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6}>
+                    <Text style={[styles.demoText, { color: c.muted }]}>use demo account</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </View>
         )}
 
@@ -312,8 +314,9 @@ const styles = StyleSheet.create({
   historyRow: { gap: 2 },
   historyVariety: { fontSize: 15, fontFamily: fonts.playfair },
   historyDetail: { fontSize: 11, fontFamily: fonts.dmMono },
-  signInBlock: { paddingTop: SPACING.md, gap: 16, alignItems: 'center' },
-  signInPrompt: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1 },
+  signInBlock: { paddingTop: 4, alignItems: 'center', gap: 0 },
+  signInPrompt: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1, paddingVertical: SPACING.sm },
+  signInButtons: { paddingTop: 48, gap: 16, alignItems: 'center', width: '100%' },
   appleBtn: { height: 44, width: '100%' },
   demoText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
