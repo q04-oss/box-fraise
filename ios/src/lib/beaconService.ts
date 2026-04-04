@@ -14,6 +14,7 @@ export interface BeaconRegion {
 let knownBeacons: BeaconRegion[] = [];
 let monitoring = false;
 let onNearbyShop: ((shopUserId: number, shopName: string, businessId: number) => void) | null = null;
+let regionDidEnterSubscription: { remove: () => void } | null = null;
 
 export function setOnNearbyShop(cb: typeof onNearbyShop) {
   onNearbyShop = cb;
@@ -38,7 +39,7 @@ export async function loadAndMonitorBeacons() {
 
     // Region entry — user walked into range
     const BeaconsEventEmitter = new NativeEventEmitter(NativeModules.RNiBeacon);
-    BeaconsEventEmitter.addListener('regionDidEnter', async (region: any) => {
+    regionDidEnterSubscription = BeaconsEventEmitter.addListener('regionDidEnter', async (region: any) => {
       const match = knownBeacons.find(b => b.uuid.toLowerCase() === region.uuid?.toLowerCase());
       if (!match) return;
 
@@ -67,6 +68,8 @@ export async function loadAndMonitorBeacons() {
 
 export function stopMonitoring() {
   if (!monitoring) return;
+  regionDidEnterSubscription?.remove();
+  regionDidEnterSubscription = null;
   for (const beacon of knownBeacons) {
     Beacons.stopMonitoringForRegion({ identifier: beacon.uuid, uuid: beacon.uuid });
     Beacons.stopRangingBeaconsInRegion({ identifier: beacon.uuid, uuid: beacon.uuid });

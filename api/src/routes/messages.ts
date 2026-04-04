@@ -260,10 +260,15 @@ router.post('/offer/:messageId/accept', requireUser, async (req: Request, res: R
       },
     }, { idempotencyKey: `offer-${messageId}` });
 
-    // Mark offer as accepted, store payment intent id
-    await db.update(messages).set({
+    // Atomically mark as accepted only if still pending — prevents concurrent accepts
+    const updatedRows = await db.update(messages).set({
       metadata: { ...meta, status: 'accepted', stripe_payment_intent_id: paymentIntent.id, customer_email, push_token: push_token ?? null },
-    }).where(eq(messages.id, messageId));
+    }).where(and(eq(messages.id, messageId), sql`(metadata->>'status') = 'pending'`)).returning({ id: messages.id });
+
+    if (updatedRows.length === 0) {
+      res.status(400).json({ error: 'Offer already accepted or expired' });
+      return;
+    }
 
     res.json({ client_secret: paymentIntent.client_secret, payment_intent_id: paymentIntent.id, total_cents: meta.total_cents });
   } catch (err) {
@@ -294,41 +299,66 @@ router.post('/offer/:messageId/confirm', requireUser, async (req: Request, res: 
 
     const nfc_token = randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
 
-    // Create the order
-    const [order] = await db.insert(orders).values({
-      variety_id: meta.variety_id,
-      location_id: meta.location_id,
-      time_slot_id: meta.time_slot_id,
-      chocolate: meta.chocolate,
-      finish: meta.finish,
-      quantity: meta.quantity,
-      is_gift: false,
-      total_cents: meta.total_cents,
-      stripe_payment_intent_id: meta.stripe_payment_intent_id,
-      status: 'paid',
-      customer_email: meta.customer_email,
-      push_token: meta.push_token ?? null,
-      nfc_token,
-    }).returning();
+    // Atomically: re-check status, decrement stock, create order, update offer, send confirmation
+    const { orderId } = await db.transaction(async (tx) => {
+      // Guard against concurrent confirms
+      const [current] = await tx.select({ metadata: messages.metadata }).from(messages).where(eq(messages.id, messageId));
+      const currentMeta = current?.metadata as any;
+      if (currentMeta?.status !== 'accepted') throw Object.assign(new Error('already_confirmed'), { status: 402 });
 
-    // Mark offer as paid, link to order
-    await db.update(messages).set({
-      metadata: { ...meta, status: 'paid', order_id: order.id, nfc_token },
-      order_id: order.id,
-    }).where(eq(messages.id, messageId));
+      // Re-check and decrement stock atomically
+      const stockResult = await tx
+        .update(varieties)
+        .set({ stock_remaining: sql`${varieties.stock_remaining} - ${meta.quantity}` })
+        .where(and(eq(varieties.id, meta.variety_id), sql`${varieties.stock_remaining} >= ${meta.quantity}`))
+        .returning({ stock_remaining: varieties.stock_remaining });
+      if (stockResult.length === 0) throw Object.assign(new Error('sold_out'), { status: 409 });
 
-    // Send confirmation message back in the thread
-    await db.insert(messages).values({
-      sender_id: message.sender_id,
-      recipient_id: userId,
-      body: `order confirmed — pick up ${meta.slot_date} at ${meta.slot_time}`,
-      type: 'order_confirm',
-      metadata: { order_id: order.id, nfc_token, slot_date: meta.slot_date, slot_time: meta.slot_time, variety_name: meta.variety_name },
-      order_id: order.id,
+      // Decrement slot booking
+      await tx
+        .update(timeSlots)
+        .set({ booked: sql`${timeSlots.booked} + ${meta.quantity}` })
+        .where(eq(timeSlots.id, meta.time_slot_id));
+
+      const [order] = await tx.insert(orders).values({
+        variety_id: meta.variety_id,
+        location_id: meta.location_id,
+        time_slot_id: meta.time_slot_id,
+        chocolate: meta.chocolate,
+        finish: meta.finish,
+        quantity: meta.quantity,
+        is_gift: false,
+        total_cents: meta.total_cents,
+        stripe_payment_intent_id: meta.stripe_payment_intent_id,
+        status: 'paid',
+        customer_email: meta.customer_email,
+        push_token: meta.push_token ?? null,
+        nfc_token,
+      }).returning();
+
+      await tx.update(messages).set({
+        metadata: { ...meta, status: 'paid', order_id: order.id, nfc_token },
+        order_id: order.id,
+      }).where(eq(messages.id, messageId));
+
+      await tx.insert(messages).values({
+        sender_id: message.sender_id,
+        recipient_id: userId,
+        body: `order confirmed — pick up ${meta.slot_date} at ${meta.slot_time}`,
+        type: 'order_confirm',
+        metadata: { order_id: order.id, nfc_token, slot_date: meta.slot_date, slot_time: meta.slot_time, variety_name: meta.variety_name },
+        order_id: order.id,
+      });
+
+      return { orderId: order.id };
     });
 
-    res.json({ order_id: order.id, nfc_token });
-  } catch (err) {
+    res.json({ order_id: orderId, nfc_token });
+  } catch (err: any) {
+    if (err?.status) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
