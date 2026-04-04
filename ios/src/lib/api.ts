@@ -179,6 +179,15 @@ export async function updatePushToken(push_token: string): Promise<void> {
   });
 }
 
+export async function updateDisplayName(display_name: string): Promise<void> {
+  const auth = await authHeader();
+  await fetch(`${BASE_URL}/api/auth/display-name`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ display_name }),
+  });
+}
+
 export async function fetchHostedPopups(userId: number) {
   const res = await fetch(`${BASE_URL}/api/users/${userId}/hosted-popups`);
   if (!res.ok) throw new Error('Failed to fetch hosted popups');

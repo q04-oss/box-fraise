@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, ActivityIndicator, Alert,
+  StyleSheet, ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -10,7 +10,7 @@ import { usePanel } from '../../context/PanelContext';
 import {
   verifyAppleSignIn, setAuthToken,
   fetchOrdersByEmail,
-  demoLogin,
+  demoLogin, updateDisplayName,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -23,9 +23,12 @@ export default function ProfilePanel() {
   const [userDbId, setUserDbId] = useState<number | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [fraiseChatEmail, setFraiseChatEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('');
+  const [editingName, setEditingName] = useState(false);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const nameInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Promise.all([
@@ -33,10 +36,12 @@ export default function ProfilePanel() {
       AsyncStorage.getItem('verified'),
       AsyncStorage.getItem('user_db_id'),
       AsyncStorage.getItem('fraise_chat_email'),
-    ]).then(([email, verified, dbId, chatEmail]) => {
+      AsyncStorage.getItem('display_name'),
+    ]).then(([email, verified, dbId, chatEmail, name]) => {
       setIsVerified(verified === 'true');
       if (dbId) setUserDbId(parseInt(dbId, 10));
       if (chatEmail) setFraiseChatEmail(chatEmail);
+      if (name) setDisplayName(name);
       if (email) {
         setUserEmail(email);
         fetchOrdersByEmail()
@@ -129,16 +134,26 @@ export default function ProfilePanel() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out', style: 'destructive', onPress: async () => {
-          await AsyncStorage.multiRemove(['user_email', 'user_db_id', 'verified', 'is_dj', 'auth_token', 'fraise_chat_email']);
+          await AsyncStorage.multiRemove(['user_email', 'user_db_id', 'verified', 'is_dj', 'auth_token', 'fraise_chat_email', 'display_name']);
           setUserEmail(null);
           setUserDbId(null);
           setIsVerified(false);
           setFraiseChatEmail(null);
+          setDisplayName('');
           setRecentOrders([]);
           setOrder({ customer_email: '' });
         },
       },
     ]);
+  };
+
+  const handleSaveName = async (name: string) => {
+    setEditingName(false);
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === displayName) return;
+    setDisplayName(trimmed);
+    await AsyncStorage.setItem('display_name', trimmed);
+    updateDisplayName(trimmed).catch(() => {});
   };
 
   const lastOrder = recentOrders[0] ?? null;
@@ -178,7 +193,26 @@ export default function ProfilePanel() {
         <View style={styles.headerCenter}>
           {userEmail ? (
             <>
-              {isVerified && <Text style={[styles.headerVerified, { color: c.accent }]}>Verified member</Text>}
+              {editingName ? (
+                <TextInput
+                  ref={nameInputRef}
+                  style={[styles.headerNameInput, { color: c.text }]}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  onSubmitEditing={e => handleSaveName(e.nativeEvent.text)}
+                  onBlur={e => handleSaveName(e.nativeEvent.text)}
+                  returnKeyType="done"
+                  autoFocus
+                  placeholder="Your name"
+                  placeholderTextColor={c.muted}
+                />
+              ) : (
+                <TouchableOpacity onPress={() => setEditingName(true)} activeOpacity={0.7}>
+                  <Text style={[styles.headerName, { color: c.text }]}>
+                    {displayName || 'Add a name'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {fraiseChatEmail && (
                 <TouchableOpacity onPress={() => showPanel('conversations')} activeOpacity={0.7}>
                   <Text style={[styles.headerChatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
@@ -292,8 +326,8 @@ const styles = StyleSheet.create({
   backBtn: { paddingVertical: 4, flexShrink: 0 },
   backBtnText: { fontSize: 28, lineHeight: 34 },
   headerCenter: { flex: 1, paddingHorizontal: SPACING.sm, gap: 2 },
-  headerEmail: { fontSize: 15, fontFamily: fonts.playfair },
-  headerVerified: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1 },
+  headerName: { fontSize: 17, fontFamily: fonts.playfair },
+  headerNameInput: { fontSize: 17, fontFamily: fonts.playfair, padding: 0 },
   headerChatEmail: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   headerSpacer: { width: 40 },
   signOutBtn: { paddingVertical: 4, paddingHorizontal: 4 },

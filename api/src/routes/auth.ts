@@ -135,4 +135,19 @@ router.patch('/push-token', requireUser, async (req: Request, res: Response) => 
   }
 });
 
+// PATCH /api/auth/display-name — update display name for the authenticated user
+router.patch('/display-name', requireUser, async (req: Request, res: Response) => {
+  const { display_name } = req.body;
+  const userId = (req as any).userId as number;
+  if (!display_name || !display_name.trim()) {
+    res.status(400).json({ error: 'display_name is required' }); return;
+  }
+  try {
+    await db.update(users).set({ display_name: display_name.trim() }).where(eq(users.id, userId));
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 export default router;
