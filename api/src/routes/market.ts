@@ -66,8 +66,9 @@ db.execute(sql`
   )
 `).catch(() => {});
 
-// ─── GET /api/market/upcoming ─────────────────────────────────────────────────
+// ─── Specific paths must be registered BEFORE /:id ───────────────────────────
 
+// GET /api/market/upcoming
 router.get('/upcoming', async (_req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
@@ -86,6 +87,46 @@ router.get('/upcoming', async (_req: Request, res: Response) => {
     res.json(rows);
   } catch (err) {
     logger.error('[market] GET /upcoming', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── GET /api/market/my-orders — must be before /:id ─────────────────────────
+
+router.get('/my-orders', requireUser, async (req: any, res: Response) => {
+  const userId: number = req.userId;
+  try {
+    const rows = await db.execute(sql`
+      SELECT mo.*, mp.name AS product_name, mp.unit, ms.vendor_name, md.name AS market_name, md.starts_at
+      FROM market_orders mo
+      JOIN market_products mp ON mp.id = mo.product_id
+      JOIN market_stalls ms ON ms.id = mo.stall_id
+      JOIN market_dates md ON md.id = mo.market_date_id
+      WHERE mo.buyer_user_id = ${userId}
+      ORDER BY mo.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── PATCH /api/market/orders/:id/collect — must be before /:id ──────────────
+
+router.patch('/orders/:id/collect', requireUser, async (req: any, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  const userId: number = req.userId;
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const [updated] = await db.execute(sql`
+      UPDATE market_orders
+      SET status = 'collected', collected_at = now()
+      WHERE id = ${id} AND buyer_user_id = ${userId} AND status = 'paid'
+      RETURNING id
+    `);
+    if (!updated) { res.status(404).json({ error: 'order_not_found_or_not_paid' }); return; }
+    res.json({ ok: true });
+  } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -165,6 +206,19 @@ router.post('/:id/order', requireUser, async (req: any, res: Response) => {
       res.status(409).json({ error: 'insufficient_stock' }); return;
     }
 
+    // Idempotency: return existing pending order if one exists for this user + product
+    const [existing] = await db.execute(sql`
+      SELECT id, payment_intent_id FROM market_orders
+      WHERE product_id = ${product_id} AND buyer_user_id = ${userId} AND status = 'pending'
+      LIMIT 1
+    `);
+    if (existing) {
+      const ex = existing as any;
+      const existingPi = await stripe.paymentIntents.retrieve(ex.payment_intent_id);
+      res.json({ client_secret: existingPi.client_secret, amount_cents: p.price_cents * quantity });
+      return;
+    }
+
     const amount = p.price_cents * quantity;
     const pi = await stripe.paymentIntents.create({
       amount,
@@ -187,46 +241,6 @@ router.post('/:id/order', requireUser, async (req: any, res: Response) => {
     res.json({ client_secret: pi.client_secret, amount_cents: amount });
   } catch (err) {
     logger.error('[market] POST /:id/order', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ─── PATCH /api/market/orders/:id/collect — buyer confirms pickup ─────────────
-
-router.patch('/orders/:id/collect', requireUser, async (req: any, res: Response) => {
-  const id = parseInt(req.params.id, 10);
-  const userId: number = req.userId;
-  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
-  try {
-    const [updated] = await db.execute(sql`
-      UPDATE market_orders
-      SET status = 'collected', collected_at = now()
-      WHERE id = ${id} AND buyer_user_id = ${userId} AND status = 'paid'
-      RETURNING id
-    `);
-    if (!updated) { res.status(404).json({ error: 'order_not_found_or_not_paid' }); return; }
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ─── GET /api/market/my-orders — buyer's orders ───────────────────────────────
-
-router.get('/my-orders', requireUser, async (req: any, res: Response) => {
-  const userId: number = req.userId;
-  try {
-    const rows = await db.execute(sql`
-      SELECT mo.*, mp.name AS product_name, mp.unit, ms.vendor_name, md.name AS market_name, md.starts_at
-      FROM market_orders mo
-      JOIN market_products mp ON mp.id = mo.product_id
-      JOIN market_stalls ms ON ms.id = mo.stall_id
-      JOIN market_dates md ON md.id = mo.market_date_id
-      WHERE mo.buyer_user_id = ${userId}
-      ORDER BY mo.created_at DESC
-    `);
-    res.json(rows);
-  } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1375,7 +1375,7 @@ export async function fetchCollectifsByBusiness(businessName: string): Promise<a
 export async function createCollectif(payload: {
   business_name: string;
   business_id?: number;
-  collectif_type?: 'product' | 'popup';
+  collectif_type?: 'product' | 'popup' | 'vendor_invite' | 'product_prebuy';
   title: string;
   description?: string;
   proposed_discount_pct?: number;

@@ -72,7 +72,7 @@ export default function CollectifCreatePanel() {
       try {
         await createCollectif({
           business_name: businessName.trim(),
-          collectif_type: 'vendor_invite' as any,
+          collectif_type: 'vendor_invite',
           title: title.trim(),
           description: description.trim() || undefined,
           price_cents: deposit,
@@ -100,7 +100,7 @@ export default function CollectifCreatePanel() {
       try {
         await createCollectif({
           business_name: businessName.trim(),
-          collectif_type: 'product_prebuy' as any,
+          collectif_type: 'product_prebuy',
           title: title.trim(),
           description: description.trim() || undefined,
           price_cents: price,
