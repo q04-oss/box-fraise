@@ -1018,7 +1018,12 @@ export async function fetchMyPortalContent(): Promise<any[]> {
   return r.json();
 }
 
-export async function fetchIdentitySession(): Promise<{ already_verified: boolean; session: { verificationSessionId: string; ephemeralKeySecret: string } | null }> {
+export async function fetchIdentitySession(): Promise<{
+  already_verified: boolean;
+  identity_expired?: boolean;
+  attestation_expired?: boolean;
+  session: { verificationSessionId: string; ephemeralKeySecret: string } | null;
+}> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/portal/identity-session`, { headers: auth });
   if (!r.ok) return { already_verified: false, session: null };

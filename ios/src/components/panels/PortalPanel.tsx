@@ -42,6 +42,8 @@ export default function PortalPanel() {
   const [verified, setVerified] = useState<boolean | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
   const [identityVerified, setIdentityVerified] = useState(false);
+  const [identityExpired, setIdentityExpired] = useState(false);
+  const [attestationExpired, setAttestationExpired] = useState(false);
   const [pendingSession, setPendingSession] = useState<{ verificationSessionId: string; ephemeralKeySecret: string } | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [tab, setTab] = useState<Tab>('mine');
@@ -107,17 +109,22 @@ export default function PortalPanel() {
       loadViewContent();
     } else {
       loadMain();
-      // Check for a pending operator-initiated identity session
-      if (!identityVerified) {
-        fetchIdentitySession().then(data => {
-          if (data.already_verified) {
-            AsyncStorage.setItem('identity_verified', 'true');
-            setIdentityVerified(true);
-          } else if (data.session) {
-            setPendingSession(data.session);
-          }
-        }).catch(() => {});
-      }
+      // Always check identity session — detects expiry and pending sessions
+      fetchIdentitySession().then(data => {
+        if (data.already_verified) {
+          AsyncStorage.setItem('identity_verified', 'true');
+          setIdentityVerified(true);
+        } else if (data.identity_expired) {
+          AsyncStorage.removeItem('identity_verified');
+          setIdentityVerified(false);
+          setIdentityExpired(true);
+        } else if (data.attestation_expired) {
+          setAttestationExpired(true);
+          setPendingSession(null);
+        } else if (data.session) {
+          setPendingSession(data.session);
+        }
+      }).catch(() => {});
     }
   }, [verified, consented, viewOwnerId]);
 
@@ -354,6 +361,24 @@ export default function PortalPanel() {
             scan your passport or driver's license
           </Text>
         </TouchableOpacity>
+      ) : identityExpired ? (
+        <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
+          <Text style={[styles.uploadText, { color: c.muted }]}>
+            id verification expired
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            your 2-year verification period has ended — visit a shop to re-verify
+          </Text>
+        </View>
+      ) : attestationExpired ? (
+        <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
+          <Text style={[styles.uploadText, { color: c.muted }]}>
+            attestation window expired
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            the 24-hour window to complete your scan has passed — visit a shop to restart
+          </Text>
+        </View>
       ) : (
         <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
           <Text style={[styles.uploadText, { color: c.muted }]}>

@@ -16,7 +16,24 @@ db.execute(sql`
     ADD COLUMN IF NOT EXISTS identity_verified_at timestamptz,
     ADD COLUMN IF NOT EXISTS identity_session_id text,
     ADD COLUMN IF NOT EXISTS id_attested_by integer,
-    ADD COLUMN IF NOT EXISTS id_attested_at timestamptz
+    ADD COLUMN IF NOT EXISTS id_attested_at timestamptz,
+    ADD COLUMN IF NOT EXISTS id_attestation_expires_at timestamptz,
+    ADD COLUMN IF NOT EXISTS id_verified_name text,
+    ADD COLUMN IF NOT EXISTS id_verified_dob text,
+    ADD COLUMN IF NOT EXISTS identity_verified_expires_at timestamptz
+`).catch(() => {});
+
+db.execute(sql`
+  CREATE TABLE IF NOT EXISTS id_attestation_log (
+    id serial PRIMARY KEY,
+    user_id integer NOT NULL,
+    attested_by integer NOT NULL,
+    attested_at timestamptz NOT NULL DEFAULT now(),
+    outcome text NOT NULL DEFAULT 'pending',
+    stripe_session_id text,
+    id_verified_name text,
+    id_verified_dob text
+  )
 `).catch(() => {});
 
 // Shared opt-in logic
@@ -115,14 +132,15 @@ router.post('/request-access/:ownerId', requireVerifiedUser, async (req: Request
       return;
     }
 
-    // Require government ID verification to subscribe
+    // Require government ID verification to subscribe (also check it hasn't expired)
     const [buyer] = await db
-      .select({ identity_verified: users.identity_verified })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
       .from(users)
       .where(eq(users.id, buyerId))
       .limit(1);
 
-    if (!buyer?.identity_verified) {
+    const idExpired = buyer?.identity_verified_expires_at && new Date() > new Date(buyer.identity_verified_expires_at);
+    if (!buyer?.identity_verified || idExpired) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }
@@ -164,14 +182,43 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
   const userId: number = (req as any).userId;
   try {
     const [user] = await db
-      .select({ identity_verified: users.identity_verified, identity_session_id: users.identity_session_id })
+      .select({
+        identity_verified: users.identity_verified,
+        identity_session_id: users.identity_session_id,
+        identity_verified_expires_at: users.identity_verified_expires_at,
+        id_attestation_expires_at: users.id_attestation_expires_at,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
 
     if (!user) { res.status(404).json({ error: 'not_found' }); return; }
-    if (user.identity_verified) { res.json({ already_verified: true, session: null }); return; }
+
+    if (user.identity_verified) {
+      // Check whether the 2-year verification period has lapsed
+      const expired = user.identity_verified_expires_at && new Date() > new Date(user.identity_verified_expires_at);
+      if (expired) {
+        res.json({ already_verified: false, identity_expired: true, session: null });
+        return;
+      }
+      res.json({ already_verified: true, session: null });
+      return;
+    }
+
     if (!user.identity_session_id) { res.json({ already_verified: false, session: null }); return; }
+
+    // Check whether the operator's 24-hour attestation window has lapsed
+    if (user.id_attestation_expires_at && new Date() > new Date(user.id_attestation_expires_at)) {
+      await db.execute(sql`
+        UPDATE users SET identity_session_id = NULL, id_attestation_expires_at = NULL WHERE id = ${userId}
+      `).catch(() => {});
+      await db.execute(sql`
+        UPDATE id_attestation_log SET outcome = 'expired'
+        WHERE user_id = ${userId} AND outcome = 'pending'
+      `).catch(() => {});
+      res.json({ already_verified: false, attestation_expired: true, session: null });
+      return;
+    }
 
     // Create a fresh ephemeral key for the existing session
     const ephemeralKey = await (stripe as any).ephemeralKeys.create(
@@ -230,9 +277,35 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
     if (!targetUser.verified) { res.status(400).json({ error: 'user_must_be_nfc_verified_first' }); return; }
     if (targetUser.identity_verified) { res.json({ ok: true, already_verified: true }); return; }
 
-    // Record operator attestation — the employee physically examined the ID
+    // Guard: operator cannot attest for themselves
+    if (operatorId === targetUser.id) {
+      res.status(403).json({ error: 'cannot_self_attest' });
+      return;
+    }
+
+    // Rate limit: max 10 attestations per operator per hour
+    const rateRows = await db.execute(sql`
+      SELECT COUNT(*) AS count FROM id_attestation_log
+      WHERE attested_by = ${operatorId} AND attested_at > now() - interval '1 hour'
+    `);
+    const attestCount = parseInt((rateRows as any)[0]?.count ?? '0', 10);
+    if (attestCount >= 10) {
+      res.status(429).json({ error: 'attestation_rate_limit_exceeded' });
+      return;
+    }
+
+    // Mark any stale pending log entries as expired before creating a new one
     await db.execute(sql`
-      UPDATE users SET id_attested_by = ${operatorId}, id_attested_at = now()
+      UPDATE id_attestation_log SET outcome = 'expired'
+      WHERE user_id = ${targetUser.id} AND outcome = 'pending'
+    `);
+
+    // Record operator attestation — the employee physically examined the ID
+    // Attestation is valid for 24 hours; member must complete the Stripe scan in that window
+    await db.execute(sql`
+      UPDATE users
+      SET id_attested_by = ${operatorId}, id_attested_at = now(),
+          id_attestation_expires_at = now() + interval '24 hours'
       WHERE id = ${targetUser.id}
     `);
 
@@ -249,6 +322,12 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
     });
 
     await db.execute(sql`UPDATE users SET identity_session_id = ${session.id} WHERE id = ${targetUser.id}`);
+
+    // Append to immutable attestation log
+    await db.execute(sql`
+      INSERT INTO id_attestation_log (user_id, attested_by, stripe_session_id)
+      VALUES (${targetUser.id}, ${operatorId}, ${session.id})
+    `);
 
     if (targetUser.push_token) {
       sendPushNotification(targetUser.push_token, {
@@ -290,14 +369,15 @@ router.get('/:userId/content', requireVerifiedUser, async (req: Request, res: Re
   }
 
   try {
-    // Require government ID verification to view content
+    // Require government ID verification to view content (also check it hasn't expired)
     const [buyer] = await db
-      .select({ identity_verified: users.identity_verified })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
       .from(users)
       .where(eq(users.id, buyerId))
       .limit(1);
 
-    if (!buyer?.identity_verified) {
+    const buyerIdExpired = buyer?.identity_verified_expires_at && new Date() > new Date(buyer.identity_verified_expires_at);
+    if (!buyer?.identity_verified || buyerIdExpired) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }
@@ -355,14 +435,15 @@ router.post('/:userId/upload', requireVerifiedUser, async (req: Request, res: Re
   }
 
   try {
-    // Require government ID verification to post content
+    // Require government ID verification to post content (also check it hasn't expired)
     const [creator] = await db
-      .select({ identity_verified: users.identity_verified })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
       .from(users)
       .where(eq(users.id, requestingUserId))
       .limit(1);
 
-    if (!creator?.identity_verified) {
+    const creatorIdExpired = creator?.identity_verified_expires_at && new Date() > new Date(creator.identity_verified_expires_at);
+    if (!creator?.identity_verified || creatorIdExpired) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }

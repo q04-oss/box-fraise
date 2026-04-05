@@ -165,6 +165,10 @@ export const users = pgTable('users', {
   identity_session_id: text('identity_session_id'),
   id_attested_by: integer('id_attested_by').references(() => users.id),
   id_attested_at: timestamp('id_attested_at'),
+  id_attestation_expires_at: timestamp('id_attestation_expires_at'),
+  id_verified_name: text('id_verified_name'),
+  id_verified_dob: text('id_verified_dob'),
+  identity_verified_expires_at: timestamp('identity_verified_expires_at'),
   banned: boolean('banned').notNull().default(false),
   ban_reason: text('ban_reason'),
   is_shop: boolean('is_shop').notNull().default(false),
@@ -739,6 +743,19 @@ export const collectifs = pgTable('collectifs', {
   business_response_note: text('business_response_note'),
   responded_at: timestamp('responded_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Portal ID attestation log (append-only, never overwritten) ──────────────
+
+export const idAttestationLog = pgTable('id_attestation_log', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  attested_by: integer('attested_by').notNull().references(() => users.id),
+  attested_at: timestamp('attested_at').notNull().defaultNow(),
+  outcome: text('outcome').notNull().default('pending'), // 'pending' | 'verified' | 'failed' | 'expired'
+  stripe_session_id: text('stripe_session_id'),
+  id_verified_name: text('id_verified_name'),
+  id_verified_dob: text('id_verified_dob'),
 });
 
 export const collectifCommitments = pgTable('collectif_commitments', {

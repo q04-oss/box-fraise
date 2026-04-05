@@ -728,11 +728,34 @@ router.post('/webhook', async (req: Request, res: Response) => {
       const session = event.data.object as any;
       const userId = parseInt(session.metadata?.user_id ?? '', 10);
       if (!isNaN(userId)) {
+        // Extract what Stripe verified from the document
+        const outputs = session.verified_outputs ?? {};
+        const firstName = outputs.first_name ?? '';
+        const lastName = outputs.last_name ?? '';
+        const verifiedName = [firstName, lastName].filter(Boolean).join(' ') || null;
+        const dob = outputs.dob;
+        const verifiedDob = dob
+          ? `${dob.year}-${String(dob.month).padStart(2, '0')}-${String(dob.day).padStart(2, '0')}`
+          : null;
+
         await db.execute(sql`
           UPDATE users
-          SET identity_verified = true, identity_verified_at = NOW(), identity_session_id = NULL
+          SET identity_verified = true,
+              identity_verified_at = NOW(),
+              identity_session_id = NULL,
+              id_verified_name = ${verifiedName},
+              id_verified_dob = ${verifiedDob},
+              identity_verified_expires_at = NOW() + interval '2 years'
           WHERE id = ${userId}
         `);
+
+        // Update log: record Stripe's extracted data and mark verified
+        await db.execute(sql`
+          UPDATE id_attestation_log
+          SET outcome = 'verified', id_verified_name = ${verifiedName}, id_verified_dob = ${verifiedDob}
+          WHERE stripe_session_id = ${session.id}
+        `).catch(() => {});
+
         const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
         if (user?.push_token) {
           sendPushNotification(user.push_token, {
@@ -751,6 +774,13 @@ router.post('/webhook', async (req: Request, res: Response) => {
       const userId = parseInt(session.metadata?.user_id ?? '', 10);
       if (!isNaN(userId)) {
         await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`);
+
+        // Mark log entry as failed
+        await db.execute(sql`
+          UPDATE id_attestation_log SET outcome = 'failed'
+          WHERE stripe_session_id = ${session.id}
+        `).catch(() => {});
+
         const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
         if (user?.push_token) {
           sendPushNotification(user.push_token, {
