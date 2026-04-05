@@ -278,13 +278,12 @@ export default function MapScreen() {
 
   const handleMarkerLongPress = (biz: any) => {
     goHome();
-    setPanelData({
+    showPanel('collectif-create', {
       collectifType: biz.type === 'popup' ? 'popup' : 'product',
       businessName: biz.name,
       proposedVenue: biz.name,
       proposedDate: biz.type === 'popup' && biz.starts_at ? biz.starts_at.slice(0, 10) : '',
     });
-    showPanel('collectif-create');
     setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
   };
 
