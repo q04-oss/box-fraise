@@ -25,6 +25,9 @@ async function uniqueUserCode(): Promise<string> {
   return code;
 }
 
+// Self-healing: ensure columns added in later migrations exist
+db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_dorotka boolean NOT NULL DEFAULT false`).catch(() => {});
+
 const router = Router();
 
 async function handleAppleSignIn(req: Request, res: Response) {
