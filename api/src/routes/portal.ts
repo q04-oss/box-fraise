@@ -8,6 +8,14 @@ import { calculateCut } from '../lib/portal';
 
 const router = Router();
 
+// Self-healing: add identity verification columns if they don't exist yet
+db.execute(sql`
+  ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS identity_verified boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS identity_verified_at timestamptz,
+    ADD COLUMN IF NOT EXISTS identity_session_id text
+`).catch(() => {});
+
 // Shared opt-in logic
 async function performOptIn(userId: number, ipAddress: string | undefined, res: Response): Promise<void> {
   try {
@@ -136,6 +144,39 @@ router.post('/request-access/:ownerId', requireVerifiedUser, async (req: Request
   }
 });
 
+// GET /api/portal/identity-session — return pending Stripe Identity session for the user
+router.get('/identity-session', requireVerifiedUser, async (req: Request, res: Response) => {
+  const userId: number = (req as any).userId;
+  try {
+    const [user] = await db
+      .select({ identity_verified: users.identity_verified, identity_session_id: users.identity_session_id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) { res.status(404).json({ error: 'not_found' }); return; }
+    if (user.identity_verified) { res.json({ already_verified: true, session: null }); return; }
+    if (!user.identity_session_id) { res.json({ already_verified: false, session: null }); return; }
+
+    // Create a fresh ephemeral key for the existing session
+    const ephemeralKey = await (stripe as any).ephemeralKeys.create(
+      { verification_session: user.identity_session_id },
+      { apiVersion: '2023-10-16' },
+    );
+    res.json({
+      already_verified: false,
+      session: {
+        verificationSessionId: user.identity_session_id,
+        ephemeralKeySecret: ephemeralKey.secret,
+      },
+    });
+  } catch {
+    // Session may have expired or been cancelled — clear it
+    await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`);
+    res.json({ already_verified: false, session: null });
+  }
+});
+
 // GET /api/portal/my-content — own content (no access check required)
 router.get('/my-content', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
@@ -204,6 +245,18 @@ router.post('/:userId/upload', requireVerifiedUser, async (req: Request, res: Re
 
   if (requestingUserId !== targetUserId) {
     res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+
+  // Require government ID verification to post content
+  const [creator] = await db
+    .select({ identity_verified: users.identity_verified })
+    .from(users)
+    .where(eq(users.id, requestingUserId))
+    .limit(1);
+
+  if (!creator?.identity_verified) {
+    res.status(403).json({ error: 'identity_verification_required' });
     return;
   }
 

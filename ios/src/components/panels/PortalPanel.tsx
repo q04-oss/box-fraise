@@ -5,12 +5,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { useStripe } from '@stripe/stripe-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import {
   givePortalConsent,
   fetchMyPortalAccess, fetchMySubscribers,
   fetchMyPortalContent, fetchPortalContent,
+  fetchIdentitySession,
   uploadToCloudinary, uploadPortalContent,
 } from '../../lib/api';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -35,8 +37,13 @@ export default function PortalPanel() {
   const viewOwnerId: number | null = panelData?.ownerId ?? null;
   const viewOwnerName: string | null = panelData?.ownerName ?? null;
 
+  const { presentIdentityVerificationSheet } = useStripe();
+
   const [verified, setVerified] = useState<boolean | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
+  const [identityVerified, setIdentityVerified] = useState(false);
+  const [pendingSession, setPendingSession] = useState<{ verificationSessionId: string; ephemeralKeySecret: string } | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [tab, setTab] = useState<Tab>('mine');
   const [myContent, setMyContent] = useState<any[]>([]);
   const [accessList, setAccessList] = useState<any[]>([]);
@@ -50,9 +57,11 @@ export default function PortalPanel() {
     Promise.all([
       AsyncStorage.getItem('verified'),
       AsyncStorage.getItem('portal_opted_in'),
-    ]).then(([v, p]) => {
+      AsyncStorage.getItem('identity_verified'),
+    ]).then(([v, p, id]) => {
       setVerified(v === 'true');
       setConsented(p === 'true');
+      setIdentityVerified(id === 'true');
     });
   }, []);
 
@@ -94,6 +103,17 @@ export default function PortalPanel() {
       loadViewContent();
     } else {
       loadMain();
+      // Check for a pending operator-initiated identity session
+      if (!identityVerified) {
+        fetchIdentitySession().then(data => {
+          if (data.already_verified) {
+            AsyncStorage.setItem('identity_verified', 'true');
+            setIdentityVerified(true);
+          } else if (data.session) {
+            setPendingSession(data.session);
+          }
+        }).catch(() => {});
+      }
     }
   }, [verified, consented, viewOwnerId]);
 
@@ -132,6 +152,33 @@ export default function PortalPanel() {
       Alert.alert('Upload failed', e.message ?? 'Please try again.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleVerifyIdentity = async () => {
+    if (!pendingSession || verifying) return;
+    setVerifying(true);
+    try {
+      const { error } = await presentIdentityVerificationSheet({
+        verificationSessionId: pendingSession.verificationSessionId,
+        ephemeralKeySecret: pendingSession.ephemeralKeySecret,
+      });
+      if (error) {
+        if (error.code !== 'Canceled') {
+          Alert.alert('Verification incomplete', 'Please try again or visit the shop.');
+        }
+        return;
+      }
+      // Submitted — verification is async, webhook will confirm and push-notify
+      setPendingSession(null);
+      Alert.alert(
+        'Documents submitted',
+        "We'll verify your ID and notify you when complete. This usually takes a few minutes.",
+      );
+    } catch {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -277,17 +324,42 @@ export default function PortalPanel() {
           <Text style={[styles.statLabel, { color: c.muted }]}>posts</Text>
         </View>
       </View>
-      {/* Upload */}
-      <TouchableOpacity
-        style={[styles.uploadRow, { borderBottomColor: c.border }]}
-        onPress={handleUpload}
-        disabled={uploading}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.uploadText, { color: uploading ? c.muted : c.accent }]}>
-          {uploading ? 'uploading…' : '+ add photo'}
-        </Text>
-      </TouchableOpacity>
+      {/* Upload — locked behind government ID verification */}
+      {identityVerified ? (
+        <TouchableOpacity
+          style={[styles.uploadRow, { borderBottomColor: c.border }]}
+          onPress={handleUpload}
+          disabled={uploading}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.uploadText, { color: uploading ? c.muted : c.accent }]}>
+            {uploading ? 'uploading…' : '+ add photo'}
+          </Text>
+        </TouchableOpacity>
+      ) : pendingSession ? (
+        <TouchableOpacity
+          style={[styles.uploadRow, { borderBottomColor: c.border }]}
+          onPress={handleVerifyIdentity}
+          disabled={verifying}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.uploadText, { color: verifying ? c.muted : c.accent }]}>
+            {verifying ? 'opening verification…' : 'verify your ID to start posting →'}
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            scan your passport or driver's license
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
+          <Text style={[styles.uploadText, { color: c.muted }]}>
+            id verification required to post
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            visit a shop — staff will start your verification
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -422,6 +494,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   uploadText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
+  uploadHint: { fontFamily: fonts.dmSans, fontSize: 11, fontStyle: 'italic', marginTop: 3 },
 
   // Grid
   cell: { width: CELL, height: CELL },

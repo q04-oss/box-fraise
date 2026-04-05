@@ -724,6 +724,44 @@ router.post('/webhook', async (req: Request, res: Response) => {
       }
     }
 
+    if (event.type === 'identity.verification_session.verified') {
+      const session = event.data.object as any;
+      const userId = parseInt(session.metadata?.user_id ?? '', 10);
+      if (!isNaN(userId)) {
+        await db.execute(sql`
+          UPDATE users
+          SET identity_verified = true, identity_verified_at = NOW(), identity_session_id = NULL
+          WHERE id = ${userId}
+        `);
+        const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
+        if (user?.push_token) {
+          sendPushNotification(user.push_token, {
+            title: 'Identity verified',
+            body: 'Your ID has been verified. You can now post to your portal.',
+            data: { screen: 'portal' },
+          }).catch(() => {});
+        }
+        logger.info(`User ${userId} identity verified via Stripe Identity`);
+      }
+    }
+
+    if (event.type === 'identity.verification_session.requires_input') {
+      // Verification failed or needs resubmission — clear session so operator can restart
+      const session = event.data.object as any;
+      const userId = parseInt(session.metadata?.user_id ?? '', 10);
+      if (!isNaN(userId)) {
+        await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`);
+        const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
+        if (user?.push_token) {
+          sendPushNotification(user.push_token, {
+            title: 'Verification incomplete',
+            body: 'Your ID verification could not be completed. Please visit the shop to try again.',
+            data: { screen: 'portal' },
+          }).catch(() => {});
+        }
+      }
+    }
+
     if (event.type === 'payment_intent.payment_failed') {
       const pi = event.data.object as Stripe.PaymentIntent;
       const type = pi.metadata?.type;

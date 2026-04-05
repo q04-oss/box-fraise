@@ -15,6 +15,7 @@ import {
   fetchOrdersByEmail, fetchTimeSlots,
   demoLogin, updateDisplayName,
   createOrder, confirmOrder, operatorLogin,
+  startIdentityVerification,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES, getDateOptions } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -43,6 +44,9 @@ export default function TerminalPanel() {
   const [operatorCode, setOperatorCode] = useState('');
   const [showOperatorLogin, setShowOperatorLogin] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [idVerifyCode, setIdVerifyCode] = useState('');
+  const [showIdVerify, setShowIdVerify] = useState(false);
+  const [idVerifyLoading, setIdVerifyLoading] = useState(false);
   const nameInputRef = useRef<TextInput>(null);
 
   // Inline order state
@@ -399,6 +403,67 @@ export default function TerminalPanel() {
                   <Text style={[styles.label, { color: c.muted }]}>INBOX</Text>
                   <Text style={[styles.label, { color: c.accent }]}>→</Text>
                 </TouchableOpacity>
+                <View style={[styles.divider, { backgroundColor: c.border }]} />
+                {showIdVerify ? (
+                  <View style={styles.block}>
+                    <Text style={[styles.label, { color: c.muted }]}>MEMBER CODE</Text>
+                    <TextInput
+                      style={[styles.operatorInput, { color: c.text, borderColor: c.border, marginTop: 8 }]}
+                      placeholder="e.g. ABC123"
+                      placeholderTextColor={c.muted}
+                      value={idVerifyCode}
+                      onChangeText={t => setIdVerifyCode(t.toUpperCase())}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={8}
+                      returnKeyType="go"
+                    />
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.operatorSubmit, { backgroundColor: c.text, flex: 1 }, idVerifyLoading && { opacity: 0.5 }]}
+                        disabled={idVerifyLoading || !idVerifyCode.trim()}
+                        onPress={async () => {
+                          if (!idVerifyCode.trim() || idVerifyLoading) return;
+                          setIdVerifyLoading(true);
+                          try {
+                            await startIdentityVerification(idVerifyCode.trim());
+                            Alert.alert('Sent', 'Member will be notified to complete their ID scan.');
+                            setIdVerifyCode('');
+                            setShowIdVerify(false);
+                          } catch (e: any) {
+                            const msg = e.message === 'user_not_found' ? 'Member not found.'
+                              : e.message === 'user_must_be_nfc_verified_first' ? 'Member must collect an order first.'
+                              : 'Could not start verification.';
+                            Alert.alert('Error', msg);
+                          } finally {
+                            setIdVerifyLoading(false);
+                          }
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.demoText, { color: c.ctaText }]}>
+                          {idVerifyLoading ? 'starting…' : 'start verification'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => { setShowIdVerify(false); setIdVerifyCode(''); }}
+                        activeOpacity={0.6}
+                        style={[styles.operatorSubmit, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, flex: 0.4 }]}
+                      >
+                        <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.inboxBtn}
+                    onPress={() => setShowIdVerify(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.label, { color: c.muted }]}>ID VERIFY</Text>
+                    <Text style={[styles.label, { color: c.accent }]}>→</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={[styles.divider, { backgroundColor: c.border }]} />
               </View>
             ) : (

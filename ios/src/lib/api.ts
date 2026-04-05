@@ -1018,6 +1018,23 @@ export async function fetchMyPortalContent(): Promise<any[]> {
   return r.json();
 }
 
+export async function fetchIdentitySession(): Promise<{ already_verified: boolean; session: { verificationSessionId: string; ephemeralKeySecret: string } | null }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/portal/identity-session`, { headers: auth });
+  if (!r.ok) return { already_verified: false, session: null };
+  return r.json();
+}
+
+export async function startIdentityVerification(userCode: string): Promise<void> {
+  const adminPin = await AsyncStorage.getItem('admin_pin');
+  const r = await fetch(`${BASE_URL}/api/admin/users/identity-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': adminPin ?? '' },
+    body: JSON.stringify({ user_code: userCode }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'verification_start_failed'); }
+}
+
 export async function uploadToCloudinary(base64: string, type: 'image' | 'video'): Promise<string> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/upload`, {
