@@ -137,82 +137,82 @@ router.post('/webhook', async (req: Request, res: Response) => {
           }
         }).catch(() => {});
 
-        // Mint token if excess_amount_cents > 0
+        // Mint a token for every box — the NFC chip is always the physical anchor
         const metadata = pi.metadata;
         const excessCents = parseInt(metadata.excess_amount_cents ?? '0', 10);
-        if (!isNaN(excessCents) && excessCents > 0) {
-          try {
-            // Resolve user_id from customer_email
-            const [orderUser] = await db
-              .select({ id: users.id, push_token: users.push_token })
-              .from(users)
-              .where(eq(users.email, customer_email));
+        try {
+          const [orderUser] = await db
+            .select({ id: users.id, push_token: users.push_token })
+            .from(users)
+            .where(eq(users.email, customer_email));
 
-            if (orderUser) {
-              // Fetch variety (including variety_type) and location names for denormalization
-              const [variety] = await db
-                .select({ name: varieties.name, variety_type: varieties.variety_type })
-                .from(varieties)
-                .where(eq(varieties.id, variety_id));
-              const [location] = await db
-                .select({ name: timeSlots.time })
-                .from(timeSlots)
-                .where(eq(timeSlots.id, time_slot_id));
+          if (orderUser) {
+            const [variety] = await db
+              .select({ name: varieties.name, variety_type: varieties.variety_type })
+              .from(varieties)
+              .where(eq(varieties.id, variety_id));
+            const [location] = await db
+              .select({ name: timeSlots.time })
+              .from(timeSlots)
+              .where(eq(timeSlots.id, time_slot_id));
+            const [orderBusiness] = await db
+              .select({
+                partner_name: businesses.partner_name,
+                location_type: businesses.location_type,
+              })
+              .from(businesses)
+              .where(eq(businesses.id, location_id));
 
-              // Fetch business info for chocolate token enrichment
-              const [orderBusiness] = await db
-                .select({
-                  partner_name: businesses.partner_name,
-                  location_type: businesses.location_type,
-                })
-                .from(businesses)
-                .where(eq(businesses.id, location_id));
+            const isChocolate = variety?.variety_type === 'chocolate';
 
-              const isChocolate = variety?.variety_type === 'chocolate';
+            // Seed visuals from the NFC chip's unique identifier — each box has its own character
+            // Excess payment enhances the token on top of the base
+            const seed = parseInt(nfc_token, 16);
+            const visuals = computeTokenVisuals(seed, isNaN(excessCents) ? 0 : excessCents);
+            const tokenNumber = await getNextTokenNumber(variety_id, db, tokens, eq);
 
-              const visuals = computeTokenVisuals(excessCents);
-              const tokenNumber = await getNextTokenNumber(variety_id, db, tokens, eq);
+            const [mintedToken] = await db
+              .insert(tokens)
+              .values({
+                token_number: tokenNumber,
+                variety_id: newOrder.variety_id,
+                order_id: newOrder.id,
+                original_owner_id: orderUser.id,
+                current_owner_id: orderUser.id,
+                excess_amount_cents: isNaN(excessCents) ? 0 : excessCents,
+                visual_size: visuals.size,
+                visual_color: visuals.color,
+                visual_seeds: visuals.seeds,
+                visual_irregularity: visuals.irregularity,
+                nfc_token: nfc_token,
+                variety_name: variety?.name ?? '',
+                location_name: location?.name ?? '',
+                token_type: isChocolate ? 'chocolate' : 'standard',
+                partner_name: isChocolate ? (orderBusiness?.partner_name ?? null) : null,
+                location_type: isChocolate ? (orderBusiness?.location_type ?? null) : null,
+              })
+              .returning();
 
-              const [mintedToken] = await db
-                .insert(tokens)
-                .values({
-                  token_number: tokenNumber,
-                  variety_id: newOrder.variety_id,
-                  order_id: newOrder.id,
-                  original_owner_id: orderUser.id,
-                  current_owner_id: orderUser.id,
-                  excess_amount_cents: excessCents,
-                  visual_size: visuals.size,
-                  visual_color: visuals.color,
-                  visual_seeds: visuals.seeds,
-                  visual_irregularity: visuals.irregularity,
-                  nfc_token: nfc_token,
-                  variety_name: variety?.name ?? '',
-                  location_name: location?.name ?? '',
-                  token_type: isChocolate ? 'chocolate' : 'standard',
-                  partner_name: isChocolate ? (orderBusiness?.partner_name ?? null) : null,
-                  location_type: isChocolate ? (orderBusiness?.location_type ?? null) : null,
-                })
-                .returning();
+            await db
+              .update(orders)
+              .set({ token_id: mintedToken.id })
+              .where(eq(orders.id, newOrder.id));
 
-              await db
-                .update(orders)
-                .set({ token_id: mintedToken.id })
-                .where(eq(orders.id, newOrder.id));
-
-              if (orderUser.push_token) {
-                sendPushNotification(orderUser.push_token, {
-                  title: `Token #${tokenNumber} minted`,
-                  body: `${variety?.name ?? 'Variety'} · CA$${(excessCents / 100).toFixed(2)} excess`,
-                  data: { screen: 'tokens', token_id: mintedToken.id },
-                }).catch(() => {});
-              }
-
-              logger.info(`Token #${tokenNumber} minted for order ${newOrder.id}`);
+            if (orderUser.push_token) {
+              const body = excessCents > 0
+                ? `${variety?.name ?? 'Variety'} · enhanced with CA$${(excessCents / 100).toFixed(2)} above price`
+                : `${variety?.name ?? 'Variety'} · tap to collect at the shop`;
+              sendPushNotification(orderUser.push_token, {
+                title: `Token #${tokenNumber} minted`,
+                body,
+                data: { screen: 'tokens', token_id: mintedToken.id },
+              }).catch(() => {});
             }
-          } catch (tokenErr) {
-            logger.error('Token minting failed', tokenErr);
+
+            logger.info(`Token #${tokenNumber} minted for order ${newOrder.id}${excessCents > 0 ? ` (enhanced, CA$${(excessCents / 100).toFixed(2)} excess)` : ''}`);
           }
+        } catch (tokenErr) {
+          logger.error('Token minting failed', tokenErr);
         }
 
         // Send confirmation email (fire-and-forget)
