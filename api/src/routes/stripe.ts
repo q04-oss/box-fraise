@@ -626,7 +626,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
               .limit(1)
               .then(([op]) => {
                 if (op?.push_token) {
-                  sendPushNotification(op.push_token, {
+                  return sendPushNotification(op.push_token, {
                     title: isPopup ? 'Popup proposed' : 'Collectif funded',
                     body: pushBody,
                     data: { screen: 'collectifs' },
@@ -659,8 +659,9 @@ router.post('/webhook', async (req: Request, res: Response) => {
       }
     }
   } catch (err) {
-    // Log but return 200 — Stripe will retry on non-2xx responses
     logger.error('Webhook handler error', err);
+    res.status(500).json({ received: false });
+    return;
   }
 
   res.json({ received: true });
