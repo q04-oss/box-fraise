@@ -225,12 +225,12 @@ export default function CollectifDetailPanel() {
       {isOpen && isVerified && (
         <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
-            style={[styles.commitBtn, { backgroundColor: c.accent }, committing && { opacity: 0.6 }]}
+            style={[styles.commitBtn, { backgroundColor: c.text }, committing && { opacity: 0.6 }]}
             onPress={handleCommit}
             disabled={committing}
             activeOpacity={0.8}
           >
-            <Text style={[styles.commitBtnText, { color: c.panelBg }]}>
+            <Text style={[styles.commitBtnText, { color: c.ctaText }]}>
               {committing ? 'Processing…' : isPopupType
                 ? `Commit deposit · ${fmtCAD(collectif.price_cents)}`
                 : `Commit · ${fmtCAD(collectif.price_cents)}`}
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.playfair, fontSize: 22, marginBottom: 10, lineHeight: 30 },
   description: { fontFamily: fonts.dmSans, fontSize: 14, lineHeight: 22, marginBottom: 20 },
   statsRow: {
-    flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth, borderRadius: 10,
+    flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth, borderRadius: 14,
     marginBottom: 20,
   },
   stat: { flex: 1, padding: 14, alignItems: 'center', gap: 4 },
@@ -285,14 +285,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, gap: 12, alignItems: 'center',
   },
   commitBtn: {
-    width: '100%', paddingVertical: 14, borderRadius: 10, alignItems: 'center',
+    width: '100%', paddingVertical: 20, borderRadius: 16, alignItems: 'center',
   },
-  commitBtnText: { fontFamily: fonts.dmMono, fontSize: 13, letterSpacing: 1 },
+  commitBtnText: { fontFamily: fonts.dmSans, fontSize: 16, fontWeight: '700' },
   withdrawLink: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
   gateNote: { fontFamily: fonts.dmSans, fontSize: 13, fontStyle: 'italic', textAlign: 'center' },
   crossSurface: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: 14,
     padding: 14, marginTop: 20, gap: 10,
   },
   crossSurfaceLabel: { fontFamily: fonts.dmMono, fontSize: 8, letterSpacing: 1.5, marginBottom: 3 },

@@ -118,10 +118,10 @@ export default function CollectifCreatePanel() {
   };
 
   const Field = ({
-    label, value, onChange, placeholder, keyboardType = 'default', hint,
+    label, value, onChange, placeholder, keyboardType = 'default', hint, multiline,
   }: {
     label: string; value: string; onChange: (v: string) => void;
-    placeholder?: string; keyboardType?: any; hint?: string;
+    placeholder?: string; keyboardType?: any; hint?: string; multiline?: boolean;
   }) => (
     <View style={styles.field}>
       <Text style={[styles.fieldLabel, { color: c.muted }]}>{label}</Text>
@@ -131,7 +131,12 @@ export default function CollectifCreatePanel() {
         placeholder={placeholder}
         placeholderTextColor={c.muted}
         keyboardType={keyboardType}
-        style={[styles.input, { borderColor: c.border, color: c.text, backgroundColor: c.card }]}
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+        style={[
+          multiline ? styles.textarea : styles.input,
+          { borderBottomColor: c.border, color: c.text },
+        ]}
         autoCorrect={false}
       />
       {hint && <Text style={[styles.hint, { color: c.muted }]}>{hint}</Text>}
@@ -145,33 +150,33 @@ export default function CollectifCreatePanel() {
           <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: c.text }]}>
-          {isPopup ? 'Propose a Popup' : 'Propose a Collectif'}
+          {isPopup ? 'propose a popup' : 'propose a collectif'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: SPACING.md, gap: 4, paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ padding: SPACING.md, paddingBottom: insets.bottom + 100 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Type selector */}
-        <View style={[styles.typeRow, { borderColor: c.border }]}>
+        {/* Type toggle */}
+        <View style={[styles.toggle, { backgroundColor: c.cardDark }]}>
           <TouchableOpacity
-            style={[styles.typeBtn, collectifType === 'product' && { backgroundColor: c.accent }]}
+            style={[styles.toggleOption, collectifType === 'product' && { backgroundColor: c.accent }]}
             onPress={() => setCollectifType('product')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.typeBtnText, { color: collectifType === 'product' ? c.panelBg : c.muted }]}>
+            <Text style={[styles.toggleText, { color: collectifType === 'product' ? c.panelBg : c.muted }]}>
               Product Order
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.typeBtn, collectifType === 'popup' && { backgroundColor: c.accent }]}
+            style={[styles.toggleOption, collectifType === 'popup' && { backgroundColor: c.accent }]}
             onPress={() => setCollectifType('popup')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.typeBtnText, { color: collectifType === 'popup' ? c.panelBg : c.muted }]}>
+            <Text style={[styles.toggleText, { color: collectifType === 'popup' ? c.panelBg : c.muted }]}>
               Popup Event
             </Text>
           </TouchableOpacity>
@@ -184,30 +189,25 @@ export default function CollectifCreatePanel() {
         </Text>
 
         <Field
-          label={isPopup ? 'BUSINESS NAME' : 'BUSINESS NAME'}
+          label="BUSINESS NAME"
           value={businessName}
           onChange={setBusinessName}
-          placeholder={isPopup ? 'e.g. Valrhona, Chocolaterie Bernard' : 'e.g. Valrhona, Chocolaterie Bernard'}
+          placeholder="e.g. Valrhona, Chocolaterie Bernard"
           hint="Must be a business on the Maison platform."
         />
         <Field
           label="TITLE"
           value={title}
           onChange={setTitle}
-          placeholder={isPopup ? 'e.g. Valentine\'s popup at Café Central' : 'e.g. Bulk order — 10 boxes Guanaja 70%'}
+          placeholder={isPopup ? "e.g. Valentine's popup at Café Central" : 'e.g. Bulk order — 10 boxes Guanaja 70%'}
         />
-        <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: c.muted }]}>DESCRIPTION (OPTIONAL)</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder={isPopup ? 'Describe the event concept, vibe, what you'd like…' : 'What you're asking for, any specific details…'}
-            placeholderTextColor={c.muted}
-            multiline
-            numberOfLines={3}
-            style={[styles.textarea, { borderColor: c.border, color: c.text, backgroundColor: c.card }]}
-          />
-        </View>
+        <Field
+          label="DESCRIPTION (OPTIONAL)"
+          value={description}
+          onChange={setDescription}
+          placeholder={isPopup ? 'Describe the event concept, vibe, what you'd like…' : 'What you're asking for, any specific details…'}
+          multiline
+        />
 
         {isPopup ? (
           <>
@@ -261,7 +261,9 @@ export default function CollectifCreatePanel() {
           onChange={setTargetStr}
           placeholder="e.g. 20"
           keyboardType="numeric"
-          hint={isPopup ? 'Minimum 2. The business sees the full group once this is reached.' : 'Minimum 2. The business sees the full pooled amount once this is reached.'}
+          hint={isPopup
+            ? 'Minimum 2. The business sees the full group once this is reached.'
+            : 'Minimum 2. The business sees the full pooled amount once this is reached.'}
         />
         <Field
           label="DEADLINE (YYYY-MM-DD)"
@@ -274,12 +276,12 @@ export default function CollectifCreatePanel() {
 
       <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: c.accent }, !canSubmit && { opacity: 0.4 }]}
+          style={[styles.submitBtn, { backgroundColor: c.text }, !canSubmit && { opacity: 0.4 }]}
           onPress={handleSubmit}
           disabled={!canSubmit}
           activeOpacity={0.8}
         >
-          <Text style={[styles.submitBtnText, { color: c.panelBg }]}>
+          <Text style={[styles.submitBtnText, { color: c.ctaText }]}>
             {submitting ? 'Posting…' : isPopup ? 'Propose Popup' : 'Post Collectif'}
           </Text>
         </TouchableOpacity>
@@ -297,32 +299,36 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, paddingVertical: 4 },
   backArrow: { fontSize: 28, lineHeight: 34 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontFamily: fonts.playfair },
-  typeRow: {
-    flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth, borderRadius: 10,
-    overflow: 'hidden', marginBottom: 20,
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
+
+  toggle: {
+    flexDirection: 'row', borderRadius: 12, padding: 4, gap: 4, marginBottom: 20,
   },
-  typeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center' },
-  typeBtnText: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1 },
-  subheading: { fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20, fontStyle: 'italic', marginBottom: 20 },
-  field: { gap: 6, marginBottom: 16 },
-  fieldLabel: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 1.5 },
+  toggleOption: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  toggleText: { fontFamily: fonts.dmSans, fontSize: 14, fontWeight: '600' },
+
+  subheading: {
+    fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20, fontStyle: 'italic', marginBottom: 24,
+  },
+
+  field: { marginBottom: 20 },
+  fieldLabel: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 1.5, marginBottom: 8 },
   input: {
-    fontFamily: fonts.dmMono, fontSize: 14,
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 8,
-    paddingHorizontal: SPACING.md, paddingVertical: 10,
+    fontFamily: fonts.dmMono, fontSize: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8,
   },
   textarea: {
-    fontFamily: fonts.dmMono, fontSize: 13,
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 8,
-    paddingHorizontal: SPACING.md, paddingVertical: 10,
-    minHeight: 80, textAlignVertical: 'top',
+    fontFamily: fonts.dmMono, fontSize: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8, minHeight: 70, textAlignVertical: 'top',
   },
-  hint: { fontFamily: fonts.dmSans, fontSize: 11, fontStyle: 'italic' },
+  hint: { fontFamily: fonts.dmSans, fontSize: 11, fontStyle: 'italic', marginTop: 6 },
+
   footer: {
     padding: SPACING.md, paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  submitBtn: { width: '100%', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
-  submitBtnText: { fontFamily: fonts.dmMono, fontSize: 13, letterSpacing: 1 },
+  submitBtn: { width: '100%', paddingVertical: 20, borderRadius: 16, alignItems: 'center' },
+  submitBtnText: { fontFamily: fonts.dmSans, fontSize: 16, fontWeight: '700' },
 });

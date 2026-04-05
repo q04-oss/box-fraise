@@ -34,7 +34,7 @@ function formatPopupTime(iso?: string, hours?: string): string {
 }
 
 export default function PopupDetailPanel() {
-  const { goBack, activeLocation, showPanel, setPanelData } = usePanel();
+  const { goBack, activeLocation, showPanel } = usePanel();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -126,21 +126,6 @@ export default function PopupDetailPanel() {
       await checkInPopup(biz.id, userDbId, token);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Welcome.', 'You\'re checked in. Enjoy the night.');
-      Alert.alert(
-        'Nominate someone?',
-        "Know someone who'd be great for a popup? Nominate them.",
-        [
-          { text: 'Maybe Later', style: 'cancel' },
-          {
-            text: 'Nominate',
-            style: 'default',
-            onPress: () => {
-              setPanelData({ popupId: biz.id });
-              showPanel('nomination');
-            },
-          },
-        ],
-      );
     } catch (err: any) {
       if (err?.message !== 'UserCancel') {
         Alert.alert('Check-in failed', 'Hold your phone to the NFC chip at the entrance and try again.');
@@ -166,12 +151,12 @@ export default function PopupDetailPanel() {
     if (live && hasRsvp) {
       return (
         <TouchableOpacity
-          style={[styles.cta, { backgroundColor: c.accent }]}
+          style={[styles.cta, { backgroundColor: c.text }]}
           onPress={handleCheckIn}
           disabled={checkingIn}
           activeOpacity={0.8}
         >
-          <Text style={styles.ctaText}>
+          <Text style={[styles.ctaText, { color: c.ctaText }]}>
             {checkingIn ? 'Reading chip…' : 'Check in — tap the entrance'}
           </Text>
         </TouchableOpacity>
@@ -197,14 +182,14 @@ export default function PopupDetailPanel() {
       : 'Free';
     return (
       <TouchableOpacity
-        style={[styles.cta, { backgroundColor: c.accent }]}
+        style={[styles.cta, { backgroundColor: c.text }]}
         onPress={handleRsvp}
         disabled={rsvping}
         activeOpacity={0.8}
       >
         {rsvping
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.ctaText}>RSVP · {feeLabel}</Text>
+          ? <ActivityIndicator color={c.ctaText} />
+          : <Text style={[styles.ctaText, { color: c.ctaText }]}>RSVP · {feeLabel}</Text>
         }
       </TouchableOpacity>
     );
@@ -393,11 +378,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700', color: '#fff' },
+  ctaText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700' },
   collectifBanner: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: SPACING.md, marginTop: 4,
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: 14,
     padding: 14, gap: 10,
   },
   collectifBannerLabel: { fontFamily: fonts.dmMono, fontSize: 8, letterSpacing: 1.5, marginBottom: 3 },

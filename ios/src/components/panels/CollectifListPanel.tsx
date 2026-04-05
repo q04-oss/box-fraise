@@ -46,35 +46,34 @@ export default function CollectifListPanel() {
     const isPopup = item.collectif_type === 'popup';
     return (
       <TouchableOpacity
-        style={[styles.card, { borderColor: c.border, backgroundColor: c.card }]}
+        style={[styles.row, { borderBottomColor: c.border }]}
         onPress={() => showPanel('collectif-detail', { collectifId: item.id })}
         activeOpacity={0.75}
       >
-        <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: c.text }]}>{item.title}</Text>
-            <Text style={[styles.business, { color: c.accent }]}>{item.business_name}</Text>
-            {isPopup && item.proposed_venue ? (
-              <Text style={[styles.business, { color: c.muted, marginTop: 1 }]}>{item.proposed_venue}</Text>
-            ) : null}
-          </View>
-          <View style={styles.discountBadge}>
-            {isPopup
-              ? <Text style={[styles.discountText, { color: c.accent }]}>POPUP</Text>
-              : <Text style={[styles.discountText, { color: c.accent }]}>{item.proposed_discount_pct}% off</Text>
-            }
-          </View>
+        <View style={styles.rowTop}>
+          <Text style={[styles.itemTitle, { color: c.text }]} numberOfLines={1}>{item.title}</Text>
+          <Text style={[styles.itemPrice, { color: c.text }]}>
+            {isPopup ? fmtCAD(item.price_cents) : `${item.proposed_discount_pct}% off`}
+          </Text>
         </View>
+
+        <Text style={[styles.meta, { color: c.muted }]}>
+          {[
+            item.business_name,
+            isPopup && item.proposed_venue ? item.proposed_venue : null,
+          ].filter(Boolean).join('  ·  ')}
+          {isPopup ? '  ·  popup' : ''}
+        </Text>
 
         <View style={[styles.progressTrack, { backgroundColor: c.border }]}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` as any, backgroundColor: c.accent }]} />
         </View>
 
-        <View style={styles.cardFooter}>
+        <View style={styles.rowBottom}>
           <Text style={[styles.meta, { color: c.muted }]}>
             {isPopup
-              ? `${item.current_quantity} / ${item.target_quantity} attending · ${fmtCAD(item.price_cents)} deposit`
-              : `${item.current_quantity} / ${item.target_quantity} · ${fmtCAD(item.price_cents)}/unit`
+              ? `${item.current_quantity} / ${item.target_quantity} attending`
+              : `${item.current_quantity} / ${item.target_quantity}  ·  ${fmtCAD(item.price_cents)}/unit`
             }
           </Text>
           <Text style={[styles.meta, { color: c.muted }]}>{daysLeft(item.deadline)}</Text>
@@ -89,38 +88,35 @@ export default function CollectifListPanel() {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: c.text }]}>Collectifs</Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.title, { color: c.text }]}>collectifs</Text>
+        </View>
         {isVerified ? (
           <TouchableOpacity
             onPress={() => showPanel('collectif-create')}
-            style={styles.createBtn}
+            style={styles.headerAction}
             activeOpacity={0.7}
           >
-            <Text style={[styles.createBtnText, { color: c.accent }]}>+ propose</Text>
+            <Text style={[styles.headerActionText, { color: c.accent }]}>propose</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 70 }} />
+          <View style={styles.headerSpacer} />
         )}
       </View>
 
       {loading ? (
         <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
       ) : items.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: c.text }]}>No open collectifs.</Text>
-          <Text style={[styles.emptyBody, { color: c.muted }]}>
-            {isVerified
-              ? 'Be the first to propose one.'
-              : 'Become a verified member to propose a collectif.'}
-          </Text>
-        </View>
+        <Text style={[styles.empty, { color: c.muted }]}>
+          {isVerified ? 'nothing here yet — be the first to propose' : 'nothing here yet'}
+        </Text>
       ) : (
         <FlatList
           data={items}
           keyExtractor={i => String(i.id)}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: SPACING.md, gap: 10 }}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={<View style={{ height: 40 }} />}
         />
       )}
     </View>
@@ -136,22 +132,25 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, paddingVertical: 4 },
   backArrow: { fontSize: 28, lineHeight: 34 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontFamily: fonts.playfair },
-  createBtn: { width: 70, alignItems: 'flex-end' },
-  createBtnText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
-  card: {
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14, gap: 10,
+  headerCenter: { flex: 1, alignItems: 'center' },
+  title: { fontSize: 20, fontFamily: fonts.playfair, textAlign: 'center' },
+  headerAction: { width: 60, alignItems: 'flex-end' },
+  headerActionText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  headerSpacer: { width: 60 },
+
+  empty: { textAlign: 'center', marginTop: 60, fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic' },
+
+  row: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 5,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  title: { fontFamily: fonts.playfair, fontSize: 16, marginBottom: 2 },
-  business: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5 },
-  discountBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  discountText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1 },
-  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  meta: { fontFamily: fonts.dmMono, fontSize: 10 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg, gap: 10 },
-  emptyTitle: { fontFamily: fonts.playfair, fontSize: 18 },
-  emptyBody: { fontFamily: fonts.dmSans, fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  itemTitle: { fontSize: 22, fontFamily: fonts.playfair, flex: 1 },
+  itemPrice: { fontSize: 13, fontFamily: fonts.dmMono },
+  meta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  progressTrack: { height: 2, borderRadius: 1, overflow: 'hidden', marginVertical: 4 },
+  progressFill: { height: '100%', borderRadius: 1 },
+  rowBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
 });

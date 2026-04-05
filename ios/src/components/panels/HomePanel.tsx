@@ -131,6 +131,13 @@ export default function HomePanel() {
               <Text style={[styles.emptyDate, { color: c.muted }]}>{todayLabel}</Text>
               <Text style={[styles.emptySeason, { color: c.muted }]}>{season}</Text>
               <Text style={[styles.emptyHint, { color: c.muted }]}>tap a location on the map</Text>
+              <TouchableOpacity
+                onPress={() => showPanel('collectif-list')}
+                activeOpacity={0.7}
+                style={styles.collectifLink}
+              >
+                <Text style={[styles.collectifLinkText, { color: c.accent }]}>collectifs →</Text>
+              </TouchableOpacity>
             </View>
 
           ) : (
@@ -332,4 +339,6 @@ const styles = StyleSheet.create({
   nothingText: { fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic', paddingVertical: 8 },
   viewEventRow: { paddingHorizontal: SPACING.md, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   viewEventText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  collectifLink: { marginTop: 20 },
+  collectifLinkText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
