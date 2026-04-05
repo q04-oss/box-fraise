@@ -4,7 +4,6 @@ import {
   StyleSheet, ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { fetchCollectifs } from '../../lib/api';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -22,7 +21,6 @@ function daysLeft(deadline: string) {
 export default function CollectifListPanel() {
   const { goBack, showPanel } = usePanel();
   const c = useColors();
-  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
@@ -86,7 +84,7 @@ export default function CollectifListPanel() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: c.panelBg, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>

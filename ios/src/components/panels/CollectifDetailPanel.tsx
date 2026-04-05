@@ -147,7 +147,7 @@ export default function CollectifDetailPanel() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: c.panelBg, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
