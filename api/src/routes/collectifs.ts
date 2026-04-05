@@ -212,7 +212,7 @@ router.post('/', requireUser, async (req: any, res: Response) => {
       collectif_type,
       title,
       description: description ?? null,
-      proposed_discount_pct: isPopup ? 0 : proposed_discount_pct,
+      proposed_discount_pct: (isPopup || isMarketType) ? 0 : proposed_discount_pct,
       price_cents,
       proposed_venue: proposed_venue ?? null,
       proposed_date: proposed_date ?? null,

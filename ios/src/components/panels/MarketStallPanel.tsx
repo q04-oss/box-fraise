@@ -69,10 +69,21 @@ export default function MarketStallPanel() {
     }
   };
 
-  if (loading || !stall) {
+  if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: c.panelBg, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator color={c.accent} />
+      </View>
+    );
+  }
+
+  if (!stall) {
+    return (
+      <View style={[styles.container, { backgroundColor: c.panelBg, justifyContent: 'center', alignItems: 'center' }]}>
+        <TouchableOpacity onPress={goBack} style={{ position: 'absolute', top: 22, left: 16 }} activeOpacity={0.7}>
+          <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
+        </TouchableOpacity>
+        <Text style={[styles.empty, { color: c.muted }]}>Vendor not found.</Text>
       </View>
     );
   }

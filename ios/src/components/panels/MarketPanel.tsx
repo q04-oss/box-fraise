@@ -239,7 +239,7 @@ export default function MarketPanel() {
                   <TouchableOpacity
                     key={stall.id}
                     style={[styles.stallRow, { borderBottomColor: c.border }]}
-                    onPress={() => showPanel('market-stall', { stallId: stall.id, marketId })}
+                    onPress={() => showPanel('market-stall', { stallId: stall.id, marketId, marketDateStr: market?.starts_at?.slice(0, 10) })}
                     activeOpacity={0.75}
                   >
                     <View style={styles.stallRowTop}>
