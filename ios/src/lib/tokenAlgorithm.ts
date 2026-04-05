@@ -20,18 +20,41 @@ export interface TokenVisuals {
   irregularity: number;
 }
 
-export function computeTokenVisuals(excessCents: number): TokenVisuals {
+// Token visuals are computed server-side and stored in the database.
+// The iOS app renders directly from visual_size, visual_color, visual_seeds,
+// visual_irregularity fields — this function is kept for reference only.
+//
+// Seed: parsed from the box's NFC chip UUID (deterministic, unique per box)
+// Excess: overpayment in cents enhances the visual on a logarithmic scale
+export function computeTokenVisuals(seed: number, excessCents: number): TokenVisuals {
+  const rand = seededRandom(seed);
+
+  const baseSize         = Math.round(8  + rand() * 22);
+  const baseSeeds        = Math.round(3  + rand() * 12);
+  const baseIrregularity = Math.round(5  + rand() * 20);
+  const basePalette      = rand() * 0.15;
+
   const dollars = excessCents / 100;
-  const logMin = 0;
-  const logMax = 7;
-  const logVal = Math.log10(Math.max(1, dollars));
-  const t = Math.min(1, Math.max(0, (logVal - logMin) / (logMax - logMin)));
-  const ease = Math.pow(t, 0.6);
-  const size = Math.round(1 + ease * 99);
-  const seeds = Math.round(3 + ease * 141);
-  const irregularity = Math.round(1 + ease * 99);
-  const color = interpolateColor(ease);
+  const logMax  = 7;
+  const logVal  = Math.log10(Math.max(1, dollars));
+  const ease    = excessCents > 0
+    ? Math.pow(Math.min(1, Math.max(0, logVal / logMax)), 0.6)
+    : 0;
+
+  const size         = Math.round(baseSize         + ease * (100 - baseSize));
+  const seeds        = Math.round(baseSeeds        + ease * (144 - baseSeeds));
+  const irregularity = Math.round(baseIrregularity + ease * (100 - baseIrregularity));
+  const color        = interpolateColor(ease > 0 ? ease : basePalette);
+
   return { size, color, seeds, irregularity };
+}
+
+function seededRandom(seed: number): () => number {
+  let s = seed >>> 0;
+  return function () {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
 }
 
 function interpolateColor(t: number): string {

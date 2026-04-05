@@ -200,8 +200,8 @@ router.post('/webhook', async (req: Request, res: Response) => {
 
             if (orderUser.push_token) {
               const body = excessCents > 0
-                ? `${variety?.name ?? 'Variety'} · enhanced with CA$${(excessCents / 100).toFixed(2)} above price`
-                : `${variety?.name ?? 'Variety'} · tap to collect at the shop`;
+                ? `${variety?.name ?? 'Variety'} · CA$${(excessCents / 100).toFixed(2)} above price — enhanced`
+                : `${variety?.name ?? 'Variety'} · collect at the shop`;
               sendPushNotification(orderUser.push_token, {
                 title: `Token #${tokenNumber} minted`,
                 body,

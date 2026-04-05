@@ -45,7 +45,7 @@ export function computeTokenVisuals(seed: number, excessCents: number): TokenVis
 function seededRandom(seed: number): () => number {
   let s = seed >>> 0;
   return function () {
-    s = (Math.imul(48271, s) + 1) >>> 0;
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
     return s / 0x100000000;
   };
 }
