@@ -35,6 +35,7 @@ export default function PortalPanel() {
   const viewOwnerId: number | null = panelData?.ownerId ?? null;
   const viewOwnerName: string | null = panelData?.ownerName ?? null;
 
+  const [verified, setVerified] = useState<boolean | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>('mine');
   const [myContent, setMyContent] = useState<any[]>([]);
@@ -46,7 +47,13 @@ export default function PortalPanel() {
   const [confirmingConsent, setConfirmingConsent] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('portal_opted_in').then(v => setConsented(v === 'true'));
+    Promise.all([
+      AsyncStorage.getItem('verified'),
+      AsyncStorage.getItem('portal_opted_in'),
+    ]).then(([v, p]) => {
+      setVerified(v === 'true');
+      setConsented(p === 'true');
+    });
   }, []);
 
   const loadViewContent = useCallback(async () => {
@@ -82,13 +89,13 @@ export default function PortalPanel() {
   }, []);
 
   useEffect(() => {
-    if (consented !== true) return;
+    if (verified !== true || consented !== true) return;
     if (viewOwnerId) {
       loadViewContent();
     } else {
       loadMain();
     }
-  }, [consented, viewOwnerId]);
+  }, [verified, consented, viewOwnerId]);
 
   const handleConsent = async () => {
     setConfirmingConsent(true);
@@ -133,11 +140,44 @@ export default function PortalPanel() {
     0,
   );
 
-  // ── Loading consent ───────────────────────────────────────────────────────
-  if (consented === null) {
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (verified === null || consented === null) {
     return (
       <View style={[styles.container, { backgroundColor: c.panelBg, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator color={c.accent} />
+      </View>
+    );
+  }
+
+  // ── Verification gate (must be verified in-person first) ──────────────────
+  if (!verified) {
+    return (
+      <View style={[styles.container, { backgroundColor: c.panelBg }]}>
+        <View style={[styles.header, { borderBottomColor: c.border }]}>
+          <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: c.text }]}>portal</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView contentContainerStyle={[styles.consentScroll, { paddingBottom: insets.bottom + 40 }]}>
+          <Text style={[styles.consentTitle, { color: c.text }]}>verification required</Text>
+          <Text style={[styles.consentDesc, { color: c.muted }]}>
+            Portal access is limited to members who have verified their identity in person at a Maison Fraise shop.
+          </Text>
+          <View style={[styles.consentList, { borderColor: c.border }]}>
+            <Text style={[styles.consentItem, { color: c.muted }]}>· Visit any Maison Fraise location</Text>
+            <Text style={[styles.consentItem, { color: c.muted }]}>· Tap your phone to collect your first order</Text>
+            <Text style={[styles.consentItem, { color: c.muted }]}>· Your account is verified on the spot</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.consentBtn, { backgroundColor: c.text }]}
+            onPress={() => showPanel('verifyNFC')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.consentBtnText, { color: c.ctaText }]}>verify in person →</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     );
   }

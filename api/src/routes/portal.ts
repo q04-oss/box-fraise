@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { eq, and, gt, desc, asc, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { explicitPortals, portalAccess, portalContent, portalConsents, users, memberships } from '../db/schema';
-import { requireUser } from '../lib/auth';
+import { requireVerifiedUser } from '../lib/auth';
 import { stripe } from '../lib/stripe';
 import { calculateCut } from '../lib/portal';
 
@@ -35,7 +35,7 @@ async function performOptIn(userId: number, ipAddress: string | undefined, res: 
 }
 
 // POST /api/portal/consent — canonical opt-in path with consent record
-router.post('/consent', requireUser, async (req: Request, res: Response) => {
+router.post('/consent', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
   const { confirmed } = req.body;
   if (confirmed !== true) {
@@ -46,13 +46,13 @@ router.post('/consent', requireUser, async (req: Request, res: Response) => {
 });
 
 // POST /api/portal/opt-in — alias for /consent (kept for backwards compat)
-router.post('/opt-in', requireUser, async (req: Request, res: Response) => {
+router.post('/opt-in', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
   await performOptIn(userId, req.ip, res);
 });
 
 // POST /api/portal/request-access/:ownerId
-router.post('/request-access/:ownerId', requireUser, async (req: Request, res: Response) => {
+router.post('/request-access/:ownerId', requireVerifiedUser, async (req: Request, res: Response) => {
   const buyerId: number = (req as any).userId;
   const ownerId = parseInt(req.params.ownerId, 10);
 
@@ -137,7 +137,7 @@ router.post('/request-access/:ownerId', requireUser, async (req: Request, res: R
 });
 
 // GET /api/portal/my-content — own content (no access check required)
-router.get('/my-content', requireUser, async (req: Request, res: Response) => {
+router.get('/my-content', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
   try {
     const content = await db
@@ -152,7 +152,7 @@ router.get('/my-content', requireUser, async (req: Request, res: Response) => {
 });
 
 // GET /api/portal/:userId/content
-router.get('/:userId/content', requireUser, async (req: Request, res: Response) => {
+router.get('/:userId/content', requireVerifiedUser, async (req: Request, res: Response) => {
   const buyerId: number = (req as any).userId;
   const ownerId = parseInt(req.params.userId, 10);
 
@@ -193,7 +193,7 @@ router.get('/:userId/content', requireUser, async (req: Request, res: Response) 
 });
 
 // POST /api/portal/:userId/upload
-router.post('/:userId/upload', requireUser, async (req: Request, res: Response) => {
+router.post('/:userId/upload', requireVerifiedUser, async (req: Request, res: Response) => {
   const requestingUserId: number = (req as any).userId;
   const targetUserId = parseInt(req.params.userId, 10);
 
@@ -232,7 +232,7 @@ router.post('/:userId/upload', requireUser, async (req: Request, res: Response) 
 });
 
 // GET /api/portal/my-subscribers
-router.get('/my-subscribers', requireUser, async (req: Request, res: Response) => {
+router.get('/my-subscribers', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
 
   try {
@@ -260,7 +260,7 @@ router.get('/my-subscribers', requireUser, async (req: Request, res: Response) =
 });
 
 // GET /api/portal/my-access
-router.get('/my-access', requireUser, async (req: Request, res: Response) => {
+router.get('/my-access', requireVerifiedUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
 
   try {

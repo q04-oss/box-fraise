@@ -40,3 +40,29 @@ export async function requireUser(req: any, res: any, next: any) {
     return res.status(500).json({ error: 'internal_error' });
   }
 }
+
+// Express middleware — requires in-person NFC verification (users.verified = true)
+export async function requireVerifiedUser(req: any, res: any, next: any) {
+  const auth = req.headers['authorization'];
+  if (!auth?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const payload = verifyToken(auth.slice(7));
+  if (!payload) return res.status(401).json({ error: 'invalid_token' });
+
+  try {
+    const [user] = await db
+      .select({ id: users.id, banned: users.banned, verified: users.verified })
+      .from(users)
+      .where(eq(users.id, payload.userId))
+      .limit(1);
+    if (!user) return res.status(401).json({ error: 'unauthorized' });
+    if (user.banned) return res.status(403).json({ error: 'account_suspended' });
+    if (!user.verified) return res.status(403).json({ error: 'verification_required' });
+    req.userId = payload.userId;
+    return next();
+  } catch {
+    return res.status(500).json({ error: 'internal_error' });
+  }
+}
