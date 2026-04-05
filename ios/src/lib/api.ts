@@ -1847,3 +1847,54 @@ export async function fetchDorotkaVentures(): Promise<any[]> {
   if (!r.ok) return [];
   return r.json();
 }
+
+export async function fetchPayoutBalance(): Promise<{ available_cents: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/balance`, { headers: auth });
+  if (!r.ok) return { available_cents: 0 };
+  return r.json();
+}
+
+export async function fetchPayoutHistory(): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/history`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchConnectStatus(): Promise<{ status: 'not_connected' | 'pending' | 'active' }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/connect/status`, { headers: auth });
+  if (!r.ok) return { status: 'not_connected' };
+  return r.json();
+}
+
+export async function createConnectLink(): Promise<{ url: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/connect`, {
+    method: 'POST',
+    headers: auth,
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'connect_failed'); }
+  return r.json();
+}
+
+export async function refreshConnectLink(): Promise<{ url: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/connect/refresh`, {
+    method: 'POST',
+    headers: auth,
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'refresh_failed'); }
+  return r.json();
+}
+
+export async function requestPayout(): Promise<{ ok: boolean; transferred_cents: number; transfer_id: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/payouts/payout`, {
+    method: 'POST',
+    headers: auth,
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'payout_failed'); }
+  return r.json();
+}

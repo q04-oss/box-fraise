@@ -532,6 +532,11 @@ const nameInputRef = useRef<TextInput>(null);
               <Text style={[styles.label, { color: c.muted }]}>VENTURES</Text>
               <Text style={[styles.label, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('venture-earnings')} activeOpacity={0.7}>
+              <Text style={[styles.label, { color: c.muted }]}>VENTURE EARNINGS</Text>
+              <Text style={[styles.label, { color: c.accent }]}>→</Text>
+            </TouchableOpacity>
             {myVentures.length > 0 && myVentures.map((v: any) => (
               <TouchableOpacity
                 key={v.id}

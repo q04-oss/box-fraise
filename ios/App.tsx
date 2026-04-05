@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { View, ActivityIndicator, Platform, StatusBar, AppState } from 'react-native';
+import { View, ActivityIndicator, Platform, StatusBar, AppState, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +32,8 @@ interface AppContextType {
   pendingScreen: string | null;
   pendingData: Record<string, any> | null;
   clearPendingScreen: () => void;
+  connectReturn: boolean;
+  clearConnectReturn: () => void;
 }
 
 export const AppContext = createContext<AppContextType>({
@@ -41,6 +43,8 @@ export const AppContext = createContext<AppContextType>({
   pendingScreen: null,
   pendingData: null,
   clearPendingScreen: () => {},
+  connectReturn: false,
+  clearConnectReturn: () => {},
 });
 
 export const useApp = () => useContext(AppContext);
@@ -50,6 +54,7 @@ export default function App() {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [pendingScreen, setPendingScreen] = useState<string | null>(null);
   const [pendingData, setPendingData] = useState<Record<string, any> | null>(null);
+  const [connectReturn, setConnectReturn] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_700Bold,
@@ -94,6 +99,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const handleUrl = ({ url }: { url: string }) => {
+      if (url.startsWith('fraise://connect-return')) {
+        setConnectReturn(true);
+      }
+    };
+    const sub = Linking.addEventListener('url', handleUrl);
+    // Check if app was cold-launched from the return URL
+    Linking.getInitialURL().then(url => {
+      if (url?.startsWith('fraise://connect-return')) setConnectReturn(true);
+    });
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', async (state) => {
       if (state === 'active' && pushToken) {
         const id = await AsyncStorage.getItem('user_db_id').catch(() => null);
@@ -121,7 +140,7 @@ export default function App() {
   }
 
   return (
-    <AppContext.Provider value={{ reviewMode, enableReviewMode: handleEnableReviewMode, pushToken, pendingScreen, pendingData, clearPendingScreen: () => { setPendingScreen(null); setPendingData(null); } }}>
+    <AppContext.Provider value={{ reviewMode, enableReviewMode: handleEnableReviewMode, pushToken, pendingScreen, pendingData, clearPendingScreen: () => { setPendingScreen(null); setPendingData(null); }, connectReturn, clearConnectReturn: () => setConnectReturn(false) }}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <StripeProvider key={reviewMode ? 'test' : 'live'} publishableKey={publishableKey} merchantIdentifier="merchant.com.maisonfraise.app">
         <SafeAreaProvider>

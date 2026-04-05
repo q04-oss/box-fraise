@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding, collectifs, collectifCommitments, contentTokens, venturePosts } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding, collectifs, collectifCommitments, contentTokens, venturePosts, ventureRevenueSplits, earningsLedger } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -151,6 +151,49 @@ router.patch('/orders/:id/status', async (req: Request, res: Response) => {
         quantity: updated.quantity,
         slotTime: slot?.time ?? '',
       }).catch(err => logger.error('Ready email failed', err));
+    }
+
+    // Credit venture revenue splits when order is collected
+    if (status === 'collected' && updated.location_id) {
+      try {
+        // Look up business matching this location_id — businesses.id may align with orders.location_id
+        const [biz] = await db
+          .select({ venture_id: businesses.venture_id })
+          .from(businesses)
+          .where(and(eq(businesses.id, updated.location_id), isNotNull(businesses.venture_id)));
+
+        if (biz?.venture_id) {
+          // Idempotency: skip if this order was already credited
+          const [alreadyCredited] = await db
+            .select({ id: earningsLedger.id })
+            .from(earningsLedger)
+            .where(and(eq(earningsLedger.order_id, updated.id), eq(earningsLedger.type, 'credit')));
+
+          if (!alreadyCredited) {
+            const splits = await db
+              .select()
+              .from(ventureRevenueSplits)
+              .where(eq(ventureRevenueSplits.venture_id, biz.venture_id));
+
+            for (const split of splits) {
+              const creditCents = Math.floor(updated.total_cents * split.share_bps / 10000);
+              if (creditCents > 0) {
+                await db.insert(earningsLedger).values({
+                  user_id: split.user_id,
+                  venture_id: biz.venture_id,
+                  order_id: updated.id,
+                  amount_cents: creditCents,
+                  type: 'credit',
+                  description: `Order #${updated.id} revenue split`,
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        logger.error('Earnings credit failed', err);
+        // Non-fatal — order status update already succeeded
+      }
     }
 
     res.json(updated);
@@ -2465,6 +2508,30 @@ router.post('/migrate-ventures', async (_req: Request, res: Response) => {
     `);
 
     res.json({ ok: true, message: 'Ventures migration complete' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/migrate-payouts — add earnings ledger and stripe connect fields
+router.post('/migrate-payouts', async (_req: Request, res: Response) => {
+  try {
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_account_id text`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_onboarded boolean NOT NULL DEFAULT false`);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS earnings_ledger (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id),
+        venture_id integer,
+        order_id integer,
+        amount_cents integer NOT NULL,
+        type text NOT NULL,
+        description text,
+        stripe_transfer_id text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    res.json({ ok: true, message: 'Payouts migration complete' });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

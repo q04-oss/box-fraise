@@ -33,7 +33,8 @@ export type PanelId =
   | 'venture-detail'
   | 'venture-create'
   | 'venture-manage'
-  | 'dorotka-profile';
+  | 'dorotka-profile'
+  | 'venture-earnings';
 
 export interface OrderState {
   variety_id: number | null;

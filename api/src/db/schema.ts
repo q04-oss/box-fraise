@@ -175,6 +175,8 @@ export const users = pgTable('users', {
   is_shop: boolean('is_shop').notNull().default(false),
   is_dorotka: boolean('is_dorotka').notNull().default(false),
   business_id: integer('business_id').references(() => businesses.id),
+  stripe_connect_account_id: text('stripe_connect_account_id'),
+  stripe_connect_onboarded: boolean('stripe_connect_onboarded').notNull().default(false),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -963,5 +965,19 @@ export const venturePosts = pgTable('venture_posts', {
   venture_id: integer('venture_id').notNull().references(() => ventures.id),
   author_user_id: integer('author_user_id').notNull().references(() => users.id),
   body: text('body').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Earnings ledger ──────────────────────────────────────────────────────────
+
+export const earningsLedger = pgTable('earnings_ledger', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  venture_id: integer('venture_id'), // which venture generated this
+  order_id: integer('order_id'),     // which order triggered this credit (for idempotency)
+  amount_cents: integer('amount_cents').notNull(),
+  type: text('type').notNull(),      // 'credit' | 'debit'
+  description: text('description'),
+  stripe_transfer_id: text('stripe_transfer_id'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
