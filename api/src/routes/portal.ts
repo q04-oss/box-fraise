@@ -14,7 +14,9 @@ db.execute(sql`
   ALTER TABLE users
     ADD COLUMN IF NOT EXISTS identity_verified boolean NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS identity_verified_at timestamptz,
-    ADD COLUMN IF NOT EXISTS identity_session_id text
+    ADD COLUMN IF NOT EXISTS identity_session_id text,
+    ADD COLUMN IF NOT EXISTS id_attested_by integer,
+    ADD COLUMN IF NOT EXISTS id_attested_at timestamptz
 `).catch(() => {});
 
 // Shared opt-in logic
@@ -207,9 +209,14 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
       return;
     }
 
-    const { user_code } = req.body;
+    const { user_code, confirmed } = req.body;
     if (!user_code || typeof user_code !== 'string') {
       res.status(400).json({ error: 'user_code is required' });
+      return;
+    }
+
+    if (confirmed !== true) {
+      res.status(400).json({ error: 'operator_attestation_required' });
       return;
     }
 
@@ -222,6 +229,12 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
     if (!targetUser) { res.status(404).json({ error: 'user_not_found' }); return; }
     if (!targetUser.verified) { res.status(400).json({ error: 'user_must_be_nfc_verified_first' }); return; }
     if (targetUser.identity_verified) { res.json({ ok: true, already_verified: true }); return; }
+
+    // Record operator attestation — the employee physically examined the ID
+    await db.execute(sql`
+      UPDATE users SET id_attested_by = ${operatorId}, id_attested_at = now()
+      WHERE id = ${targetUser.id}
+    `);
 
     const session = await (stripe as any).identity.verificationSessions.create({
       type: 'document',

@@ -163,6 +163,8 @@ export const users = pgTable('users', {
   identity_verified: boolean('identity_verified').notNull().default(false),
   identity_verified_at: timestamp('identity_verified_at'),
   identity_session_id: text('identity_session_id'),
+  id_attested_by: integer('id_attested_by').references(() => users.id),
+  id_attested_at: timestamp('id_attested_at'),
   banned: boolean('banned').notNull().default(false),
   ban_reason: text('ban_reason'),
   is_shop: boolean('is_shop').notNull().default(false),

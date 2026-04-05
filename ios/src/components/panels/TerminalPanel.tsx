@@ -47,6 +47,7 @@ export default function TerminalPanel() {
   const [idVerifyCode, setIdVerifyCode] = useState('');
   const [showIdVerify, setShowIdVerify] = useState(false);
   const [idVerifyLoading, setIdVerifyLoading] = useState(false);
+  const [idVerifyAttested, setIdVerifyAttested] = useState(false);
   const nameInputRef = useRef<TextInput>(null);
 
   // Inline order state
@@ -418,17 +419,35 @@ export default function TerminalPanel() {
                       maxLength={8}
                       returnKeyType="go"
                     />
-                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}
+                      onPress={() => setIdVerifyAttested(v => !v)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{
+                        width: 18, height: 18, borderRadius: 4,
+                        borderWidth: 1.5, borderColor: idVerifyAttested ? c.text : c.border,
+                        backgroundColor: idVerifyAttested ? c.text : 'transparent',
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {idVerifyAttested && <Text style={{ color: c.background, fontSize: 11, fontWeight: '700' }}>✓</Text>}
+                      </View>
+                      <Text style={[styles.demoText, { color: c.muted, flex: 1 }]}>
+                        I have physically examined this member's government-issued ID
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                       <TouchableOpacity
-                        style={[styles.operatorSubmit, { backgroundColor: c.text, flex: 1 }, idVerifyLoading && { opacity: 0.5 }]}
-                        disabled={idVerifyLoading || !idVerifyCode.trim()}
+                        style={[styles.operatorSubmit, { backgroundColor: c.text, flex: 1 }, (idVerifyLoading || !idVerifyAttested) && { opacity: 0.4 }]}
+                        disabled={idVerifyLoading || !idVerifyCode.trim() || !idVerifyAttested}
                         onPress={async () => {
-                          if (!idVerifyCode.trim() || idVerifyLoading) return;
+                          if (!idVerifyCode.trim() || idVerifyLoading || !idVerifyAttested) return;
                           setIdVerifyLoading(true);
                           try {
                             await startIdentityVerification(idVerifyCode.trim());
                             Alert.alert('Sent', 'Member will be notified to complete their ID scan.');
                             setIdVerifyCode('');
+                            setIdVerifyAttested(false);
                             setShowIdVerify(false);
                           } catch (e: any) {
                             const msg = e.message === 'user_not_found' ? 'Member not found.'
@@ -446,7 +465,7 @@ export default function TerminalPanel() {
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        onPress={() => { setShowIdVerify(false); setIdVerifyCode(''); }}
+                        onPress={() => { setShowIdVerify(false); setIdVerifyCode(''); setIdVerifyAttested(false); }}
                         activeOpacity={0.6}
                         style={[styles.operatorSubmit, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, flex: 0.4 }]}
                       >

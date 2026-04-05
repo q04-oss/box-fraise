@@ -1030,7 +1030,7 @@ export async function startIdentityVerification(userCode: string): Promise<void>
   const r = await fetch(`${BASE_URL}/api/portal/start-identity-verification`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify({ user_code: userCode }),
+    body: JSON.stringify({ user_code: userCode, confirmed: true }),
   });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'verification_start_failed'); }
 }
