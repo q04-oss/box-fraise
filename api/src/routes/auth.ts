@@ -82,12 +82,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
     res.status(404).json({ error: 'Account not found and no email provided.' });
   } catch (err: unknown) {
     const e = err as any;
-    logger.error('Apple auth error:', {
-      message: e?.message,
-      name: e?.name,
-      stack: e?.stack,
-      raw: JSON.stringify(err, Object.getOwnPropertyNames(e ?? {})),
-    });
+    logger.error(`Apple auth error: name=${e?.name} message=${e?.message} stack=${e?.stack} raw=${JSON.stringify(err, Object.getOwnPropertyNames(e ?? {}))}`);
     res.status(401).json({ error: 'Authentication failed' });
   }
 }
