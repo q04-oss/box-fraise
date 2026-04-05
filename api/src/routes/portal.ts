@@ -5,6 +5,7 @@ import { explicitPortals, portalAccess, portalContent, portalConsents, users, me
 import { requireVerifiedUser } from '../lib/auth';
 import { stripe } from '../lib/stripe';
 import { calculateCut } from '../lib/portal';
+import { sendPushNotification } from '../lib/push';
 
 const router = Router();
 
@@ -171,9 +172,70 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
       },
     });
   } catch {
-    // Session may have expired or been cancelled — clear it
-    await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`);
+    // Session may have expired or been cancelled — clear it and respond
+    await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`).catch(() => {});
     res.json({ already_verified: false, session: null });
+  }
+});
+
+// POST /api/portal/start-identity-verification — operator-only: initiate Stripe Identity for a member
+// Called from the shop terminal in-person; member completes document scan on their device
+router.post('/start-identity-verification', requireVerifiedUser, async (req: Request, res: Response) => {
+  const operatorId: number = (req as any).userId;
+
+  try {
+    const [operator] = await db
+      .select({ is_shop: users.is_shop })
+      .from(users)
+      .where(eq(users.id, operatorId))
+      .limit(1);
+
+    if (!operator?.is_shop) {
+      res.status(403).json({ error: 'shop_operators_only' });
+      return;
+    }
+
+    const { user_code } = req.body;
+    if (!user_code || typeof user_code !== 'string') {
+      res.status(400).json({ error: 'user_code is required' });
+      return;
+    }
+
+    const [targetUser] = await db
+      .select({ id: users.id, verified: users.verified, identity_verified: users.identity_verified, push_token: users.push_token })
+      .from(users)
+      .where(eq(users.user_code, user_code.toUpperCase().trim()))
+      .limit(1);
+
+    if (!targetUser) { res.status(404).json({ error: 'user_not_found' }); return; }
+    if (!targetUser.verified) { res.status(400).json({ error: 'user_must_be_nfc_verified_first' }); return; }
+    if (targetUser.identity_verified) { res.json({ ok: true, already_verified: true }); return; }
+
+    const session = await (stripe as any).identity.verificationSessions.create({
+      type: 'document',
+      options: {
+        document: {
+          allowed_types: ['driving_license', 'passport'],
+          require_live_capture: true,
+          require_matching_selfie: true,
+        },
+      },
+      metadata: { user_id: String(targetUser.id) },
+    });
+
+    await db.execute(sql`UPDATE users SET identity_session_id = ${session.id} WHERE id = ${targetUser.id}`);
+
+    if (targetUser.push_token) {
+      sendPushNotification(targetUser.push_token, {
+        title: 'ID verification ready',
+        body: "Open your portal to scan your passport or driver's license.",
+        data: { screen: 'portal' },
+      }).catch(() => {});
+    }
+
+    res.json({ ok: true, user_id: targetUser.id });
+  } catch (err) {
+    res.status(500).json({ error: 'internal_error' });
   }
 });
 

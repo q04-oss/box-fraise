@@ -1026,10 +1026,10 @@ export async function fetchIdentitySession(): Promise<{ already_verified: boolea
 }
 
 export async function startIdentityVerification(userCode: string): Promise<void> {
-  const adminPin = await AsyncStorage.getItem('admin_pin');
-  const r = await fetch(`${BASE_URL}/api/admin/users/identity-verification`, {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/portal/start-identity-verification`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': adminPin ?? '' },
+    headers: { 'Content-Type': 'application/json', ...auth },
     body: JSON.stringify({ user_code: userCode }),
   });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'verification_start_failed'); }

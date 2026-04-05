@@ -933,54 +933,6 @@ router.post('/users/:userId/ban', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/admin/users/identity-verification — initiate Stripe Identity for a customer (by user_code)
-// Operator runs this in-person at the shop; customer completes document scan on their device
-router.post('/users/identity-verification', async (req: Request, res: Response) => {
-  const { user_code } = req.body;
-  if (!user_code || typeof user_code !== 'string') {
-    res.status(400).json({ error: 'user_code is required' });
-    return;
-  }
-
-  try {
-    const [targetUser] = await db
-      .select({ id: users.id, verified: users.verified, identity_verified: users.identity_verified, push_token: users.push_token })
-      .from(users)
-      .where(eq(users.user_code, user_code.toUpperCase().trim()))
-      .limit(1);
-
-    if (!targetUser) { res.status(404).json({ error: 'user_not_found' }); return; }
-    if (!targetUser.verified) { res.status(400).json({ error: 'user_must_be_nfc_verified_first' }); return; }
-    if (targetUser.identity_verified) { res.json({ ok: true, already_verified: true }); return; }
-
-    const session = await (stripe as any).identity.verificationSessions.create({
-      type: 'document',
-      options: {
-        document: {
-          allowed_types: ['driving_license', 'passport'],
-          require_live_capture: true,
-          require_matching_selfie: true,
-        },
-      },
-      metadata: { user_id: String(targetUser.id) },
-    });
-
-    await db.execute(sql`UPDATE users SET identity_session_id = ${session.id} WHERE id = ${targetUser.id}`);
-
-    if (targetUser.push_token) {
-      sendPushNotification(targetUser.push_token, {
-        title: 'ID verification ready',
-        body: 'Open your portal to scan your passport or driver\'s license.',
-        data: { screen: 'portal' },
-      }).catch(() => {});
-    }
-
-    res.json({ ok: true, user_id: targetUser.id });
-  } catch (err) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // PATCH /api/admin/users/:id/photographed
 router.patch('/users/:id/photographed', async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
