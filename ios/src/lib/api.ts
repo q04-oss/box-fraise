@@ -1418,6 +1418,46 @@ export async function withdrawCollectif(collectifId: number): Promise<void> {
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'withdraw_failed'); }
 }
 
+// ─── Market ───────────────────────────────────────────────────────────────────
+
+export async function fetchUpcomingMarkets(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/market/upcoming`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchMarket(id: number): Promise<any> {
+  const r = await fetch(`${BASE_URL}/api/market/${id}`);
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'fetch_failed'); }
+  return r.json();
+}
+
+export async function createMarketOrder(
+  marketDateId: number,
+  productId: number,
+  quantity: number,
+): Promise<{ client_secret: string; amount_cents: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/${marketDateId}/order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ product_id: productId, quantity }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'order_failed'); }
+  return r.json();
+}
+
+export async function collectMarketOrder(orderId: number): Promise<void> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/orders/${orderId}/collect`, {
+    method: 'PATCH',
+    headers: { ...auth },
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'collect_failed'); }
+}
+
+// ─── Proximity ────────────────────────────────────────────────────────────────
+
 export async function fetchProximityContext(businessId: number): Promise<{ hasVisited: boolean; proximityMessage: string | null }> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/businesses/${businessId}/proximity`, { headers: auth });

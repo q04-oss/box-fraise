@@ -706,6 +706,11 @@ router.post('/webhook', async (req: Request, res: Response) => {
 
           logger.info(`Collectif ${collectifId} commitment captured for user ${userId}`);
         }
+      } else if (type === 'market_order') {
+        await db.execute(sql`
+          UPDATE market_orders SET status = 'paid' WHERE payment_intent_id = ${pi.id}
+        `);
+        logger.info(`Market order paid: ${pi.id}`);
       }
     }
 
