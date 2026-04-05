@@ -2466,7 +2466,7 @@ router.post('/businesses/:id/shop-account', async (req: Request, res: Response) 
 });
 
 // PATCH /api/admin/collectifs/:id/respond — accept or decline on behalf of business
-router.patch('/collectifs/:id/respond', async (req: Request, res: Response) => {
+router.patch('/collectifs/:id/respond', requirePin, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
   const { response, note } = req.body;

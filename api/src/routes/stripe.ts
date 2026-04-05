@@ -610,7 +610,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
           const [updated] = await db.update(collectifs)
             .set({ current_quantity: sql`${collectifs.current_quantity} + ${quantity}` })
             .where(eq(collectifs.id, collectifId))
-            .returning({ current_quantity: collectifs.current_quantity, target_quantity: collectifs.target_quantity, title: collectifs.title, status: collectifs.status, collectif_type: collectifs.collectif_type, proposed_venue: collectifs.proposed_venue, proposed_date: collectifs.proposed_date } as any);
+            .returning({ current_quantity: collectifs.current_quantity, target_quantity: collectifs.target_quantity, title: collectifs.title, status: collectifs.status, collectif_type: collectifs.collectif_type, proposed_venue: collectifs.proposed_venue, proposed_date: collectifs.proposed_date, milestone_50_sent: sql<boolean>`milestone_50_sent`, milestone_75_sent: sql<boolean>`milestone_75_sent` } as any);
 
           if (updated && (updated as any).current_quantity >= (updated as any).target_quantity && (updated as any).status === 'open') {
             await db.update(collectifs).set({ status: 'funded' }).where(eq(collectifs.id, collectifId));
