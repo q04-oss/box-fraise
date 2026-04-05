@@ -26,12 +26,7 @@ export default function LocationPanel() {
   };
 
   const handleVarietyPress = (v: Variety) => {
-    setOrder({
-      variety_id: v.id,
-      variety_name: v.name,
-      price_cents: v.price_cents,
-    });
-    showPanel('chocolate');
+    showPanel('terminal', { openOrder: true, preselectedVariety: v });
   };
 
   const isPopup = activeLocation?.type === 'popup';
