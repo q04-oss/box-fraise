@@ -11,6 +11,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "@sentry/node": "^10.47.0",
     "apple-signin-auth": "^2.0.0",
     "cloudinary": "^2.9.0",

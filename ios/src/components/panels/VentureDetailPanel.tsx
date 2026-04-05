@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePanel } from '../../context/PanelContext';
-import { fetchVenture, joinVenture, leaveVenture, postVentureUpdate, fetchVentureContracts } from '../../lib/api';
+import { fetchVenture, joinVenture, leaveVenture, postVentureUpdate, fetchVentureContracts, generateVentureAiPost } from '../../lib/api';
 import { fonts, SPACING, useColors } from '../../theme';
 
 export default function VentureDetailPanel() {
@@ -26,6 +26,7 @@ export default function VentureDetailPanel() {
   const [leaving, setLeaving] = useState(false);
   const [postBody, setPostBody] = useState('');
   const [posting, setPosting] = useState(false);
+  const [generatingAiPost, setGeneratingAiPost] = useState(false);
   const [contracts, setContracts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -97,6 +98,19 @@ export default function VentureDetailPanel() {
       Alert.alert('Error', 'Could not post update.');
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleAiPost = async () => {
+    if (generatingAiPost) return;
+    setGeneratingAiPost(true);
+    try {
+      await generateVentureAiPost(ventureId);
+      load();
+    } catch {
+      Alert.alert('Error', 'Could not generate post.');
+    } finally {
+      setGeneratingAiPost(false);
     }
   };
 
@@ -276,6 +290,19 @@ export default function VentureDetailPanel() {
                 {posting ? 'posting…' : 'post'}
               </Text>
             </TouchableOpacity>
+            {venture.ceo_type === 'dorotka' && (
+              <TouchableOpacity
+                style={[styles.aiPostBtn, generatingAiPost && { opacity: 0.5 }]}
+                onPress={handleAiPost}
+                disabled={generatingAiPost}
+                activeOpacity={0.7}
+              >
+                {generatingAiPost
+                  ? <ActivityIndicator size="small" color={c.accent} />
+                  : <Text style={[styles.aiPostBtnText, { color: c.accent }]}>dorotka generate post →</Text>
+                }
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -353,6 +380,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   postBtn: { height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  aiPostBtn: { marginTop: 8, height: 36, alignItems: 'center', justifyContent: 'center' },
+  aiPostBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   postRow: { paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 6 },
   postMeta: { flexDirection: 'row', justifyContent: 'space-between' },
   postAuthor: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.3 },

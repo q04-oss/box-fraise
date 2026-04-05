@@ -16,6 +16,7 @@ import {
   demoLogin, updateDisplayName,
   createOrder, confirmOrder, operatorLogin,
   startIdentityVerification, fetchMyVentures,
+  fetchMyMarketOrders, collectMarketOrder,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES, getDateOptions } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -49,6 +50,7 @@ export default function TerminalPanel() {
   const [idVerifyLoading, setIdVerifyLoading] = useState(false);
   const [idVerifyAttested, setIdVerifyAttested] = useState(false);
   const [myVentures, setMyVentures] = useState<any[]>([]);
+  const [marketOrders, setMarketOrders] = useState<any[]>([]);
 const nameInputRef = useRef<TextInput>(null);
 
   // Inline order state
@@ -152,6 +154,7 @@ const nameInputRef = useRef<TextInput>(null);
           })
           .catch(() => {});
         fetchMyVentures().then(setMyVentures).catch(() => {});
+        fetchMyMarketOrders().then(setMarketOrders).catch(() => {});
       }
     }).finally(() => setLoading(false));
   }, []);
@@ -550,6 +553,52 @@ const nameInputRef = useRef<TextInput>(null);
                 )}
               </TouchableOpacity>
             ))}
+
+            {/* MARKET section */}
+            <View style={[styles.divider, { backgroundColor: c.border }]} />
+            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('market')} activeOpacity={0.7}>
+              <Text style={[styles.label, { color: c.muted }]}>MARKET</Text>
+              <Text style={[styles.label, { color: c.accent }]}>→</Text>
+            </TouchableOpacity>
+            {marketOrders.length > 0 && marketOrders.slice(0, 3).map((mo: any) => (
+              <TouchableOpacity
+                key={mo.id}
+                style={[styles.marketOrderRow, { borderBottomColor: c.border }]}
+                onPress={async () => {
+                  if (mo.status !== 'paid') return;
+                  Alert.alert(
+                    'Confirm collection?',
+                    `${mo.product_name} from ${mo.vendor_name}`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Collected', onPress: async () => {
+                          try {
+                            await collectMarketOrder(mo.id);
+                            setMarketOrders(prev => prev.map(o => o.id === mo.id ? { ...o, status: 'collected' } : o));
+                          } catch { Alert.alert('Error', 'Could not confirm collection.'); }
+                        }
+                      },
+                    ]
+                  );
+                }}
+                activeOpacity={mo.status === 'paid' ? 0.7 : 1}
+              >
+                <View style={styles.marketOrderLeft}>
+                  <Text style={[styles.marketOrderName, { color: c.text }]} numberOfLines={1}>{mo.product_name}</Text>
+                  <Text style={[styles.marketOrderMeta, { color: c.muted }]}>{mo.vendor_name}  ·  {mo.market_name}</Text>
+                </View>
+                <Text style={[styles.marketOrderStatus, { color: mo.status === 'paid' ? c.accent : c.muted }]}>
+                  {mo.status === 'paid' ? 'collect →' : mo.status}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {isVerified && (
+              <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('vendor-stall')} activeOpacity={0.7}>
+                <Text style={[styles.label, { color: c.muted }]}>MY STALL</Text>
+                <Text style={[styles.label, { color: c.accent }]}>→</Text>
+              </TouchableOpacity>
+            )}
 
             {/* ORDER section */}
             <View style={[styles.divider, { backgroundColor: c.border }]} />
@@ -951,6 +1000,11 @@ const styles = StyleSheet.create({
   myVentureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingLeft: 12 },
   myVentureName: { fontSize: 13, fontFamily: fonts.dmSans, flex: 1 },
   myVentureTag: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1, borderWidth: 1, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1 },
+  marketOrderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingLeft: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  marketOrderLeft: { flex: 1, gap: 2 },
+  marketOrderName: { fontSize: 13, fontFamily: fonts.dmSans },
+  marketOrderMeta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
+  marketOrderStatus: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   operatorInput: { width: '100%', height: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 16, fontSize: 22, fontFamily: fonts.dmMono, textAlign: 'center', letterSpacing: 4 },
   operatorSubmit: { width: '100%', height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });

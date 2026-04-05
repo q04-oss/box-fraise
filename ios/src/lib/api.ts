@@ -1510,6 +1510,61 @@ export async function collectMarketOrder(orderId: number): Promise<void> {
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'collect_failed'); }
 }
 
+export async function fetchMyMarketOrders(): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/my-orders`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchMyVendorStalls(): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/my-stall`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function createVendorStall(data: { market_date_id: number; vendor_name: string; description?: string }): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/stalls`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'create_failed'); }
+  return r.json();
+}
+
+export async function addStallProduct(stallId: number, data: { name: string; description?: string; price_cents: number; unit: string; stock_quantity?: number | null }): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/stalls/${stallId}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'add_failed'); }
+  return r.json();
+}
+
+export async function deleteStallProduct(productId: number): Promise<void> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/products/${productId}`, {
+    method: 'DELETE',
+    headers: { ...auth },
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'delete_failed'); }
+}
+
+export async function generateVentureAiPost(ventureId: number): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/ventures/${ventureId}/ai-post`, {
+    method: 'POST',
+    headers: { ...auth },
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'generation_failed'); }
+  return r.json();
+}
+
 // ─── Proximity ────────────────────────────────────────────────────────────────
 
 export async function fetchProximityContext(businessId: number): Promise<{ hasVisited: boolean; proximityMessage: string | null }> {

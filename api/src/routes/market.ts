@@ -131,6 +131,132 @@ router.patch('/orders/:id/collect', requireUser, async (req: any, res: Response)
   }
 });
 
+// ─── GET /api/market/my-stall — vendor's stalls with pre-buy counts ──────────
+
+router.get('/my-stall', requireUser, async (req: any, res: Response) => {
+  const userId: number = req.userId;
+  try {
+    const rows = await db.execute(sql`
+      SELECT ms.*,
+        md.name AS market_name, md.starts_at, md.ends_at,
+        COALESCE(json_agg(
+          json_build_object(
+            'id', mp.id,
+            'name', mp.name,
+            'description', mp.description,
+            'price_cents', mp.price_cents,
+            'unit', mp.unit,
+            'stock_quantity', mp.stock_quantity,
+            'prebuy_count', (
+              SELECT COUNT(*) FROM market_orders mo
+              WHERE mo.product_id = mp.id AND mo.status IN ('paid', 'collected')
+            )
+          ) ORDER BY mp.created_at
+        ) FILTER (WHERE mp.id IS NOT NULL), '[]') AS products
+      FROM market_stalls ms
+      JOIN market_dates md ON md.id = ms.market_date_id
+      LEFT JOIN market_products mp ON mp.stall_id = ms.id
+      WHERE ms.vendor_user_id = ${userId}
+        AND md.ends_at > now()
+      GROUP BY ms.id, md.name, md.starts_at, md.ends_at
+      ORDER BY md.starts_at ASC
+    `);
+    res.json(rows);
+  } catch (err) {
+    logger.error('[market] GET /my-stall', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/market/stalls — vendor claims a stall on an upcoming market ───
+
+router.post('/stalls', requireUser, async (req: any, res: Response) => {
+  const userId: number = req.userId;
+  const { market_date_id, vendor_name, description } = req.body;
+  if (!market_date_id || !vendor_name?.trim()) {
+    res.status(400).json({ error: 'market_date_id and vendor_name required' }); return;
+  }
+  try {
+    const [market] = await db.execute(sql`
+      SELECT id FROM market_dates WHERE id = ${market_date_id} AND ends_at > now() AND status != 'cancelled'
+    `);
+    if (!market) { res.status(404).json({ error: 'market_not_found_or_past' }); return; }
+
+    const [existing] = await db.execute(sql`
+      SELECT id FROM market_stalls WHERE market_date_id = ${market_date_id} AND vendor_user_id = ${userId}
+    `);
+    if (existing) { res.status(409).json({ error: 'stall_already_exists' }); return; }
+
+    const [stall] = await db.execute(sql`
+      INSERT INTO market_stalls (market_date_id, vendor_user_id, vendor_name, description, confirmed)
+      VALUES (${market_date_id}, ${userId}, ${vendor_name.trim()}, ${description?.trim() ?? null}, false)
+      RETURNING *
+    `);
+    res.status(201).json(stall);
+  } catch (err) {
+    logger.error('[market] POST /stalls', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── POST /api/market/stalls/:stallId/products ────────────────────────────────
+
+router.post('/stalls/:stallId/products', requireUser, async (req: any, res: Response) => {
+  const stallId = parseInt(req.params.stallId, 10);
+  const userId: number = req.userId;
+  if (isNaN(stallId)) { res.status(400).json({ error: 'invalid_stall_id' }); return; }
+  const { name, description, price_cents, unit, stock_quantity } = req.body;
+  if (!name?.trim() || !price_cents || !unit?.trim()) {
+    res.status(400).json({ error: 'name, price_cents, and unit required' }); return;
+  }
+  try {
+    const [stall] = await db.execute(sql`
+      SELECT ms.id FROM market_stalls ms
+      JOIN market_dates md ON md.id = ms.market_date_id
+      WHERE ms.id = ${stallId} AND ms.vendor_user_id = ${userId} AND md.ends_at > now()
+    `);
+    if (!stall) { res.status(403).json({ error: 'stall_not_found_or_not_yours' }); return; }
+
+    const [product] = await db.execute(sql`
+      INSERT INTO market_products (stall_id, name, description, price_cents, unit, stock_quantity)
+      VALUES (${stallId}, ${name.trim()}, ${description?.trim() ?? null}, ${price_cents}, ${unit.trim()}, ${stock_quantity ?? null})
+      RETURNING *
+    `);
+    res.status(201).json(product);
+  } catch (err) {
+    logger.error('[market] POST /stalls/:stallId/products', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── DELETE /api/market/products/:productId ───────────────────────────────────
+
+router.delete('/products/:productId', requireUser, async (req: any, res: Response) => {
+  const productId = parseInt(req.params.productId, 10);
+  const userId: number = req.userId;
+  if (isNaN(productId)) { res.status(400).json({ error: 'invalid_product_id' }); return; }
+  try {
+    const [product] = await db.execute(sql`
+      SELECT mp.id FROM market_products mp
+      JOIN market_stalls ms ON ms.id = mp.stall_id
+      WHERE mp.id = ${productId} AND ms.vendor_user_id = ${userId}
+    `);
+    if (!product) { res.status(403).json({ error: 'product_not_found_or_not_yours' }); return; }
+
+    // Block deletion if there are paid/collected orders for this product
+    const [activeOrders] = await db.execute(sql`
+      SELECT id FROM market_orders WHERE product_id = ${productId} AND status IN ('paid', 'collected') LIMIT 1
+    `);
+    if (activeOrders) { res.status(409).json({ error: 'has_active_orders' }); return; }
+
+    await db.execute(sql`DELETE FROM market_products WHERE id = ${productId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('[market] DELETE /products/:productId', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // ─── GET /api/market/:id ──────────────────────────────────────────────────────
 
 router.get('/:id', async (req: Request, res: Response) => {

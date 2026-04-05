@@ -1,8 +1,12 @@
 import { Router, Response } from 'express';
 import { eq, and, desc, asc } from 'drizzle-orm';
+import Anthropic from '@anthropic-ai/sdk';
 import { db } from '../db';
 import { ventures, ventureMembers, ventureRevenueSplits, venturePosts, users, employmentContracts, businesses } from '../db/schema';
 import { requireUser } from '../lib/auth';
+import { logger } from '../lib/logger';
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const router = Router();
 
@@ -346,6 +350,64 @@ router.patch('/:id/members/:userId', requireUser, async (req: any, res: Response
 
     res.json({ ok: true });
   } catch {
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// POST /api/ventures/:id/ai-post — Dorotka AI generates a venture update (members only, Dorotka ventures only)
+router.post('/:id/ai-post', requireUser, async (req: any, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+
+  try {
+    const [venture] = await db.select().from(ventures).where(eq(ventures.id, id));
+    if (!venture) { res.status(404).json({ error: 'not_found' }); return; }
+    if (venture.ceo_type !== 'dorotka') { res.status(403).json({ error: 'not_a_dorotka_venture' }); return; }
+
+    const [membership] = await db
+      .select()
+      .from(ventureMembers)
+      .where(and(eq(ventureMembers.venture_id, id), eq(ventureMembers.user_id, req.userId)));
+    if (!membership) { res.status(403).json({ error: 'not_a_member' }); return; }
+
+    // Gather recent posts for context
+    const recentPosts = await db
+      .select({ body: venturePosts.body, created_at: venturePosts.created_at })
+      .from(venturePosts)
+      .where(eq(venturePosts.venture_id, id))
+      .orderBy(desc(venturePosts.created_at))
+      .limit(5);
+
+    const postsContext = recentPosts.length > 0
+      ? recentPosts.map(p => `- ${p.body}`).join('\n')
+      : 'No posts yet.';
+
+    const prompt = `You are Dorotka, the AI managing director of a worker cooperative venture called "${venture.name}".
+${venture.description ? `Venture description: ${venture.description}` : ''}
+
+Recent venture updates:
+${postsContext}
+
+Write a brief, authentic venture update post (2–4 sentences). Speak in first person as the collective. Keep the tone grounded, honest, and cooperative — not corporate. Focus on work in progress, a small win, or a reflection. Do not use hashtags. Output only the post text, nothing else.`;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const body = (message.content[0] as any)?.text?.trim();
+    if (!body) { res.status(500).json({ error: 'generation_failed' }); return; }
+
+    const [post] = await db
+      .insert(venturePosts)
+      .values({ venture_id: id, author_user_id: req.userId, body })
+      .returning();
+
+    logger.info(`Dorotka AI post generated for venture ${id}`);
+    res.status(201).json(post);
+  } catch (err) {
+    logger.error('[ventures] POST /:id/ai-post', err);
     res.status(500).json({ error: 'internal_error' });
   }
 });
