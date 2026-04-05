@@ -4,7 +4,7 @@ import { eq, sql, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
 import { logger } from '../lib/logger';
@@ -591,6 +591,53 @@ router.post('/webhook', async (req: Request, res: Response) => {
         }
 
         logger.info(`Location ${businessId} funded by user ${userId} (10-year founding term)`);
+      } else if (type === 'collectif_commitment') {
+        const collectifId = parseInt(pi.metadata.collectif_id, 10);
+        const userId = parseInt(pi.metadata.user_id, 10);
+        const quantity = parseInt(pi.metadata.quantity, 10);
+
+        const [existingCommitment] = await db
+          .select({ id: collectifCommitments.id })
+          .from(collectifCommitments)
+          .where(eq(collectifCommitments.payment_intent_id, pi.id))
+          .limit(1);
+
+        if (!existingCommitment) {
+          await db.update(collectifCommitments)
+            .set({ status: 'captured' })
+            .where(eq(collectifCommitments.payment_intent_id, pi.id));
+
+          const [updated] = await db.update(collectifs)
+            .set({ current_quantity: sql`${collectifs.current_quantity} + ${quantity}` })
+            .where(eq(collectifs.id, collectifId))
+            .returning({ current_quantity: collectifs.current_quantity, target_quantity: collectifs.target_quantity, title: collectifs.title, status: collectifs.status, collectif_type: collectifs.collectif_type, proposed_venue: collectifs.proposed_venue, proposed_date: collectifs.proposed_date } as any);
+
+          if (updated && (updated as any).current_quantity >= (updated as any).target_quantity && (updated as any).status === 'open') {
+            await db.update(collectifs).set({ status: 'funded' }).where(eq(collectifs.id, collectifId));
+
+            const isPopup = (updated as any).collectif_type === 'popup';
+            const pushBody = isPopup
+              ? `${(updated as any).current_quantity} people want a popup at ${(updated as any).proposed_venue ?? 'unknown venue'} on ${(updated as any).proposed_date ?? 'TBD'} — confirm the event.`
+              : `"${(updated as any).title}" hit its target — respond to the group.`;
+
+            db.select({ push_token: users.push_token })
+              .from(users)
+              .where(eq(users.email, process.env.OPERATOR_EMAIL ?? 'operator@maison-fraise.com'))
+              .limit(1)
+              .then(([op]) => {
+                if (op?.push_token) {
+                  sendPushNotification(op.push_token, {
+                    title: isPopup ? 'Popup proposed' : 'Collectif funded',
+                    body: pushBody,
+                    data: { screen: 'collectifs' },
+                  });
+                }
+              })
+              .catch(() => {});
+          }
+
+          logger.info(`Collectif ${collectifId} commitment captured for user ${userId}`);
+        }
       }
     }
 

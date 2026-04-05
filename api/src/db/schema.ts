@@ -711,3 +711,38 @@ export const locationFunding = pgTable('location_funding', {
   status: text('status').notNull().default('pending'), // pending | confirmed
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─── Collectifs ───────────────────────────────────────────────────────────────
+
+export const collectifs = pgTable('collectifs', {
+  id: serial('id').primaryKey(),
+  created_by: integer('created_by').notNull().references(() => users.id),
+  business_id: integer('business_id').references(() => businesses.id),
+  business_name: text('business_name').notNull(),
+  collectif_type: text('collectif_type').notNull().default('product'), // 'product' | 'popup'
+  title: text('title').notNull(),
+  description: text('description'),
+  proposed_discount_pct: integer('proposed_discount_pct').notNull().default(0),
+  price_cents: integer('price_cents').notNull(),
+  proposed_venue: text('proposed_venue'),
+  proposed_date: text('proposed_date'),
+  target_quantity: integer('target_quantity').notNull(),
+  current_quantity: integer('current_quantity').notNull().default(0),
+  deadline: timestamp('deadline', { withTimezone: true }).notNull(),
+  status: text('status').notNull().default('open'), // open | funded | expired | cancelled
+  business_response: text('business_response').default('pending'), // pending | accepted | declined
+  business_response_note: text('business_response_note'),
+  responded_at: timestamp('responded_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const collectifCommitments = pgTable('collectif_commitments', {
+  id: serial('id').primaryKey(),
+  collectif_id: integer('collectif_id').notNull().references(() => collectifs.id),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  quantity: integer('quantity').notNull().default(1),
+  amount_paid_cents: integer('amount_paid_cents').notNull(),
+  payment_intent_id: text('payment_intent_id').unique(),
+  status: text('status').notNull().default('pending'), // pending | captured | refunded
+  committed_at: timestamp('committed_at', { withTimezone: true }).notNull().defaultNow(),
+});

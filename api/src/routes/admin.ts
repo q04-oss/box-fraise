@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding, collectifs, collectifCommitments } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -2461,6 +2461,99 @@ router.post('/businesses/:id/shop-account', async (req: Request, res: Response) 
 
     res.json({ user_id: shopUser.id, fraise_chat_email: shopUser.fraise_chat_email, already_existed: false });
   } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/admin/collectifs/:id/respond — accept or decline on behalf of business
+router.patch('/collectifs/:id/respond', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  const { response, note } = req.body;
+  if (response !== 'accepted' && response !== 'declined') {
+    res.status(400).json({ error: 'response must be accepted or declined' });
+    return;
+  }
+  try {
+    const [collectif] = await db.select().from(collectifs).where(eq(collectifs.id, id)).limit(1);
+    if (!collectif) { res.status(404).json({ error: 'not_found' }); return; }
+    if (collectif.status !== 'funded') { res.status(409).json({ error: 'collectif_not_funded' }); return; }
+
+    if (response === 'declined') {
+      const commitments = await db
+        .select({ id: collectifCommitments.id, payment_intent_id: collectifCommitments.payment_intent_id })
+        .from(collectifCommitments)
+        .where(and(eq(collectifCommitments.collectif_id, id), eq(collectifCommitments.status, 'captured')));
+
+      for (const cm of commitments) {
+        try {
+          if (cm.payment_intent_id) await stripe.refunds.create({ payment_intent: cm.payment_intent_id });
+          await db.update(collectifCommitments).set({ status: 'refunded' }).where(eq(collectifCommitments.id, cm.id));
+        } catch { /* continue */ }
+      }
+
+      await db.update(collectifs).set({
+        status: 'cancelled',
+        business_response: 'declined',
+        business_response_note: note ?? null,
+        responded_at: new Date(),
+      }).where(eq(collectifs.id, id));
+    } else {
+      await db.update(collectifs).set({
+        business_response: 'accepted',
+        business_response_note: note ?? null,
+        responded_at: new Date(),
+      }).where(eq(collectifs.id, id));
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('collectif respond', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/collectifs/:id/confirm-popup
+// Converts a funded popup-type collectif into an actual popup business record
+router.post('/collectifs/:id/confirm-popup', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+
+  try {
+    const [collectif] = await db.select().from(collectifs).where(eq(collectifs.id, id)).limit(1);
+    if (!collectif) { res.status(404).json({ error: 'not_found' }); return; }
+    if ((collectif as any).collectif_type !== 'popup') { res.status(409).json({ error: 'not_a_popup_collectif' }); return; }
+    if (collectif.status !== 'funded') { res.status(409).json({ error: 'collectif_not_funded' }); return; }
+
+    const proposed_date = (collectif as any).proposed_date as string | null;
+    const proposed_venue = (collectif as any).proposed_venue as string | null;
+
+    let launchedAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    if (proposed_date) {
+      const parsed = new Date(proposed_date);
+      if (!isNaN(parsed.getTime())) launchedAt = parsed;
+    }
+
+    const [popup] = await db.insert(businesses).values({
+      name: collectif.business_name,
+      type: 'popup',
+      location_type: 'popup',
+      address: proposed_venue ?? collectif.business_name,
+      city: 'Montréal',
+      launched_at: launchedAt,
+      capacity: collectif.target_quantity,
+      entrance_fee_cents: 0,
+      organizer_note: collectif.description ?? null,
+    } as any).returning();
+
+    await db.update(collectifs).set({
+      business_response: 'accepted',
+      responded_at: new Date(),
+    }).where(eq(collectifs.id, id));
+
+    res.status(201).json({ ok: true, popup_id: popup.id, popup });
+  } catch (err) {
+    logger.error('confirm-popup collectif', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

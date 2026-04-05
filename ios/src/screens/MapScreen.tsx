@@ -239,6 +239,18 @@ export default function MapScreen() {
     }, 400);
   };
 
+  const handlePopupPress = (biz: any) => {
+    setActiveLocation(biz);
+    showPanel('popup-detail');
+    setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
+    mapRef.current?.animateToRegion({
+      latitude: biz.lat - 0.003,
+      longitude: biz.lng,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 400);
+  };
+
 
   const handleSignOut = () => {
     Alert.alert('Sign out?', 'You\'ll need to sign in again to place orders.', [
@@ -374,6 +386,7 @@ export default function MapScreen() {
               key={`popup-${b.id}`}
               coordinate={{ latitude: b.lat, longitude: b.lng }}
               tracksViewChanges={live}
+              onPress={() => handlePopupPress(b)}
             >
               {live
                 ? <LivePopupPin color="#C0392B" />

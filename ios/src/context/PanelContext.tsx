@@ -14,7 +14,11 @@ export type PanelId =
   | 'verifyNFC'
   | 'conversations'
   | 'messageThread'
-  | 'jobDetail';
+  | 'jobDetail'
+  | 'popup-detail'
+  | 'collectif-list'
+  | 'collectif-detail'
+  | 'collectif-create';
 
 export interface OrderState {
   variety_id: number | null;

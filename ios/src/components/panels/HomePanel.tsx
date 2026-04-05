@@ -18,7 +18,7 @@ function formatHarvestDate(iso: string): string {
 }
 
 export default function HomePanel() {
-  const { setVarieties, setActiveLocation, varieties, activeLocation, businesses, sheetHeight, setPanelData, jumpToPanel, order, setOrder } = usePanel();
+  const { setVarieties, setActiveLocation, varieties, activeLocation, businesses, sheetHeight, setPanelData, jumpToPanel, showPanel, order, setOrder } = usePanel();
 
   const now = new Date();
   const otherLocations = businesses.filter((b: any) => {
@@ -150,6 +150,17 @@ export default function HomePanel() {
                   <Text style={[styles.orderPlaced, { color: c.accent }]}>order placed</Text>
                 )}
               </View>
+
+              {/* ── Popup event CTA ── */}
+              {activeLocation.type === 'popup' && (
+                <TouchableOpacity
+                  style={[styles.viewEventRow, { borderBottomColor: c.border }]}
+                  onPress={() => showPanel('popup-detail')}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.viewEventText, { color: c.accent }]}>View event, RSVP →</Text>
+                </TouchableOpacity>
+              )}
 
               {/* ── Shop identity ── */}
               {(activeLocation.description || activeLocation.instagram_handle) && (
@@ -319,4 +330,6 @@ const styles = StyleSheet.create({
   retryRow: { paddingVertical: 16 },
   retryText: { fontSize: 12, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   nothingText: { fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic', paddingVertical: 8 },
+  viewEventRow: { paddingHorizontal: SPACING.md, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  viewEventText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
