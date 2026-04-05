@@ -190,7 +190,8 @@ router.post('/:id/join', requireUser, async (req: any, res: Response) => {
     });
 
     res.json({ ok: true });
-  } catch {
+  } catch (err: any) {
+    if (err?.code === '23505') { res.status(409).json({ error: 'already_a_member' }); return; }
     res.status(500).json({ error: 'internal_error' });
   }
 });
