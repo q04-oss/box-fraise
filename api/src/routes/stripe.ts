@@ -721,6 +721,43 @@ router.post('/webhook', async (req: Request, res: Response) => {
           `);
         }
         logger.info(`Market order paid: ${pi.id}`);
+      } else if (type === 'verification_fee') {
+        const userId = parseInt(pi.metadata?.user_id ?? '', 10);
+        if (!isNaN(userId)) {
+          await db.execute(sql`
+            UPDATE verification_payments SET status = 'paid' WHERE stripe_payment_intent_id = ${pi.id}
+          `);
+          const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
+          if (user?.push_token) {
+            sendPushNotification(user.push_token, {
+              title: 'Verification fee received',
+              body: 'Open your app to complete your identity scan.',
+              data: { screen: 'portal' },
+            }).catch(() => {});
+          }
+          logger.info(`Verification fee paid for user ${userId}`);
+        }
+      } else if (type === 'verification_renewal') {
+        const userId = parseInt(pi.metadata?.user_id ?? '', 10);
+        if (!isNaN(userId)) {
+          await db.execute(sql`
+            UPDATE verification_payments SET status = 'paid' WHERE stripe_payment_intent_id = ${pi.id}
+          `);
+          await db.execute(sql`
+            UPDATE users
+            SET verification_renewal_due_at = COALESCE(verification_renewal_due_at, now()) + interval '1 year'
+            WHERE id = ${userId}
+          `);
+          const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
+          if (user?.push_token) {
+            sendPushNotification(user.push_token, {
+              title: 'Verified — renewed',
+              body: 'Your verified status has been renewed for one year.',
+              data: { screen: 'terminal' },
+            }).catch(() => {});
+          }
+          logger.info(`Verification renewed for user ${userId}`);
+        }
       }
     }
 
@@ -738,33 +775,45 @@ router.post('/webhook', async (req: Request, res: Response) => {
           ? `${dob.year}-${String(dob.month).padStart(2, '0')}-${String(dob.day).padStart(2, '0')}`
           : null;
 
-        await db.execute(sql`
-          UPDATE users
-          SET identity_verified = true,
-              identity_verified_at = NOW(),
-              identity_session_id = NULL,
-              id_verified_name = ${verifiedName},
-              id_verified_dob = ${verifiedDob},
-              identity_verified_expires_at = NOW() + interval '2 years'
-          WHERE id = ${userId}
+        // Check fee was paid before awarding the verified badge
+        const feeRows = await db.execute(sql`
+          SELECT id FROM verification_payments
+          WHERE user_id = ${userId} AND type = 'initial' AND status = 'paid' LIMIT 1
         `);
+        const feePaid = (feeRows as any).length > 0;
 
-        // Update log: record Stripe's extracted data and mark verified
-        await db.execute(sql`
-          UPDATE id_attestation_log
-          SET outcome = 'verified', id_verified_name = ${verifiedName}, id_verified_dob = ${verifiedDob}
-          WHERE stripe_session_id = ${session.id}
-        `).catch(() => {});
+        if (!feePaid) {
+          logger.warn(`User ${userId} identity scan completed but verification fee not paid — badge withheld`);
+        } else {
+          await db.execute(sql`
+            UPDATE users
+            SET identity_verified = true,
+                identity_verified_at = NOW(),
+                identity_session_id = NULL,
+                id_verified_name = ${verifiedName},
+                id_verified_dob = ${verifiedDob},
+                identity_verified_expires_at = NOW() + interval '2 years',
+                verification_renewal_due_at = NOW() + interval '1 year'
+            WHERE id = ${userId}
+          `);
 
-        const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
-        if (user?.push_token) {
-          sendPushNotification(user.push_token, {
-            title: 'Identity verified',
-            body: 'Your ID has been verified. You can now post to your portal.',
-            data: { screen: 'portal' },
-          }).catch(() => {});
+          // Update log: record Stripe's extracted data and mark verified
+          await db.execute(sql`
+            UPDATE id_attestation_log
+            SET outcome = 'verified', id_verified_name = ${verifiedName}, id_verified_dob = ${verifiedDob}
+            WHERE stripe_session_id = ${session.id}
+          `).catch(() => {});
+
+          const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId)).limit(1);
+          if (user?.push_token) {
+            sendPushNotification(user.push_token, {
+              title: 'Verified',
+              body: 'Your identity has been verified. Your verified badge is now active.',
+              data: { screen: 'terminal' },
+            }).catch(() => {});
+          }
+          logger.info(`User ${userId} identity verified via Stripe Identity`);
         }
-        logger.info(`User ${userId} identity verified via Stripe Identity`);
       }
     }
 

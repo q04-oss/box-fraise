@@ -1020,13 +1020,30 @@ export async function fetchMyPortalContent(): Promise<any[]> {
 
 export async function fetchIdentitySession(): Promise<{
   already_verified: boolean;
+  verification_renewal_due_at?: string | null;
+  identity_verified_expires_at?: string | null;
+  renewal_overdue?: boolean;
+  renewal_amount_cents?: number;
+  fee_paid?: boolean;
+  fee_client_secret?: string;
+  fee_amount_cents?: number;
   identity_expired?: boolean;
   attestation_expired?: boolean;
-  session: { verificationSessionId: string; ephemeralKeySecret: string } | null;
+  session?: { verificationSessionId: string; ephemeralKeySecret: string } | null;
 }> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/portal/identity-session`, { headers: auth });
-  if (!r.ok) return { already_verified: false, session: null };
+  if (!r.ok) return { already_verified: false };
+  return r.json();
+}
+
+export async function renewVerification(): Promise<{ client_secret: string; amount_cents: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/portal/renew-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'renewal_failed'); }
   return r.json();
 }
 

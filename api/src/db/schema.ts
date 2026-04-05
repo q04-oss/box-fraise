@@ -169,6 +169,7 @@ export const users = pgTable('users', {
   id_verified_name: text('id_verified_name'),
   id_verified_dob: text('id_verified_dob'),
   identity_verified_expires_at: timestamp('identity_verified_expires_at'),
+  verification_renewal_due_at: timestamp('verification_renewal_due_at'),
   banned: boolean('banned').notNull().default(false),
   ban_reason: text('ban_reason'),
   is_shop: boolean('is_shop').notNull().default(false),
@@ -743,6 +744,19 @@ export const collectifs = pgTable('collectifs', {
   business_response_note: text('business_response_note'),
   responded_at: timestamp('responded_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── Verification payments (initial $111 fee + annual $333 renewal) ──────────
+
+export const verificationPayments = pgTable('verification_payments', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  type: text('type').notNull(), // 'initial' | 'renewal'
+  amount_cents: integer('amount_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id').unique(),
+  stripe_client_secret: text('stripe_client_secret'),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid'
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
 // ─── Portal ID attestation log (append-only, never overwritten) ──────────────

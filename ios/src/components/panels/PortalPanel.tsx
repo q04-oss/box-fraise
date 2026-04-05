@@ -12,7 +12,7 @@ import {
   givePortalConsent,
   fetchMyPortalAccess, fetchMySubscribers,
   fetchMyPortalContent, fetchPortalContent,
-  fetchIdentitySession,
+  fetchIdentitySession, renewVerification,
   uploadToCloudinary, uploadPortalContent,
 } from '../../lib/api';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -37,7 +37,7 @@ export default function PortalPanel() {
   const viewOwnerId: number | null = panelData?.ownerId ?? null;
   const viewOwnerName: string | null = panelData?.ownerName ?? null;
 
-  const { presentIdentityVerificationSheet } = useStripe();
+  const { presentIdentityVerificationSheet, initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [verified, setVerified] = useState<boolean | null>(null);
   const [consented, setConsented] = useState<boolean | null>(null);
@@ -45,6 +45,12 @@ export default function PortalPanel() {
   const [identityExpired, setIdentityExpired] = useState(false);
   const [attestationExpired, setAttestationExpired] = useState(false);
   const [pendingSession, setPendingSession] = useState<{ verificationSessionId: string; ephemeralKeySecret: string } | null>(null);
+  const [feeClientSecret, setFeeClientSecret] = useState<string | null>(null);
+  const [feePaid, setFeePaid] = useState(false);
+  const [renewalOverdue, setRenewalOverdue] = useState(false);
+  const [renewalDueAt, setRenewalDueAt] = useState<string | null>(null);
+  const [payingFee, setPayingFee] = useState(false);
+  const [renewingVerification, setRenewingVerification] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [tab, setTab] = useState<Tab>('mine');
   const [myContent, setMyContent] = useState<any[]>([]);
@@ -109,11 +115,16 @@ export default function PortalPanel() {
       loadViewContent();
     } else {
       loadMain();
-      // Always check identity session — detects expiry and pending sessions
+      // Always check identity session — detects fee status, expiry, renewal, pending sessions
       fetchIdentitySession().then(data => {
         if (data.already_verified) {
           AsyncStorage.setItem('identity_verified', 'true');
           setIdentityVerified(true);
+          if (data.verification_renewal_due_at) setRenewalDueAt(data.verification_renewal_due_at);
+        } else if (data.renewal_overdue) {
+          setRenewalOverdue(true);
+          setIdentityVerified(false);
+          AsyncStorage.removeItem('identity_verified');
         } else if (data.identity_expired) {
           AsyncStorage.removeItem('identity_verified');
           setIdentityVerified(false);
@@ -121,8 +132,12 @@ export default function PortalPanel() {
         } else if (data.attestation_expired) {
           setAttestationExpired(true);
           setPendingSession(null);
-        } else if (data.session) {
-          setPendingSession(data.session);
+        } else if (data.fee_client_secret && !data.fee_paid) {
+          setFeeClientSecret(data.fee_client_secret);
+          setFeePaid(false);
+        } else if (data.fee_paid && data.session) {
+          setFeePaid(true);
+          setPendingSession(data.session!);
         }
       }).catch(() => {});
     }
@@ -138,6 +153,56 @@ export default function PortalPanel() {
       Alert.alert('Error', 'Could not save consent. Please try again.');
     } finally {
       setConfirmingConsent(false);
+    }
+  };
+
+  const handlePayFee = async () => {
+    if (!feeClientSecret || payingFee) return;
+    setPayingFee(true);
+    try {
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: feeClientSecret,
+        merchantDisplayName: 'Maison Fraise',
+      });
+      if (initError) { Alert.alert('Error', initError.message); return; }
+      const { error } = await presentPaymentSheet();
+      if (error) {
+        if (error.code !== 'Canceled') Alert.alert('Payment failed', error.message);
+        return;
+      }
+      setFeePaid(true);
+      setFeeClientSecret(null);
+      Alert.alert('Fee received', 'Open your app after a moment to scan your ID and complete verification.');
+    } catch {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setPayingFee(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (renewingVerification) return;
+    setRenewingVerification(true);
+    try {
+      const { client_secret } = await renewVerification();
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: client_secret,
+        merchantDisplayName: 'Maison Fraise',
+      });
+      if (initError) { Alert.alert('Error', initError.message); return; }
+      const { error } = await presentPaymentSheet();
+      if (error) {
+        if (error.code !== 'Canceled') Alert.alert('Payment failed', error.message);
+        return;
+      }
+      setRenewalOverdue(false);
+      setIdentityVerified(true);
+      AsyncStorage.setItem('identity_verified', 'true');
+      Alert.alert('Renewed', 'Your verified status has been renewed for one year.');
+    } catch {
+      Alert.alert('Error', 'Could not process renewal. Please try again.');
+    } finally {
+      setRenewingVerification(false);
     }
   };
 
@@ -335,6 +400,32 @@ export default function PortalPanel() {
           <Text style={[styles.statLabel, { color: c.muted }]}>posts</Text>
         </View>
       </View>
+      {/* Renewal due date — shown when verified */}
+      {identityVerified && renewalDueAt && (
+        <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            verified · renews {new Date(renewalDueAt).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}
+          </Text>
+        </View>
+      )}
+
+      {/* Renewal overdue banner */}
+      {renewalOverdue && (
+        <TouchableOpacity
+          style={[styles.uploadRow, { borderBottomColor: c.border }]}
+          onPress={handleRenew}
+          disabled={renewingVerification}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.uploadText, { color: renewingVerification ? c.muted : c.accent }]}>
+            {renewingVerification ? 'processing…' : 'renew verification — CA$333 →'}
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            your annual renewal is overdue
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Upload — locked behind government ID verification */}
       {identityVerified ? (
         <TouchableOpacity
@@ -370,6 +461,20 @@ export default function PortalPanel() {
             your 2-year verification period has ended — visit a shop to re-verify
           </Text>
         </View>
+      ) : feeClientSecret && !feePaid ? (
+        <TouchableOpacity
+          style={[styles.uploadRow, { borderBottomColor: c.border }]}
+          onPress={handlePayFee}
+          disabled={payingFee}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.uploadText, { color: payingFee ? c.muted : c.accent }]}>
+            {payingFee ? 'opening payment…' : 'pay CA$111 verification fee →'}
+          </Text>
+          <Text style={[styles.uploadHint, { color: c.muted }]}>
+            then scan your passport or driver's license
+          </Text>
+        </TouchableOpacity>
       ) : attestationExpired ? (
         <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
           <Text style={[styles.uploadText, { color: c.muted }]}>
@@ -382,10 +487,10 @@ export default function PortalPanel() {
       ) : (
         <View style={[styles.uploadRow, { borderBottomColor: c.border }]}>
           <Text style={[styles.uploadText, { color: c.muted }]}>
-            id verification required to post
+            verification required
           </Text>
           <Text style={[styles.uploadHint, { color: c.muted }]}>
-            visit a shop — staff will start your verification
+            visit a shop — staff will verify your ID and initiate the process
           </Text>
         </View>
       )}

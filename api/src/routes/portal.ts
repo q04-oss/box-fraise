@@ -4,7 +4,7 @@ import { db } from '../db';
 import { explicitPortals, portalAccess, portalContent, portalConsents, users, memberships } from '../db/schema';
 import { requireVerifiedUser } from '../lib/auth';
 import { stripe } from '../lib/stripe';
-import { calculateCut } from '../lib/portal';
+import { calculateCut, isIdentityActive, VERIFICATION_FEE_CENTS, VERIFICATION_RENEWAL_CENTS } from '../lib/portal';
 import { sendPushNotification } from '../lib/push';
 
 const router = Router();
@@ -20,7 +20,21 @@ db.execute(sql`
     ADD COLUMN IF NOT EXISTS id_attestation_expires_at timestamptz,
     ADD COLUMN IF NOT EXISTS id_verified_name text,
     ADD COLUMN IF NOT EXISTS id_verified_dob text,
-    ADD COLUMN IF NOT EXISTS identity_verified_expires_at timestamptz
+    ADD COLUMN IF NOT EXISTS identity_verified_expires_at timestamptz,
+    ADD COLUMN IF NOT EXISTS verification_renewal_due_at timestamptz
+`).catch(() => {});
+
+db.execute(sql`
+  CREATE TABLE IF NOT EXISTS verification_payments (
+    id serial PRIMARY KEY,
+    user_id integer NOT NULL,
+    type text NOT NULL,
+    amount_cents integer NOT NULL,
+    stripe_payment_intent_id text UNIQUE,
+    stripe_client_secret text,
+    status text NOT NULL DEFAULT 'pending',
+    created_at timestamptz NOT NULL DEFAULT now()
+  )
 `).catch(() => {});
 
 db.execute(sql`
@@ -132,15 +146,14 @@ router.post('/request-access/:ownerId', requireVerifiedUser, async (req: Request
       return;
     }
 
-    // Require government ID verification to subscribe (also check it hasn't expired)
+    // Require active government ID verification to subscribe
     const [buyer] = await db
-      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at, verification_renewal_due_at: users.verification_renewal_due_at })
       .from(users)
       .where(eq(users.id, buyerId))
       .limit(1);
 
-    const idExpired = buyer?.identity_verified_expires_at && new Date() > new Date(buyer.identity_verified_expires_at);
-    if (!buyer?.identity_verified || idExpired) {
+    if (!buyer || !isIdentityActive(buyer)) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }
@@ -187,6 +200,7 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
         identity_session_id: users.identity_session_id,
         identity_verified_expires_at: users.identity_verified_expires_at,
         id_attestation_expires_at: users.id_attestation_expires_at,
+        verification_renewal_due_at: users.verification_renewal_due_at,
       })
       .from(users)
       .where(eq(users.id, userId))
@@ -194,18 +208,56 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
 
     if (!user) { res.status(404).json({ error: 'not_found' }); return; }
 
+    // ── Already verified ──────────────────────────────────────────────────
     if (user.identity_verified) {
-      // Check whether the 2-year verification period has lapsed
-      const expired = user.identity_verified_expires_at && new Date() > new Date(user.identity_verified_expires_at);
-      if (expired) {
-        res.json({ already_verified: false, identity_expired: true, session: null });
+      const now = new Date();
+
+      // 2-year document expiry
+      if (user.identity_verified_expires_at && now > new Date(user.identity_verified_expires_at)) {
+        res.json({ already_verified: false, identity_expired: true });
         return;
       }
-      res.json({ already_verified: true, session: null });
+
+      // Annual renewal overdue
+      if (user.verification_renewal_due_at && now > new Date(user.verification_renewal_due_at)) {
+        res.json({ already_verified: false, renewal_overdue: true, renewal_amount_cents: VERIFICATION_RENEWAL_CENTS });
+        return;
+      }
+
+      res.json({
+        already_verified: true,
+        verification_renewal_due_at: user.verification_renewal_due_at,
+        identity_verified_expires_at: user.identity_verified_expires_at,
+      });
       return;
     }
 
-    if (!user.identity_session_id) { res.json({ already_verified: false, session: null }); return; }
+    // ── Not yet verified — check fee then session ─────────────────────────
+
+    // Look for a pending or paid initial verification payment
+    const feeRows = await db.execute(sql`
+      SELECT stripe_client_secret, status FROM verification_payments
+      WHERE user_id = ${userId} AND type = 'initial' AND status IN ('pending', 'paid')
+      ORDER BY created_at DESC LIMIT 1
+    `);
+    const feeRow = (feeRows as any)[0] ?? null;
+    const feePaid = feeRow?.status === 'paid';
+
+    if (feeRow && !feePaid) {
+      // Fee exists but not yet paid — return client_secret so member can pay
+      res.json({
+        already_verified: false,
+        fee_paid: false,
+        fee_client_secret: feeRow.stripe_client_secret,
+        fee_amount_cents: VERIFICATION_FEE_CENTS,
+      });
+      return;
+    }
+
+    if (!user.identity_session_id) {
+      res.json({ already_verified: false, fee_paid: feePaid, session: null });
+      return;
+    }
 
     // Check whether the operator's 24-hour attestation window has lapsed
     if (user.id_attestation_expires_at && new Date() > new Date(user.id_attestation_expires_at)) {
@@ -213,8 +265,7 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
         UPDATE users SET identity_session_id = NULL, id_attestation_expires_at = NULL WHERE id = ${userId}
       `).catch(() => {});
       await db.execute(sql`
-        UPDATE id_attestation_log SET outcome = 'expired'
-        WHERE user_id = ${userId} AND outcome = 'pending'
+        UPDATE id_attestation_log SET outcome = 'expired' WHERE user_id = ${userId} AND outcome = 'pending'
       `).catch(() => {});
       res.json({ already_verified: false, attestation_expired: true, session: null });
       return;
@@ -227,13 +278,13 @@ router.get('/identity-session', requireVerifiedUser, async (req: Request, res: R
     );
     res.json({
       already_verified: false,
+      fee_paid: true,
       session: {
         verificationSessionId: user.identity_session_id,
         ephemeralKeySecret: ephemeralKey.secret,
       },
     });
   } catch {
-    // Session may have expired or been cancelled — clear it and respond
     await db.execute(sql`UPDATE users SET identity_session_id = NULL WHERE id = ${userId}`).catch(() => {});
     res.json({ already_verified: false, session: null });
   }
@@ -294,11 +345,15 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
       return;
     }
 
-    // Mark any stale pending log entries as expired before creating a new one
+    // Mark any stale pending log entries and fee PIs as expired before creating new ones
     await db.execute(sql`
       UPDATE id_attestation_log SET outcome = 'expired'
       WHERE user_id = ${targetUser.id} AND outcome = 'pending'
     `);
+    await db.execute(sql`
+      UPDATE verification_payments SET status = 'expired'
+      WHERE user_id = ${targetUser.id} AND type = 'initial' AND status = 'pending'
+    `).catch(() => {});
 
     // Record operator attestation — the employee physically examined the ID
     // Attestation is valid for 24 hours; member must complete the Stripe scan in that window
@@ -329,10 +384,22 @@ router.post('/start-identity-verification', requireVerifiedUser, async (req: Req
       VALUES (${targetUser.id}, ${operatorId}, ${session.id})
     `);
 
+    // Create verification fee PaymentIntent (CA$111) — member pays before scanning ID
+    const feePi = await stripe.paymentIntents.create({
+      amount: VERIFICATION_FEE_CENTS,
+      currency: 'cad',
+      metadata: { type: 'verification_fee', user_id: String(targetUser.id) },
+    });
+    await db.execute(sql`
+      INSERT INTO verification_payments (user_id, type, amount_cents, stripe_payment_intent_id, stripe_client_secret)
+      VALUES (${targetUser.id}, 'initial', ${VERIFICATION_FEE_CENTS}, ${feePi.id}, ${feePi.client_secret})
+      ON CONFLICT (stripe_payment_intent_id) DO NOTHING
+    `);
+
     if (targetUser.push_token) {
       sendPushNotification(targetUser.push_token, {
-        title: 'ID verification ready',
-        body: "Open your portal to scan your passport or driver's license.",
+        title: 'Verification ready',
+        body: `Open your app to pay the CA$${VERIFICATION_FEE_CENTS / 100} verification fee and scan your ID.`,
         data: { screen: 'portal' },
       }).catch(() => {});
     }
@@ -369,15 +436,14 @@ router.get('/:userId/content', requireVerifiedUser, async (req: Request, res: Re
   }
 
   try {
-    // Require government ID verification to view content (also check it hasn't expired)
+    // Require active government ID verification to view content
     const [buyer] = await db
-      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at, verification_renewal_due_at: users.verification_renewal_due_at })
       .from(users)
       .where(eq(users.id, buyerId))
       .limit(1);
 
-    const buyerIdExpired = buyer?.identity_verified_expires_at && new Date() > new Date(buyer.identity_verified_expires_at);
-    if (!buyer?.identity_verified || buyerIdExpired) {
+    if (!buyer || !isIdentityActive(buyer)) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }
@@ -435,15 +501,14 @@ router.post('/:userId/upload', requireVerifiedUser, async (req: Request, res: Re
   }
 
   try {
-    // Require government ID verification to post content (also check it hasn't expired)
+    // Require active government ID verification to post content
     const [creator] = await db
-      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at })
+      .select({ identity_verified: users.identity_verified, identity_verified_expires_at: users.identity_verified_expires_at, verification_renewal_due_at: users.verification_renewal_due_at })
       .from(users)
       .where(eq(users.id, requestingUserId))
       .limit(1);
 
-    const creatorIdExpired = creator?.identity_verified_expires_at && new Date() > new Date(creator.identity_verified_expires_at);
-    if (!creator?.identity_verified || creatorIdExpired) {
+    if (!creator || !isIdentityActive(creator)) {
       res.status(403).json({ error: 'identity_verification_required' });
       return;
     }
@@ -516,6 +581,39 @@ router.get('/my-access', requireVerifiedUser, async (req: Request, res: Response
 
     res.json(rows);
   } catch (err) {
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+// POST /api/portal/renew-verification — member pays CA$333 annual renewal (no operator needed)
+router.post('/renew-verification', requireVerifiedUser, async (req: Request, res: Response) => {
+  const userId: number = (req as any).userId;
+  try {
+    // Return existing pending renewal PI if one already exists (idempotent)
+    const existing = await db.execute(sql`
+      SELECT stripe_client_secret FROM verification_payments
+      WHERE user_id = ${userId} AND type = 'renewal' AND status = 'pending'
+      ORDER BY created_at DESC LIMIT 1
+    `);
+    const existingRow = (existing as any)[0] ?? null;
+    if (existingRow) {
+      res.json({ client_secret: existingRow.stripe_client_secret, amount_cents: VERIFICATION_RENEWAL_CENTS });
+      return;
+    }
+
+    const pi = await stripe.paymentIntents.create({
+      amount: VERIFICATION_RENEWAL_CENTS,
+      currency: 'cad',
+      metadata: { type: 'verification_renewal', user_id: String(userId) },
+    });
+
+    await db.execute(sql`
+      INSERT INTO verification_payments (user_id, type, amount_cents, stripe_payment_intent_id, stripe_client_secret)
+      VALUES (${userId}, 'renewal', ${VERIFICATION_RENEWAL_CENTS}, ${pi.id}, ${pi.client_secret})
+    `);
+
+    res.json({ client_secret: pi.client_secret, amount_cents: VERIFICATION_RENEWAL_CENTS });
+  } catch {
     res.status(500).json({ error: 'internal_error' });
   }
 });
