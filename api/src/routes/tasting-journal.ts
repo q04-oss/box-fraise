@@ -69,8 +69,8 @@ router.get('/word-cloud/:varietyId', async (req: Request, res: Response) => {
 
   try {
     const rows = await db.execute(sql`
-      SELECT tasting_notes, rating FROM tasting_journal
-      WHERE variety_id = ${varietyId} AND tasting_notes IS NOT NULL
+      SELECT notes AS tasting_notes, rating FROM tasting_journal
+      WHERE variety_id = ${varietyId} AND notes IS NOT NULL
       LIMIT 200
     `);
     const data = (rows as any).rows ?? rows;

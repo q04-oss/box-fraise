@@ -271,10 +271,11 @@ router.get('/sessions/today', requireStaff, async (req: Request, res: Response) 
 router.get('/postal-heatmap', requireStaff, async (req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
-      SELECT SUBSTRING(delivery_address, 1, 3) AS prefix, COUNT(*) AS count
-      FROM orders
-      WHERE DATE(COALESCE(slot_time, created_at)) = CURRENT_DATE
-        AND delivery_address IS NOT NULL
+      SELECT SUBSTRING(o.delivery_address, 1, 3) AS prefix, COUNT(*) AS count
+      FROM orders o
+      LEFT JOIN time_slots ts ON ts.id = o.time_slot_id
+      WHERE DATE(COALESCE(ts.time, o.created_at)) = CURRENT_DATE
+        AND o.delivery_address IS NOT NULL
       GROUP BY prefix
       ORDER BY count DESC
       LIMIT 20

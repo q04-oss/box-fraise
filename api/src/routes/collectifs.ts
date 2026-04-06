@@ -73,7 +73,7 @@ router.get('/', async (_req: Request, res: Response) => {
       WHERE c.status = 'open'
       ORDER BY c.created_at DESC
     `);
-    res.json(rows);
+    res.json((rows as any).rows ?? rows);
   } catch (err) {
     logger.error('fetchCollectifs', err);
     res.status(500).json({ error: 'Internal server error' });
