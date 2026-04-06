@@ -137,9 +137,11 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
       SELECT COUNT(DISTINCT le.user_id)::int AS pickup_count
       FROM legitimacy_events le
       JOIN collectif_commitments cc_self ON cc_self.user_id = ${user_id}
+        AND cc_self.status = 'captured'
       JOIN collectif_commitments cc_other ON cc_other.collectif_id = cc_self.collectif_id
         AND cc_other.user_id = le.user_id
         AND cc_other.user_id != ${user_id}
+        AND cc_other.status = 'captured'
       WHERE le.event_type = 'nfc_verified'
         AND le.created_at >= ${todayStart}
     `);
@@ -150,7 +152,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
     const countRows = await db.execute(sql`
       SELECT COUNT(*)::int AS order_count
       FROM orders o
-      JOIN users u ON u.apple_id = o.apple_id
+      JOIN users u ON u.apple_user_id = o.apple_id
       WHERE u.id = ${user_id}
         AND o.variety_id = ${order.variety_id}
         AND o.status = 'collected'

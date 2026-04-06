@@ -498,7 +498,8 @@ router.post('/collect', requireUser, async (req: Request, res: Response) => {
 
     const vendorRows = await db.execute(sql`
       SELECT mv.name AS vendor_name, mv.description AS vendor_description,
-             mv.instagram_handle, ml.name AS listing_name, ml.tags
+             mv.instagram_handle, ml.name AS listing_name,
+             array_to_json(COALESCE(ml.tags, '{}')) AS tags
       FROM market_order_items moi
       JOIN market_listings ml ON ml.id = moi.listing_id
       JOIN market_vendors mv ON mv.id = ml.vendor_id
