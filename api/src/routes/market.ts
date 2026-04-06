@@ -453,7 +453,8 @@ router.post('/orders', requireUser, async (req: Request, res: Response) => {
       `);
       const dRows = (decremented as any).rows ?? decremented;
       if (!dRows.length) {
-        // Roll back order
+        // Roll back order — must delete items first (FK constraint)
+        await db.execute(sql`DELETE FROM market_order_items WHERE order_id = ${order_id}`);
         await db.execute(sql`DELETE FROM market_orders_v2 WHERE id = ${order_id}`);
         res.status(409).json({ error: `stock_depleted:${listing.id}` }); return;
       }
