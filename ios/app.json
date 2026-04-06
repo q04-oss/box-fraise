@@ -83,7 +83,10 @@
         }
       ],
       "expo-secure-store",
-      "@kingstinct/react-native-healthkit"
+      ["@kingstinct/react-native-healthkit", {
+        "NSHealthShareUsageDescription": "Used to recommend menu items based on your nutrition and activity today.",
+        "NSHealthUpdateUsageDescription": "Used to log nutrition from your orders."
+      }]
     ],
     "extra": {
       "eas": {
