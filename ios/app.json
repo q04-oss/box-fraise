@@ -25,7 +25,9 @@
         ],
         "com.apple.developer.nfc.readersession.formats": [
           "TAG"
-        ]
+        ],
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -36,7 +38,9 @@
         "NFCReaderUsageDescription": "Used to verify your identity at collection points.",
         "NSBluetoothAlwaysUsageDescription": "Used to detect nearby Maison Fraise collection points and notify you of available strawberries.",
         "NSBluetoothPeripheralUsageDescription": "Used to detect nearby Maison Fraise collection points.",
-        "NSLocationAlwaysUsageDescription": "We use your location in the background to detect nearby collection points via Bluetooth."
+        "NSLocationAlwaysUsageDescription": "We use your location in the background to detect nearby collection points via Bluetooth.",
+        "NSHealthShareUsageDescription": "Used to recommend menu items based on your nutrition and activity today.",
+        "NSHealthUpdateUsageDescription": "Used to log nutrition from your orders."
       }
     },
     "android": {
@@ -77,7 +81,8 @@
           "isAndroidBackgroundLocationEnabled": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@kingstinct/react-native-healthkit"
     ],
     "extra": {
       "eas": {
