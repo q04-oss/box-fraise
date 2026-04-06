@@ -8,6 +8,7 @@ import { usePanel } from '../../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../../theme';
 import {
   fetchMarketListings, createVendorListing, updateVendorListing, deleteVendorListing,
+  fetchMyVendorProfile, registerAsVendor,
 } from '../../../lib/api';
 
 const CATEGORIES = ['fruit', 'vegetable', 'herb', 'grain', 'dairy', 'other'];
@@ -25,6 +26,13 @@ export default function VendorPanel() {
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingListing, setEditingListing] = useState<any | null>(null);
+
+  // Vendor onboarding
+  const [vendorProfile, setVendorProfile] = useState<any | null | 'loading'>('loading');
+  const [onboardingName, setOnboardingName] = useState('');
+  const [onboardingDesc, setOnboardingDesc] = useState('');
+  const [onboardingInsta, setOnboardingInsta] = useState('');
+  const [registering, setRegistering] = useState(false);
 
   // Form fields
   const [name, setName] = useState('');
@@ -44,7 +52,39 @@ export default function VendorPanel() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadListings(); }, []);
+  useEffect(() => {
+    fetchMyVendorProfile()
+      .then(profile => {
+        setVendorProfile(profile);
+        if (profile !== null) {
+          loadListings();
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        setVendorProfile(null);
+        setLoading(false);
+      });
+  }, []);
+
+  const handleRegister = async () => {
+    if (!onboardingName.trim()) { Alert.alert('Business name required'); return; }
+    setRegistering(true);
+    try {
+      const vendor = await registerAsVendor({
+        name: onboardingName.trim(),
+        description: onboardingDesc.trim() || undefined,
+        instagram_handle: onboardingInsta.trim() || undefined,
+      });
+      setVendorProfile(vendor);
+      await loadListings();
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Could not register');
+    } finally {
+      setRegistering(false);
+    }
+  };
 
   const openAdd = () => {
     setEditingListing(null);
@@ -151,8 +191,62 @@ export default function VendorPanel() {
         )}
       </View>
 
+      {/* Vendor profile loading */}
+      {vendorProfile === 'loading' && (
+        <ActivityIndicator color={c.accent} style={{ marginTop: 60 }} />
+      )}
+
+      {/* Vendor onboarding */}
+      {vendorProfile === null && (
+        <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Text style={[styles.emptyTitle, { color: c.text, fontFamily: fonts.playfair, textAlign: 'center', marginTop: SPACING.lg }]}>
+            BECOME A VENDOR
+          </Text>
+          <Text style={[styles.emptyHint, { color: c.muted, fontFamily: fonts.dmSans, textAlign: 'center', marginBottom: SPACING.lg }]}>
+            Sell your produce at fraise.market. We'll handle orders — you just bring the goods.
+          </Text>
+          <Text style={[styles.fieldLabel, { color: c.muted }]}>BUSINESS NAME</Text>
+          <TextInput
+            style={[styles.input, { color: c.text, borderColor: c.border }]}
+            value={onboardingName}
+            onChangeText={setOnboardingName}
+            placeholder="Business name"
+            placeholderTextColor={c.muted}
+          />
+          <Text style={[styles.fieldLabel, { color: c.muted }]}>DESCRIPTION</Text>
+          <TextInput
+            style={[styles.input, styles.inputMulti, { color: c.text, borderColor: c.border }]}
+            value={onboardingDesc}
+            onChangeText={setOnboardingDesc}
+            placeholder="Description (optional)"
+            placeholderTextColor={c.muted}
+            multiline
+          />
+          <Text style={[styles.fieldLabel, { color: c.muted }]}>INSTAGRAM</Text>
+          <TextInput
+            style={[styles.input, { color: c.text, borderColor: c.border }]}
+            value={onboardingInsta}
+            onChangeText={setOnboardingInsta}
+            placeholder="Instagram handle (optional)"
+            placeholderTextColor={c.muted}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: c.accent, marginTop: SPACING.lg }]}
+            onPress={handleRegister}
+            disabled={registering}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.saveBtnText, { color: c.ctaText ?? '#fff', fontFamily: fonts.dmMono, letterSpacing: 1.5 }]}>
+              {registering ? 'REGISTERING…' : 'REGISTER AS VENDOR →'}
+            </Text>
+          </TouchableOpacity>
+          <View style={{ height: SPACING.xl }} />
+        </ScrollView>
+      )}
+
       {/* Add / Edit form */}
-      {adding && (
+      {vendorProfile !== 'loading' && vendorProfile !== null && adding && (
         <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={[styles.fieldLabel, { color: c.muted }]}>ITEM NAME</Text>
           <TextInput
@@ -292,7 +386,7 @@ export default function VendorPanel() {
       )}
 
       {/* Listings list */}
-      {!adding && (
+      {vendorProfile !== 'loading' && vendorProfile !== null && !adding && (
         <>
           {loading ? (
             <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />

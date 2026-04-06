@@ -63,7 +63,8 @@ export type PanelId =
   | 'market-cart'
   | 'market-orders'
   | 'market-vendor'
-  | 'ar-box';
+  | 'ar-box'
+  | 'staff-orders';
 
 export interface OrderState {
   variety_id: number | null;

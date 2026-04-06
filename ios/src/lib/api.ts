@@ -2885,3 +2885,58 @@ export async function fetchVarietyById(id: number): Promise<any> {
   const list: any[] = await r.json();
   return list.find((v: any) => v.id === id) ?? null;
 }
+
+// ─── Staff API ────────────────────────────────────────────────────────────────
+
+export async function fetchStaffOrders(pin: string, date: string): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/staff/orders?date=${date}`, {
+    headers: { 'x-staff-pin': pin, ...auth },
+  });
+  if (r.status === 403) throw new Error('staff_auth_failed');
+  if (!r.ok) throw new Error('fetch_failed');
+  return r.json();
+}
+
+export async function staffMarkPrepare(pin: string, id: number): Promise<void> {
+  const auth = await authHeader();
+  await fetch(`${BASE_URL}/api/staff/orders/${id}/prepare`, {
+    method: 'POST', headers: { 'x-staff-pin': pin, ...auth },
+  });
+}
+
+export async function staffMarkReady(pin: string, id: number): Promise<void> {
+  const auth = await authHeader();
+  await fetch(`${BASE_URL}/api/staff/orders/${id}/ready`, {
+    method: 'POST', headers: { 'x-staff-pin': pin, ...auth },
+  });
+}
+
+export async function staffFlagOrder(pin: string, id: number, note: string): Promise<void> {
+  const auth = await authHeader();
+  await fetch(`${BASE_URL}/api/staff/orders/${id}/flag`, {
+    method: 'POST', headers: { 'x-staff-pin': pin, 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ note }),
+  });
+}
+
+// ─── Vendor onboarding API ────────────────────────────────────────────────────
+
+export async function fetchMyVendorProfile(): Promise<any | null> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/vendors/me`, { headers: auth });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('fetch_failed');
+  return r.json();
+}
+
+export async function registerAsVendor(data: { name: string; description?: string; instagram_handle?: string }): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/vendors`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(data),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'registration_failed'); }
+  return r.json();
+}

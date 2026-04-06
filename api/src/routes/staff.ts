@@ -1,0 +1,123 @@
+import { Router, Request, Response, NextFunction } from 'express';
+import { eq, and, gte, lte } from 'drizzle-orm';
+import { db } from '../db';
+import { orders, users, varieties, timeSlots } from '../db/schema';
+import { sendPushNotification } from '../lib/push';
+
+const router = Router();
+
+const requireStaff = async (req: Request, res: Response, next: NextFunction) => {
+  const pin = req.headers['x-staff-pin'] as string | undefined;
+  const staffPin = process.env.STAFF_PIN;
+  if (staffPin && pin === staffPin) { next(); return; }
+  // Fallback: authenticated user with is_dj flag
+  const authHeader = req.headers.authorization;
+  if (!authHeader) { res.status(403).json({ error: 'staff_only' }); return; }
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const { verifyToken } = await import('../lib/auth');
+    const payload = verifyToken(token);
+    if (!payload) { res.status(403).json({ error: 'staff_only' }); return; }
+    const [user] = await db.select({ is_dj: users.is_dj }).from(users).where(eq(users.id, payload.userId));
+    if (!user?.is_dj) { res.status(403).json({ error: 'staff_only' }); return; }
+    next();
+  } catch { res.status(403).json({ error: 'staff_only' }); }
+};
+
+// GET /api/staff/orders — today's orders grouped by slot
+router.get('/orders', requireStaff, async (req: Request, res: Response) => {
+  try {
+    const dateParam = (req.query.date as string | undefined) ?? new Date().toISOString().slice(0, 10);
+    const dayStart = new Date(`${dateParam}T00:00:00.000Z`);
+    const dayEnd = new Date(`${dateParam}T23:59:59.999Z`);
+
+    const rows = await db
+      .select({
+        id: orders.id,
+        variety_id: orders.variety_id,
+        variety_name: varieties.name,
+        time_slot_id: orders.time_slot_id,
+        slot_time: timeSlots.time,
+        slot_date: timeSlots.date,
+        chocolate: orders.chocolate,
+        finish: orders.finish,
+        quantity: orders.quantity,
+        status: orders.status,
+        customer_email: orders.customer_email,
+        push_token: orders.push_token,
+        nfc_token: orders.nfc_token,
+        is_gift: orders.is_gift,
+        gift_note: orders.gift_note,
+        created_at: orders.created_at,
+      })
+      .from(orders)
+      .innerJoin(varieties, eq(orders.variety_id, varieties.id))
+      .innerJoin(timeSlots, eq(orders.time_slot_id, timeSlots.id))
+      .where(and(gte(orders.created_at, dayStart), lte(orders.created_at, dayEnd)))
+      .orderBy(timeSlots.time, orders.created_at);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/staff/orders/:id/prepare — mark preparing
+router.post('/orders/:id/prepare', requireStaff, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    await db
+      .update(orders)
+      .set({ status: 'preparing' })
+      .where(and(eq(orders.id, id), eq(orders.status, 'paid')));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/staff/orders/:id/ready — mark ready + send push notification
+router.post('/orders/:id/ready', requireStaff, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const updated = await db
+      .update(orders)
+      .set({ status: 'ready' })
+      .where(and(eq(orders.id, id)))
+      .returning({ push_token: orders.push_token });
+
+    const result = (updated as any).rows ?? updated;
+    const row = result[0];
+    if (row?.push_token) {
+      sendPushNotification(row.push_token, {
+        title: 'Your order is ready',
+        body: 'Come pick up your strawberries.',
+        data: { order_id: id },
+      }).catch(() => {});
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/staff/orders/:id/flag — flag an issue
+router.post('/orders/:id/flag', requireStaff, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  const { note } = req.body as { note?: string };
+  try {
+    await db
+      .update(orders)
+      .set({ status: 'cancelled', rating_note: note ?? null })
+      .where(eq(orders.id, id));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+export default router;

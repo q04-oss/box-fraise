@@ -155,6 +155,24 @@ export default function HomePanel() {
               >
                 <Text style={[styles.collectifLinkText, { color: c.muted }]}>tournaments →</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('market-home')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>fraise.market →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('my-profile')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>my profile →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('evening-tokens')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>evening tokens →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('discovery')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>discover →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('verifyNFC')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>scan your box →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('staff-orders')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>staff →</Text>
+              </TouchableOpacity>
             </View>
 
           ) : (
@@ -297,6 +315,25 @@ export default function HomePanel() {
                   })
                 )}
               </View>
+              {/* ── Quick navigation ── */}
+              <View style={styles.quickNavRow}>
+                {[
+                  { label: 'market', panel: 'market-home' },
+                  { label: 'profile', panel: 'my-profile' },
+                  { label: 'history', panel: 'order-history' },
+                  { label: 'tokens', panel: 'tokens' },
+                  { label: 'scan box', panel: 'verifyNFC' },
+                ].map(({ label, panel }) => (
+                  <TouchableOpacity
+                    key={panel}
+                    style={[styles.quickNavChip, { borderColor: c.border }]}
+                    onPress={() => showPanel(panel as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.quickNavChipText, { color: c.muted, fontFamily: fonts.dmMono }]}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </>
           )}
           <View style={{ height: 40 }} />
@@ -361,4 +398,7 @@ const styles = StyleSheet.create({
   viewEventText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   collectifLink: { marginTop: 20 },
   collectifLinkText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  quickNavRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: SPACING.md, paddingHorizontal: SPACING.sm },
+  quickNavChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  quickNavChipText: { fontSize: 11, letterSpacing: 1 },
 });

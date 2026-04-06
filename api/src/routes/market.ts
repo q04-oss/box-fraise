@@ -541,6 +541,40 @@ router.get('/vendor/orders', requireUser, async (req: Request, res: Response) =>
   }
 });
 
+// 11a. GET /vendors/me — authenticated user's vendor profile
+router.get('/vendors/me', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  try {
+    const [vendor] = await db.select().from(marketVendors).where(eq(marketVendors.user_id, userId));
+    if (!vendor) { res.status(404).json({ error: 'not_a_vendor' }); return; }
+    res.json(vendor);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// 11b. POST /vendors — vendor self-registration
+router.post('/vendors', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const { name, description, instagram_handle } = req.body;
+  if (!name?.trim()) { res.status(400).json({ error: 'name_required' }); return; }
+  try {
+    const [existing] = await db.select({ id: marketVendors.id }).from(marketVendors).where(eq(marketVendors.user_id, userId));
+    if (existing) { res.status(409).json({ error: 'already_a_vendor', vendor_id: existing.id }); return; }
+    const inserted = await db.insert(marketVendors).values({
+      user_id: userId,
+      name: name.trim(),
+      description: description?.trim() ?? null,
+      instagram_handle: instagram_handle?.trim() ?? null,
+      active: true,
+    }).returning();
+    const result = (inserted as any).rows ?? inserted;
+    res.status(201).json(result[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // 11. GET /vendors
 router.get('/vendors', async (_req: Request, res: Response) => {
   try {
