@@ -82,6 +82,107 @@ db.execute(sql`
 
 // ─── Routes (fixed routes before parameterized to prevent capture) ────────────
 
+// GET /feed — no auth required. Returns active licensed portrait tokens for the in-app ad feed.
+router.get('/feed', async (_req: Request, res: Response) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        pt.id,
+        pt.image_url,
+        pt.instagram_handle,
+        pt.handle_visible,
+        plr.requesting_businesses,
+        pl.id AS license_id,
+        pl.impression_rate_cents
+      FROM portrait_tokens pt
+      JOIN portrait_licenses pl ON pl.token_id = pt.id
+      JOIN portrait_license_requests plr ON pl.request_id = plr.id
+      WHERE pl.active_until > NOW()
+        AND pt.status = 'active'
+      ORDER BY pl.active_from DESC
+      LIMIT 50
+    `);
+    const result = (rows as any).rows ?? rows;
+    res.json(result.map((r: any) => ({
+      id: r.id,
+      image_url: r.image_url,
+      instagram_handle: r.handle_visible ? r.instagram_handle : null,
+      license_id: r.license_id,
+      impression_rate_cents: r.impression_rate_cents,
+      business_names: (r.requesting_businesses ?? []).map((b: any) => b.name).filter(Boolean),
+    })));
+  } catch (err) {
+    logger.error(`portrait-tokens /feed error: ${String(err)}`);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /:id/view — auth required. Any user viewing the portrait in the feed triggers this.
+// The business is debited, the token owner is credited.
+router.post('/:id/view', requireUser, async (req: Request, res: Response) => {
+  const tokenId = parseInt(req.params.id, 10);
+  if (isNaN(tokenId)) { res.status(400).json({ error: 'invalid id' }); return; }
+
+  try {
+    // Find active license
+    const [license] = await db.select().from(portraitLicenses)
+      .where(and(
+        eq(portraitLicenses.token_id, tokenId),
+        sql`${portraitLicenses.active_until} > NOW()`,
+      ));
+    if (!license) { res.status(404).json({ error: 'no_active_license' }); return; }
+
+    // Get token owner
+    const [token] = await db.select({ owner_id: portraitTokens.owner_id })
+      .from(portraitTokens).where(eq(portraitTokens.id, tokenId));
+    if (!token) { res.status(404).json({ error: 'not_found' }); return; }
+
+    // Get the license request to find the business
+    const [licenseReq] = await db.select({ requesting_businesses: portraitLicenseRequests.requesting_businesses })
+      .from(portraitLicenseRequests).where(eq(portraitLicenseRequests.id, license.request_id));
+    if (!licenseReq) { res.status(404).json({ error: 'not_found' }); return; }
+
+    const businesses = licenseReq.requesting_businesses as Array<{ id: number; name: string; contribution_cents: number }>;
+    if (businesses.length === 0) { res.json({ ok: true, earned_cents: 0 }); return; }
+
+    const rateCents = license.impression_rate_cents;
+    const bizId = businesses[0].id;
+
+    // Find shop user for the first business
+    const [shopUser] = await db.select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.business_id, bizId), eq(users.is_shop, true)));
+    if (!shopUser) { res.json({ ok: true, earned_cents: 0 }); return; }
+
+    // Debit business 2x, credit owner 1x (platform keeps 1x implicitly)
+    const [debited] = await db.update(users)
+      .set({ ad_balance_cents: sql`${users.ad_balance_cents} - ${rateCents * 2}` })
+      .where(and(
+        eq(users.id, shopUser.id),
+        sql`${users.ad_balance_cents} >= ${rateCents * 2}`,
+      ))
+      .returning({ id: users.id });
+
+    if (debited) {
+      await db.update(users)
+        .set({ ad_balance_cents: sql`${users.ad_balance_cents} + ${rateCents}` })
+        .where(eq(users.id, token.owner_id));
+
+      await db.update(portraitLicenses)
+        .set({
+          total_impressions: sql`${portraitLicenses.total_impressions} + 1`,
+          total_earned_cents: sql`${portraitLicenses.total_earned_cents} + ${rateCents}`,
+        })
+        .where(eq(portraitLicenses.id, license.id));
+    }
+
+    res.json({ ok: true, earned_cents: debited ? rateCents : 0 });
+  } catch (err) {
+    logger.error(`portrait-tokens /:id/view error: ${String(err)}`);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // GET /mine — auth required. Returns user's owned tokens with active license count
 // and pending incoming request count.
 router.get('/mine', requireUser, async (req: Request, res: Response) => {

@@ -53,7 +53,11 @@ export type PanelId =
   | 'portrait-token-detail'
   | 'portrait-licensing'
   | 'evening-tokens'
-  | 'discovery';
+  | 'discovery'
+  | 'portrait-feed'
+  | 'my-profile'
+  | 'greenhouse'
+  | 'greenhouse-detail';
 
 export interface OrderState {
   variety_id: number | null;

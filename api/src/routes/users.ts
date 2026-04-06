@@ -4,7 +4,7 @@ import { db } from '../db';
 import {
   users, legitimacyEvents, businesses, popupRsvps, djOffers, popupNominations,
   employmentContracts, orders, varieties, timeSlots, userFollows, notifications,
-  referralCodes,
+  referralCodes, memberships,
 } from '../db/schema';
 import { requireUser } from '../lib/auth';
 import { stripe } from '../lib/stripe';
@@ -32,6 +32,51 @@ router.get('/me', requireUser, async (req: Request, res: Response) => {
     res.json({ ...user, legitimacy_score });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/me/stats — auth required. Returns profile stats.
+router.get('/me/stats', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  try {
+    const [user] = await db.select({
+      ad_balance_cents: users.ad_balance_cents,
+      display_name: users.display_name,
+      user_code: users.user_code,
+      portal_opted_in: users.portal_opted_in,
+      verified: users.verified,
+    }).from(users).where(eq(users.id, userId));
+    if (!user) { res.status(404).json({ error: 'not_found' }); return; }
+
+    const [eveningRow] = await db.execute<{ count: string }>(sql`
+      SELECT COUNT(*)::text as count FROM evening_tokens
+      WHERE (user_a_id = ${userId} OR user_b_id = ${userId}) AND minted_at IS NOT NULL
+    `);
+    const [portraitRow] = await db.execute<{ count: string }>(sql`
+      SELECT COUNT(*)::text as count FROM portrait_tokens WHERE owner_id = ${userId}
+    `);
+    const [nfcRow] = await db.execute<{ count: string }>(sql`
+      SELECT COUNT(*)::text as count FROM nfc_connections
+      WHERE user_a = ${userId} OR user_b = ${userId}
+    `);
+    const [membershipRow] = await db.select({ tier: memberships.tier })
+      .from(memberships)
+      .where(and(eq(memberships.user_id, userId), eq(memberships.status, 'active')))
+      .limit(1);
+
+    res.json({
+      ad_balance_cents: user.ad_balance_cents,
+      display_name: user.display_name,
+      user_code: user.user_code,
+      portal_opted_in: user.portal_opted_in,
+      verified: user.verified,
+      evening_count: parseInt((eveningRow as any).count ?? '0', 10),
+      portrait_count: parseInt((portraitRow as any).count ?? '0', 10),
+      nfc_connection_count: parseInt((nfcRow as any).count ?? '0', 10),
+      membership_tier: membershipRow?.tier ?? null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
   }
 });
 

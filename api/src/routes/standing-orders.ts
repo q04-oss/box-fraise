@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { eq, or, sql } from 'drizzle-orm';
+import { eq, or, and, sql } from 'drizzle-orm';
 import { db } from '../db';
-import { standingOrders, users, legitimacyEvents, varieties, orders, membershipFunds } from '../db/schema';
+import { standingOrders, users, legitimacyEvents, varieties, orders, membershipFunds, timeSlots } from '../db/schema';
 import { stripe } from '../lib/stripe';
 import { requireUser } from '../lib/auth';
 
@@ -102,6 +102,81 @@ router.get('/', requireUser, async (req: Request, res: Response) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/standing-orders/:id/pay-from-balance
+router.post('/:id/pay-from-balance', requireUser, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  const userId: number = (req as any).userId;
+
+  try {
+    const [standing] = await db.select().from(standingOrders).where(eq(standingOrders.id, id));
+    if (!standing) { res.status(404).json({ error: 'not_found' }); return; }
+    if (standing.sender_id !== userId) { res.status(403).json({ error: 'forbidden' }); return; }
+    if (standing.status !== 'active') { res.status(409).json({ error: 'not_active' }); return; }
+
+    const [variety] = await db.select({ price_cents: varieties.price_cents })
+      .from(varieties).where(eq(varieties.id, standing.variety_id)).limit(1);
+    if (!variety) { res.status(404).json({ error: 'variety_not_found' }); return; }
+
+    const totalCents = variety.price_cents * standing.quantity;
+
+    // Deduct from ad_balance_cents with balance guard
+    const [debited] = await db.update(users)
+      .set({ ad_balance_cents: sql`${users.ad_balance_cents} - ${totalCents}` })
+      .where(and(
+        eq(users.id, userId),
+        sql`${users.ad_balance_cents} >= ${totalCents}`,
+      ))
+      .returning({ id: users.id });
+    if (!debited) { res.status(402).json({ error: 'insufficient_balance' }); return; }
+
+    // Find next available time slot
+    const slotRows = await db.execute<{ id: number }>(sql`
+      SELECT id FROM time_slots
+      WHERE location_id = ${standing.location_id}
+        AND time = ${standing.time_slot_preference}
+        AND date >= NOW()
+      ORDER BY date ASC
+      LIMIT 1
+    `);
+    const slotResult = (slotRows as any).rows ?? slotRows;
+    const slotId: number | null = slotResult[0]?.id ?? null;
+    if (!slotId) { res.status(409).json({ error: 'no_available_slot' }); return; }
+
+    // Create order record
+    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    const [order] = await db.insert(orders).values({
+      variety_id: standing.variety_id,
+      location_id: standing.location_id,
+      time_slot_id: slotId,
+      chocolate: standing.chocolate,
+      finish: standing.finish,
+      quantity: standing.quantity,
+      is_gift: !!standing.recipient_id,
+      total_cents: totalCents,
+      stripe_payment_intent_id: null,
+      status: 'paid',
+      customer_email: user?.email ?? '',
+      payment_method: 'balance',
+    }).returning();
+
+    // Advance next_order_date
+    const freqDays: Record<string, number> = { weekly: 7, biweekly: 14, monthly: 30 };
+    const days = freqDays[standing.frequency] ?? 30;
+    const nextDate = new Date(standing.next_order_date ?? new Date());
+    nextDate.setDate(nextDate.getDate() + days);
+
+    await db.update(standingOrders)
+      .set({ next_order_date: nextDate })
+      .where(eq(standingOrders.id, id));
+
+    res.json({ ok: true, order_id: order.id, next_order_date: nextDate.toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: 'internal_error' });
   }
 });
 

@@ -54,6 +54,10 @@ import PortraitTokenDetailPanel from './panels/PortraitTokenDetailPanel';
 import PortraitLicenseRequestPanel from './panels/PortraitLicenseRequestPanel';
 import EveningTokensPanel from './panels/EveningTokensPanel';
 import DiscoveryPanel from './panels/DiscoveryPanel';
+import PortraitFeedPanel from './panels/PortraitFeedPanel';
+import MyProfilePanel from './panels/MyProfilePanel';
+import GreenhousePanel from './panels/GreenhousePanel';
+import GreenhouseDetailPanel from './panels/GreenhouseDetailPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
@@ -107,6 +111,10 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'portrait-licensing': PortraitLicenseRequestPanel,
   'evening-tokens': EveningTokensPanel,
   'discovery': DiscoveryPanel,
+  'portrait-feed': PortraitFeedPanel,
+  'my-profile': MyProfilePanel,
+  'greenhouse': GreenhousePanel,
+  'greenhouse-detail': GreenhouseDetailPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -141,6 +149,10 @@ const FULL_HEIGHT_PANELS = new Set([
   'portrait-licensing',
   'evening-tokens',
   'discovery',
+  'portrait-feed',
+  'my-profile',
+  'greenhouse',
+  'greenhouse-detail',
 ]);
 
 export default function PanelNavigator() {

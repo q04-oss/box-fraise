@@ -427,6 +427,35 @@ export default function MessageThreadPanel() {
               );
             }
 
+            if (item.type === 'gift') {
+              const meta = item.metadata ?? {};
+              const isPaid = meta.status === 'confirmed';
+              return (
+                <View style={[styles.confirmCard, { borderColor: c.border }]}>
+                  <Text style={[styles.offerLabel, { color: c.accent }]}>gift sent</Text>
+                  <Text style={[styles.confirmText, { color: c.text }]}>{meta.variety_name} × {meta.quantity}</Text>
+                  <Text style={[styles.offerDetail, { color: c.muted }]}>{meta.slot_date} · {meta.slot_time}</Text>
+                  <Text style={[styles.offerDetail, { color: isPaid ? c.muted : c.accent }]}>
+                    {isPaid ? 'confirmed ✓' : 'pending payment'}
+                  </Text>
+                </View>
+              );
+            }
+
+            if (item.type === 'gift_confirm') {
+              const meta = item.metadata ?? {};
+              return (
+                <View style={[styles.confirmCard, { borderColor: c.border }]}>
+                  <Text style={[styles.offerLabel, { color: c.accent }]}>gift for you</Text>
+                  <Text style={[styles.confirmText, { color: c.text }]}>{meta.variety_name} × {meta.quantity}</Text>
+                  <Text style={[styles.offerDetail, { color: c.muted }]}>{meta.slot_date} · {meta.slot_time}</Text>
+                  {meta.nfc_token && (
+                    <Text style={[styles.offerDetail, { color: c.accent, letterSpacing: 2 }]}>{meta.nfc_token}</Text>
+                  )}
+                </View>
+              );
+            }
+
             return (
               <View style={[styles.message, { borderBottomColor: c.border }]}>
                 <View style={styles.messageMeta}>

@@ -2592,3 +2592,76 @@ export async function fetchDiscovery(): Promise<any[]> {
   if (!r.ok) return [];
   return r.json();
 }
+
+export async function fetchPortraitFeed(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/portrait-tokens/feed`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function recordPortraitView(tokenId: number): Promise<void> {
+  const auth = await authHeader();
+  fetch(`${BASE_URL}/api/portrait-tokens/${tokenId}/view`, { method: 'POST', headers: auth }).catch(() => {});
+}
+
+export async function fetchMyStats(): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/users/me/stats`, { headers: auth });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function fetchGreenhouses(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/greenhouses`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchGreenhouseDetail(id: number): Promise<any> {
+  const r = await fetch(`${BASE_URL}/api/greenhouses/${id}`);
+  if (!r.ok) throw new Error('not found');
+  return r.json();
+}
+
+export async function fundGreenhouse(id: number, years: number): Promise<{ client_secret: string; amount_cents: number; years: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/greenhouses/${id}/fund`, {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ years }),
+  });
+  if (!r.ok) throw new Error((await r.json()).error ?? 'fund failed');
+  return r.json();
+}
+
+export async function payStandingOrderFromBalance(standingOrderId: number): Promise<{ ok: boolean; order_id: number; next_order_date: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/standing-orders/${standingOrderId}/pay-from-balance`, {
+    method: 'POST', headers: auth,
+  });
+  if (!r.ok) throw new Error((await r.json()).error ?? 'payment failed');
+  return r.json();
+}
+
+export async function sendGift(recipientId: number, params: {
+  variety_id: number; chocolate: string; finish: string; quantity: number;
+  time_slot_id: number; location_id: number;
+}): Promise<{ message_id: number; client_secret: string; total_cents: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/messages/gift`, {
+    method: 'POST',
+    headers: { ...auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipient_id: recipientId, ...params }),
+  });
+  if (!r.ok) throw new Error((await r.json()).error ?? 'gift failed');
+  return r.json();
+}
+
+export async function confirmGift(messageId: number): Promise<{ ok: boolean; nfc_token: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/messages/gift/${messageId}/confirm`, {
+    method: 'POST', headers: auth,
+  });
+  if (!r.ok) throw new Error((await r.json()).error ?? 'confirm failed');
+  return r.json();
+}

@@ -270,6 +270,149 @@ router.post('/dinner-invite/:messageId/decline', requireUser, async (req: Reques
   }
 });
 
+// POST /api/messages/gift — sender gifts a box to a contact, charged via Stripe
+router.post('/gift', requireUser, async (req: Request, res: Response) => {
+  const senderId = (req as any).userId as number;
+  const { recipient_id, variety_id, chocolate, finish, quantity, time_slot_id, location_id } = req.body;
+
+  if (!recipient_id || !variety_id || !chocolate || !finish || !quantity || !time_slot_id || !location_id) {
+    res.status(400).json({ error: 'Missing required fields' }); return;
+  }
+
+  try {
+    // Verify sender can message recipient (NFC connection or shop)
+    const allowed = await canMessage(senderId, recipient_id);
+    if (!allowed) { res.status(403).json({ error: 'not_connected' }); return; }
+
+    const [variety] = await db.select({ name: varieties.name, price_cents: varieties.price_cents })
+      .from(varieties).where(eq(varieties.id, variety_id));
+    if (!variety) { res.status(404).json({ error: 'variety_not_found' }); return; }
+
+    const [slot] = await db.select({ time: timeSlots.time, date: timeSlots.date })
+      .from(timeSlots).where(eq(timeSlots.id, time_slot_id));
+    if (!slot) { res.status(404).json({ error: 'slot_not_found' }); return; }
+
+    const total_cents = variety.price_cents * quantity;
+
+    const metadata = {
+      variety_id,
+      variety_name: variety.name,
+      price_cents: variety.price_cents,
+      total_cents,
+      chocolate,
+      finish,
+      quantity,
+      time_slot_id,
+      slot_time: slot.time,
+      slot_date: String(slot.date),
+      location_id,
+      sender_id: senderId,
+      status: 'pending_payment',
+    };
+
+    const body = `A gift: ${variety.name} × ${quantity}`;
+
+    // Create payment intent charged to sender
+    const pi = await stripe.paymentIntents.create({
+      amount: total_cents,
+      currency: 'cad',
+      metadata: { type: 'gift', sender_id: String(senderId), recipient_id: String(recipient_id) },
+    }, { idempotencyKey: `gift-${senderId}-${recipient_id}-${Date.now()}` });
+
+    const [message] = await db.insert(messages).values({
+      sender_id: senderId,
+      recipient_id,
+      body,
+      type: 'gift',
+      metadata: { ...metadata, stripe_payment_intent_id: pi.id },
+    }).returning();
+
+    res.json({ message_id: message.id, client_secret: pi.client_secret, total_cents });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/messages/gift/:messageId/confirm — confirm gift payment, create order, notify recipient
+router.post('/gift/:messageId/confirm', requireUser, async (req: Request, res: Response) => {
+  const senderId = (req as any).userId as number;
+  const messageId = parseInt(req.params.messageId, 10);
+  if (isNaN(messageId)) { res.status(400).json({ error: 'invalid id' }); return; }
+
+  try {
+    const [message] = await db.select().from(messages).where(eq(messages.id, messageId));
+    if (!message || message.type !== 'gift') { res.status(404).json({ error: 'not found' }); return; }
+    if (message.sender_id !== senderId) { res.status(403).json({ error: 'not your gift' }); return; }
+
+    const meta = message.metadata as any;
+    if (meta.status !== 'pending_payment') { res.status(409).json({ error: 'already confirmed' }); return; }
+
+    const pi = await stripe.paymentIntents.retrieve(meta.stripe_payment_intent_id);
+    if (pi.status !== 'succeeded') { res.status(402).json({ error: 'payment not confirmed' }); return; }
+
+    const nfc_token = randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
+
+    await db.transaction(async (tx) => {
+      // Decrement stock
+      const [stockResult] = await tx.update(varieties)
+        .set({ stock_remaining: sql`${varieties.stock_remaining} - ${meta.quantity}` })
+        .where(and(eq(varieties.id, meta.variety_id), sql`${varieties.stock_remaining} >= ${meta.quantity}`))
+        .returning({ stock_remaining: varieties.stock_remaining });
+      if (!stockResult) throw Object.assign(new Error('sold_out'), { status: 409 });
+
+      // Create order
+      const [order] = await tx.insert(orders).values({
+        variety_id: meta.variety_id,
+        location_id: meta.location_id,
+        time_slot_id: meta.time_slot_id,
+        chocolate: meta.chocolate,
+        finish: meta.finish,
+        quantity: meta.quantity,
+        is_gift: true,
+        total_cents: meta.total_cents,
+        stripe_payment_intent_id: meta.stripe_payment_intent_id,
+        status: 'paid',
+        customer_email: '',
+        nfc_token,
+      }).returning();
+
+      // Update message to confirmed
+      await tx.update(messages).set({
+        metadata: { ...meta, status: 'confirmed', nfc_token, order_id: order.id },
+        order_id: order.id,
+      }).where(eq(messages.id, messageId));
+
+      // Send confirmation message to recipient
+      await tx.insert(messages).values({
+        sender_id: senderId,
+        recipient_id: message.recipient_id,
+        body: `🍓 A gift for you — pick up ${meta.slot_date} at ${meta.slot_time}`,
+        type: 'gift_confirm',
+        metadata: { order_id: order.id, nfc_token, slot_date: meta.slot_date, slot_time: meta.slot_time, variety_name: meta.variety_name, quantity: meta.quantity },
+        order_id: order.id,
+      });
+    });
+
+    // Push notify recipient
+    db.select({ push_token: users.push_token })
+      .from(users).where(eq(users.id, message.recipient_id))
+      .then(([recipient]) => {
+        if (recipient?.push_token) {
+          sendPushNotification(recipient.push_token, {
+            title: 'You received a gift',
+            body: `${meta.variety_name} × ${meta.quantity} — pick up ${meta.slot_date} at ${meta.slot_time}`,
+            data: { screen: 'messages', user_id: senderId },
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+
+    res.json({ ok: true, nfc_token });
+  } catch (err: any) {
+    if (err?.status) { res.status(err.status).json({ error: err.message }); return; }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/messages/:userId — thread with a specific user
 router.get('/:userId', requireUser, async (req: Request, res: Response) => {
   const currentUserId = (req as any).userId as number;
