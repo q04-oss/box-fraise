@@ -113,23 +113,35 @@ const withARBoxModule = (config) => {
       fs.copyFileSync(src, dest);
     }
 
-    // Add each file to compile sources
-    for (const file of MODULE_FILES) {
-      const filePath = path.join('ARBoxModule', file);
-      project.addSourceFile(filePath, { target: project.getFirstTarget().uuid });
+    const targetUuid = project.getFirstTarget().uuid;
+
+    // Create or find the ARBoxModule PBX group so addSourceFile always receives
+    // a valid UUID — without one, xcode falls back to the project name string
+    // which crashes getPBXVariantGroupByKey when PBXVariantGroup is absent.
+    let arGroupKey = project.findPBXGroupKey({ name: 'ARBoxModule' });
+    if (!arGroupKey) {
+      arGroupKey = project.pbxCreateGroup('ARBoxModule', '"ARBoxModule"');
+      const pbxProj = project.pbxProjectSection();
+      const projKey = Object.keys(pbxProj).find(k => !k.endsWith('_comment'));
+      const mainGroupKey = pbxProj[projKey].mainGroup;
+      project.addToPbxGroup({ fileRef: arGroupKey, basename: 'ARBoxModule' }, mainGroupKey);
     }
 
-    // Link ARKit.framework (weak: false — it ships on all supported devices)
-    const frameworks = project.pbxFrameworksBuildPhaseObj(project.getFirstTarget().uuid);
+    // Add each file to compile sources
+    for (const file of MODULE_FILES) {
+      project.addSourceFile(
+        path.join('ARBoxModule', file),
+        { target: targetUuid },
+        arGroupKey,
+      );
+    }
+
+    // Link ARKit.framework
     const alreadyLinked = Object.values(project.pbxBuildFileSection() ?? {}).some(
       (f) => f && f.fileRef_comment && f.fileRef_comment.includes('ARKit')
     );
     if (!alreadyLinked) {
-      project.addFramework('ARKit.framework', {
-        weak: false,
-        link: true,
-        target: project.getFirstTarget().uuid,
-      });
+      project.addFramework('ARKit.framework', { weak: false, link: true, target: targetUuid });
     }
 
     return config;
