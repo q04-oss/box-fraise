@@ -1,0 +1,70 @@
+import { Router, Request, Response } from 'express';
+import { sql } from 'drizzle-orm';
+import { db } from '../db';
+
+const router = Router();
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS variety_profiles (
+  id serial PRIMARY KEY,
+  variety_id integer NOT NULL UNIQUE REFERENCES varieties(id),
+  sweetness numeric(4,1) NOT NULL DEFAULT 5,
+  acidity numeric(4,1) NOT NULL DEFAULT 5,
+  aroma numeric(4,1) NOT NULL DEFAULT 5,
+  texture numeric(4,1) NOT NULL DEFAULT 5,
+  intensity numeric(4,1) NOT NULL DEFAULT 5,
+  pairing_chocolate text,
+  pairing_finish text,
+  farm_distance_km numeric(7,1),
+  tasting_notes text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+// GET /api/variety-profiles/:varietyId — public
+router.get('/:varietyId', async (req: Request, res: Response) => {
+  const varietyId = parseInt(req.params.varietyId, 10);
+  if (isNaN(varietyId)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const rows = await db.execute(sql`
+      SELECT * FROM variety_profiles WHERE variety_id = ${varietyId}
+    `);
+    const row = ((rows as any).rows ?? rows)[0] ?? null;
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/variety-profiles — admin upsert
+router.post('/', async (req: Request, res: Response) => {
+  const adminKey = req.headers['x-admin-key'] as string | undefined;
+  if (adminKey !== process.env.ADMIN_KEY) { res.status(403).json({ error: 'forbidden' }); return; }
+  const {
+    variety_id, sweetness, acidity, aroma, texture, intensity,
+    pairing_chocolate, pairing_finish, farm_distance_km, tasting_notes,
+  } = req.body;
+  if (!variety_id) { res.status(400).json({ error: 'variety_id required' }); return; }
+  try {
+    const result = await db.execute(sql`
+      INSERT INTO variety_profiles (variety_id, sweetness, acidity, aroma, texture, intensity, pairing_chocolate, pairing_finish, farm_distance_km, tasting_notes, updated_at)
+      VALUES (${variety_id}, ${sweetness ?? 5}, ${acidity ?? 5}, ${aroma ?? 5}, ${texture ?? 5}, ${intensity ?? 5},
+              ${pairing_chocolate ?? null}, ${pairing_finish ?? null}, ${farm_distance_km ?? null}, ${tasting_notes ?? null}, now())
+      ON CONFLICT (variety_id) DO UPDATE SET
+        sweetness = EXCLUDED.sweetness,
+        acidity = EXCLUDED.acidity,
+        aroma = EXCLUDED.aroma,
+        texture = EXCLUDED.texture,
+        intensity = EXCLUDED.intensity,
+        pairing_chocolate = EXCLUDED.pairing_chocolate,
+        pairing_finish = EXCLUDED.pairing_finish,
+        farm_distance_km = EXCLUDED.farm_distance_km,
+        tasting_notes = EXCLUDED.tasting_notes,
+        updated_at = now()
+      RETURNING *
+    `);
+    res.json(((result as any).rows ?? result)[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+export default router;

@@ -19,3 +19,8 @@ RCT_EXTERN_METHOD(
   resolve:(RCTPromiseResolveBlock)resolve
   reject:(RCTPromiseRejectBlock)reject
 )
+
+RCT_EXTERN_METHOD(
+  presentBatchScanAR:(RCTPromiseResolveBlock)resolve
+  reject:(RCTPromiseRejectBlock)reject
+)

@@ -10,6 +10,14 @@ const MODULE_FILES = [
   'ARGiftCardView.swift',
   'ARStaffOverlay.swift',
   'ARMarketStallCardView.swift',
+  'ARFlavorWheelView.swift',
+  'ARFreshnessRingView.swift',
+  'ARPairingCardView.swift',
+  'ARCollectifAvatarsView.swift',
+  'ARSeasonalTimelineView.swift',
+  'ARPassportStampView.swift',
+  'ARDropAlertView.swift',
+  'ARBatchScanOverlay.swift',
 ];
 
 const SOURCE_DIR = path.join(__dirname, '..', 'modules', 'ARBoxModule');

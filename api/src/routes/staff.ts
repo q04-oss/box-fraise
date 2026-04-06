@@ -94,6 +94,23 @@ router.get('/orders', requireStaff, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/staff/orders/bulk-prepare — literal before /:id
+router.post('/orders/bulk-prepare', requireStaff, async (req: Request, res: Response) => {
+  const { order_ids } = req.body as { order_ids?: number[] };
+  if (!Array.isArray(order_ids) || order_ids.length === 0) {
+    res.status(400).json({ error: 'order_ids array required' }); return;
+  }
+  try {
+    await db.execute(sql`
+      UPDATE orders SET status = 'preparing'
+      WHERE id = ANY(${order_ids}::int[]) AND status = 'paid'
+    `);
+    res.json({ ok: true, updated: order_ids.length });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // POST /api/staff/orders/:id/prepare — mark preparing
 router.post('/orders/:id/prepare', requireStaff, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);

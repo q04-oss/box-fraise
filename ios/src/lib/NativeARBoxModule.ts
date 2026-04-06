@@ -30,6 +30,23 @@ export interface ARVarietyData {
   next_standing_order_label?: string | null;
   // Feature D: Collectif member names
   collectif_member_names?: string[];
+  // AR Expanded: enrichment data
+  flavor_profile?: {
+    sweetness: number;
+    acidity: number;
+    aroma: number;
+    texture: number;
+    intensity: number;
+    pairing_chocolate?: string | null;
+    pairing_finish?: string | null;
+    tasting_notes?: string | null;
+    farm_distance_km?: number | null;
+  } | null;
+  farm_distance_km?: number | null;
+  season_start?: string | null;
+  season_end?: string | null;
+  active_drop?: { title: string; price_cents: number; id: number } | null;
+  is_first_variety?: boolean;
 }
 
 // Feature E: Staff AR
@@ -69,6 +86,8 @@ export interface Spec extends TurboModule {
   presentStaffAR(staffData: ARStaffData): Promise<{ action: string; order_id: number } | null>;
   // Feature F
   presentMarketStallAR(stallData: ARMarketStallData): Promise<void>;
+  // AR Expanded: batch scan
+  presentBatchScanAR(): Promise<{ order_ids: number[] } | null>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('ARBoxModule');
