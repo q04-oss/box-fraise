@@ -31,14 +31,16 @@ function PassportCard({ item }: { item: PassportEntry }) {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const varietyIdNum = Number(item.variety_id);
+
   const loadReviews = () => {
-    fetchVarietyReviews(item.variety_id)
+    fetchVarietyReviews(varietyIdNum)
       .then((data: any) => setReviews(data ?? null))
       .catch(() => setReviews(null));
   };
 
   useEffect(() => {
-    fetchVarietyARVideos(item.variety_id)
+    fetchVarietyARVideos(varietyIdNum)
       .then((data: any) => {
         const videos = Array.isArray(data) ? data : (data?.videos ?? []);
         setArVideos(videos.slice(0, 3));
@@ -46,7 +48,8 @@ function PassportCard({ item }: { item: PassportEntry }) {
       .catch(() => setArVideos([]));
 
     loadReviews();
-  }, [item.variety_id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [varietyIdNum]);
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -55,7 +58,7 @@ function PassportCard({ item }: { item: PassportEntry }) {
     }
     setSubmitting(true);
     try {
-      await submitVarietyReview(item.variety_id, rating, note);
+      await submitVarietyReview(varietyIdNum, rating, note);
       setShowForm(false);
       setRating(0);
       setNote('');

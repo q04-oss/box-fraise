@@ -72,9 +72,11 @@ export default function TastingFeedPanel() {
   }, []);
 
   const handleReact = useCallback(async (entryId: number, emoji: string) => {
+    // Determine toggle direction before any state update
+    const alreadyReacted = (reactedEntries[entryId] ?? new Set()).has(emoji);
+
     setReactedEntries(prev => {
       const existing = new Set(prev[entryId] ?? []);
-      const alreadyReacted = existing.has(emoji);
       if (alreadyReacted) {
         existing.delete(emoji);
       } else {
@@ -87,7 +89,6 @@ export default function TastingFeedPanel() {
       prev.map(entry => {
         if (entry.id !== entryId) return entry;
         const current = entry.reactions[emoji] ?? 0;
-        const alreadyReacted = (reactedEntries[entryId] ?? new Set()).has(emoji);
         return {
           ...entry,
           reactions: {
