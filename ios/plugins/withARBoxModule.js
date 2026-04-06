@@ -113,13 +113,10 @@ const withARBoxModule = (config) => {
       fs.copyFileSync(src, dest);
     }
 
-    // Get the main app target name (first native target)
-    const targetName = project.getFirstTarget()?.firstTarget?.name;
-
     // Add each file to compile sources
     for (const file of MODULE_FILES) {
       const filePath = path.join('ARBoxModule', file);
-      project.addSourceFile(filePath, { target: project.getFirstTarget().uuid }, targetName);
+      project.addSourceFile(filePath, { target: project.getFirstTarget().uuid });
     }
 
     // Link ARKit.framework (weak: false — it ships on all supported devices)
