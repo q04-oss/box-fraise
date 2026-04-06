@@ -78,4 +78,36 @@ class ARBoxModule: NSObject {
       topVC.present(arVC, animated: true)
     }
   }
+
+  // AR Expanded: Staff batch scan mode
+  @objc func presentBatchScanAR(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async { [weak self] in
+      guard let topVC = self?.topViewController() else {
+        reject("NO_ROOT_VC", "No root view controller found", nil)
+        return
+      }
+      let emptyData: NSDictionary = [
+        "variety_id": 0,
+        "variety_name": NSNull(),
+        "farm": NSNull(),
+        "harvest_date": NSNull(),
+        "quantity": 0,
+        "chocolate": "",
+        "finish": "",
+      ]
+      let arVC = ARBoxViewController(varietyData: emptyData) {
+        resolve(nil)
+      }
+      arVC.staffMode = true
+      arVC.batchScanMode = true
+      arVC.onBatchPrepare = { orderIds in
+        resolve(["order_ids": orderIds])
+      }
+      arVC.modalPresentationStyle = .fullScreen
+      topVC.present(arVC, animated: true)
+    }
+  }
 }

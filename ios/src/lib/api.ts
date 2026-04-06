@@ -3334,3 +3334,29 @@ export async function fetchTodayStats(): Promise<{ pickups_today: number; active
   if (!r.ok) throw new Error('fetch_failed');
   return r.json();
 }
+
+// AR Expanded: variety profile (flavor wheel, pairing, farm distance, tasting notes)
+export async function fetchVarietyProfile(varietyId: number): Promise<any | null> {
+  const r = await fetch(`${BASE_URL}/api/variety-profiles/${varietyId}`);
+  if (!r.ok) return null;
+  return r.json().catch(() => null);
+}
+
+// AR Expanded: active drop for a variety
+export async function fetchActiveDropForVariety(varietyId: number): Promise<{ id: number; title: string; price_cents: number; remaining: number } | null> {
+  const r = await fetch(`${BASE_URL}/api/drops/active-for-variety/${varietyId}`);
+  if (!r.ok) return null;
+  return r.json().catch(() => null);
+}
+
+// AR Expanded: bulk prepare orders (staff batch scan)
+export async function bulkPrepareOrders(orderIds: number[], pin: string): Promise<void> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/staff/orders/bulk-prepare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ order_ids: orderIds, pin }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'bulk_prepare_failed'); }
+}
+

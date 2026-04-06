@@ -68,6 +68,7 @@ import farmVisitsRouter from './routes/farm-visits';
 import seasonsRouter from './routes/seasons';
 import fraiseChatRouter from './routes/fraise-chat';
 import webhooksRouter from './routes/webhooks';
+import varietyProfilesRouter from './routes/variety-profiles';
 import { logger } from './lib/logger';
 import { db } from './db';
 import { editorialPieces, users, memberships } from './db/schema';
@@ -174,6 +175,7 @@ app.use('/api/farm-visits', farmVisitsRouter);
 app.use('/api/seasons', seasonsRouter);
 app.use('/api/fraise-chat', fraiseChatRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/variety-profiles', varietyProfilesRouter);
 
 // POST /api/upload — Cloudinary media upload (50mb limit on this route only)
 app.post('/api/upload', express.json({ limit: '50mb' }), requireUser, async (req: any, res: any) => {

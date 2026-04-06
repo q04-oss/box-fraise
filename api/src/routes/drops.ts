@@ -59,6 +59,25 @@ router.get('/', requireUser, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/drops/active-for-variety/:varietyId — literal before parameterized
+router.get('/active-for-variety/:varietyId', requireUser, async (req: Request, res: Response) => {
+  const varietyId = parseInt(req.params.varietyId, 10);
+  if (isNaN(varietyId)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, variety_id, name AS title, price_cents, quantity,
+        (quantity - (SELECT COUNT(*)::int FROM drop_claims dc WHERE dc.drop_id = variety_drops.id AND dc.status != 'cancelled')) AS remaining
+      FROM variety_drops
+      WHERE variety_id = ${varietyId} AND status = 'open' AND quantity > 0
+      ORDER BY drops_at ASC LIMIT 1
+    `);
+    const drop = ((rows as any).rows ?? rows)[0] ?? null;
+    res.json(drop);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // GET /api/drops/:id
 router.get('/:id', requireUser, async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);

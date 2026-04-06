@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { readNfcToken, cancelNfc } from '../../lib/nfc';
-import { verifyNfc, collectMarketOrderByNfc, verifyNfcReorder, fetchStaffOrderByNfc, fetchMarketStallAR, staffMarkPrepare, staffMarkReady, staffFlagOrder } from '../../lib/api';
+import { verifyNfc, collectMarketOrderByNfc, verifyNfcReorder, fetchStaffOrderByNfc, fetchMarketStallAR, staffMarkPrepare, staffMarkReady, staffFlagOrder, fetchVarietyProfile, fetchActiveDropForVariety, bulkPrepareOrders } from '../../lib/api';
 import ARBoxModule, { ARVarietyData } from '../../lib/NativeARBoxModule';
 import { logStrawberries, requestHealthKitPermissions, getTodayHealthContext } from '../../lib/HealthKitService';
 
@@ -60,6 +60,16 @@ export default function VerifyNFCPanel() {
       // Feature E: staff AR — check if user is staff before normal flow
       const isStaff = await AsyncStorage.getItem('is_staff') === 'true';
       if (isStaff) {
+        // Batch scan token: staff taps "batch scan" button which writes fraise-batch to NFC trigger
+        if (token === 'fraise-batch') {
+          setState('success');
+          const pin = await AsyncStorage.getItem('staff_pin') ?? '';
+          const batchResult = await ARBoxModule.presentBatchScanAR();
+          if (batchResult?.order_ids?.length) {
+            await bulkPrepareOrders(batchResult.order_ids, pin).catch(() => {});
+          }
+          return;
+        }
         const staffOrderData = await fetchStaffOrderByNfc(token);
         setState('success');
         const actionResult = await ARBoxModule.presentStaffAR(staffOrderData);
@@ -81,9 +91,12 @@ export default function VerifyNFCPanel() {
       if (alreadyVerified) {
         const reorderData = await verifyNfcReorder(token);
 
-        // Feature 1: read HealthKit data fire-and-forget before building payload
-        let healthCtx: any = null;
-        try { healthCtx = await getTodayHealthContext(); } catch { /* ignore */ }
+        // Fetch enrichment data in parallel: HealthKit, variety profile, active drop
+        const [healthCtx, varietyProfile, activeDrop] = await Promise.all([
+          getTodayHealthContext().catch(() => null),
+          reorderData.variety_id ? fetchVarietyProfile(reorderData.variety_id).catch(() => null) : Promise.resolve(null),
+          reorderData.variety_id ? fetchActiveDropForVariety(reorderData.variety_id).catch(() => null) : Promise.resolve(null),
+        ]);
 
         // Feature C: format standing order label server data into display string
         let nextStandingOrderLabel: string | null = null;
@@ -91,6 +104,12 @@ export default function VerifyNFCPanel() {
           const so = reorderData.next_standing_order;
           nextStandingOrderLabel = `NEXT ORDER  ·  ${so.variety_name}  ·  in ${so.days_until} day${so.days_until === 1 ? '' : 's'}`;
         }
+
+        // Is this the first time the user has scanned this variety?
+        const seenKey = `seen_variety_${reorderData.variety_id}`;
+        const alreadySeen = await AsyncStorage.getItem(seenKey);
+        const isFirstVariety = !alreadySeen;
+        if (isFirstVariety) { AsyncStorage.setItem(seenKey, '1').catch(() => {}); }
 
         const arPayload: ARVarietyData = {
           variety_id: reorderData.variety_id,
@@ -116,10 +135,21 @@ export default function VerifyNFCPanel() {
           next_standing_order_label: nextStandingOrderLabel,
           // Feature D: collectif member names
           collectif_member_names: reorderData.collectif_member_names ?? [],
+          // AR Expanded: enrichment
+          flavor_profile: varietyProfile ?? null,
+          farm_distance_km: varietyProfile?.farm_distance_km ?? null,
+          season_start: reorderData.season_start ?? null,
+          season_end: reorderData.season_end ?? null,
+          active_drop: activeDrop ? { id: activeDrop.id, title: activeDrop.title, price_cents: activeDrop.price_cents } : null,
+          is_first_variety: isFirstVariety,
         };
         setState('success');
         await ARBoxModule.presentAR(arPayload);
-        showPanel('ar-box', arPayload);
+        if (activeDrop) {
+          showPanel('drop-detail', { drop: activeDrop });
+        } else {
+          showPanel('ar-box', arPayload);
+        }
       } else {
         const result = await verifyNfc(token);
         await AsyncStorage.setItem('verified', 'true');
