@@ -894,11 +894,11 @@ export async function fetchEditorialPiece(id: number): Promise<any | null> {
   return r.json();
 }
 
-export async function submitEditorialPiece(title: string, body: string): Promise<any> {
+export async function submitEditorialPiece(title: string, body: string, tag?: string | null): Promise<any> {
   const headers = await authHeader();
   const r = await fetch(`${BASE_URL}/api/editorial`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify({ title, body }),
+    body: JSON.stringify({ title, body, ...(tag ? { tag } : {}) }),
   });
   if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'failed'); }
   return r.json();
