@@ -83,6 +83,9 @@ import SupplierHarvestPanel from './panels/SupplierHarvestPanel';
 import NutritionDashboardPanel from './panels/NutritionDashboardPanel';
 import FraiseChatInboxPanel from './panels/FraiseChatInboxPanel';
 import WebhooksPanel from './panels/WebhooksPanel';
+import EditorialFeedPanel from './panels/EditorialFeedPanel';
+import EditorialPiecePanel from './panels/EditorialPiecePanel';
+import WritePiecePanel from './panels/WritePiecePanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
@@ -165,6 +168,9 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'nutrition-dashboard': NutritionDashboardPanel,
   'fraise-chat-inbox': FraiseChatInboxPanel,
   'webhooks': WebhooksPanel,
+  'editorial-feed': EditorialFeedPanel,
+  'editorial-piece': EditorialPiecePanel,
+  'write-piece': WritePiecePanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -225,6 +231,9 @@ const FULL_HEIGHT_PANELS = new Set([
   'nutrition-dashboard',
   'fraise-chat-inbox',
   'webhooks',
+  'editorial-feed',
+  'editorial-piece',
+  'write-piece',
 ]);
 
 export default function PanelNavigator() {

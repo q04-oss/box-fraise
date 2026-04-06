@@ -82,7 +82,10 @@ export type PanelId =
   | 'supplier-harvest'
   | 'nutrition-dashboard'
   | 'fraise-chat-inbox'
-  | 'webhooks';
+  | 'webhooks'
+  | 'editorial-feed'
+  | 'editorial-piece'
+  | 'write-piece';
 
 export interface OrderState {
   variety_id: number | null;

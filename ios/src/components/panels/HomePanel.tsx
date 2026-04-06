@@ -206,6 +206,9 @@ export default function HomePanel() {
               <TouchableOpacity onPress={() => showPanel('seasonal-calendar')} activeOpacity={0.7}>
                 <Text style={[styles.collectifLinkText, { color: c.muted }]}>seasons →</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => showPanel('editorial-feed')} activeOpacity={0.7}>
+                <Text style={[styles.collectifLinkText, { color: c.muted }]}>editorial →</Text>
+              </TouchableOpacity>
             </View>
 
           ) : (
