@@ -119,11 +119,7 @@ const withARBoxModule = (config) => {
     // Add each file to compile sources
     for (const file of MODULE_FILES) {
       const filePath = path.join('ARBoxModule', file);
-      // Avoid duplicates on repeated prebuild
-      const existing = project.pbxFileByPath(filePath);
-      if (!existing) {
-        project.addSourceFile(filePath, { target: project.getFirstTarget().uuid }, targetName);
-      }
+      project.addSourceFile(filePath, { target: project.getFirstTarget().uuid }, targetName);
     }
 
     // Link ARKit.framework (weak: false — it ships on all supported devices)
