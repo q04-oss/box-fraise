@@ -957,10 +957,10 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
   @objc private func handleConstellation() {
     guard let starsRaw = varietyData["scanned_varieties"] as? [[String: Any]] else { return }
     let currentName = (varietyData["variety_name"] as? String) ?? ""
-    let stars = starsRaw.compactMap { d -> ARConstellationViewController.ConstellationStar? in
+    let stars = starsRaw.compactMap { d -> ConstellationStar? in
       guard let name = d["variety_name"] as? String else { return nil }
       let count = (d["order_count"] as? NSNumber)?.intValue ?? 1
-      return ARConstellationViewController.ConstellationStar(
+      return ConstellationStar(
         varietyName: name,
         orderCount: count,
         isCurrentVariety: name == currentName
