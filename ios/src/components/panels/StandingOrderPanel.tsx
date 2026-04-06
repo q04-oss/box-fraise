@@ -43,6 +43,8 @@ export default function StandingOrderPanel() {
     });
   }, []);
 
+  const [suggestedSlot, setSuggestedSlot] = useState<string | null>(null);
+
   useEffect(() => {
     // TIME_PREFS start hours in minutes after midnight: 9:00=540, 11:00=660, 13:00=780, 15:00=900
     const slotStartMinutes = [540, 660, 780, 900];
@@ -58,7 +60,6 @@ export default function StandingOrderPanel() {
       setSuggestedSlot(TIME_PREFS[closestIndex]);
     }).catch(() => {});
   }, []);
-  const [suggestedSlot, setSuggestedSlot] = useState<string | null>(null);
   const [freq, setFreq] = useState('monthly');
   const [timePref, setTimePref] = useState(TIME_PREFS[0]);
   const [recipientQuery, setRecipientQuery] = useState('');
