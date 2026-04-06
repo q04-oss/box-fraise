@@ -86,19 +86,29 @@ router.post('/:bookingId/confirm', requireUser, async (req: Request, res: Respon
     const isB = token.user_b_id === userId;
     if (!isA && !isB) { res.status(403).json({ error: 'not_participant' }); return; }
 
-    // Set confirmation flag for this user
-    const patch = isA ? { user_a_confirmed: true } : { user_b_confirmed: true };
-    const [updated] = await db.update(eveningTokens).set(patch)
-      .where(eq(eveningTokens.booking_id, bookingId))
-      .returning();
+    // Atomically set confirmation flag + attempt mint in one transaction
+    const mintedNow = await db.transaction(async (tx) => {
+      const patch = isA ? { user_a_confirmed: true } : { user_b_confirmed: true };
+      const [updated] = await tx.update(eveningTokens).set(patch)
+        .where(eq(eveningTokens.booking_id, bookingId))
+        .returning();
 
-    const bothConfirmed = (isA ? true : updated.user_a_confirmed) && (isB ? true : updated.user_b_confirmed);
+      const bothConfirmed = updated.user_a_confirmed && updated.user_b_confirmed;
+      if (!bothConfirmed) return false;
 
-    if (bothConfirmed && !updated.minted_at) {
-      // Mint: set minted_at
-      await db.update(eveningTokens).set({ minted_at: new Date() })
-        .where(eq(eveningTokens.booking_id, bookingId));
+      // Atomic mint guard — WHERE minted_at IS NULL prevents double-mint
+      const [minted] = await tx.update(eveningTokens)
+        .set({ minted_at: new Date() })
+        .where(and(
+          eq(eveningTokens.booking_id, bookingId),
+          sql`${eveningTokens.minted_at} IS NULL`,
+        ))
+        .returning({ id: eveningTokens.id });
 
+      return !!minted;
+    });
+
+    if (mintedNow) {
       // Create NFC connection between the two users (enables messaging)
       await db.insert(nfcConnections).values({
         user_a: token.user_a_id,
