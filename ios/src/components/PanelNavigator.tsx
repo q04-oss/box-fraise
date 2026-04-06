@@ -58,6 +58,7 @@ import PortraitFeedPanel from './panels/PortraitFeedPanel';
 import MyProfilePanel from './panels/MyProfilePanel';
 import GreenhousePanel from './panels/GreenhousePanel';
 import GreenhouseDetailPanel from './panels/GreenhouseDetailPanel';
+import ShopMenuPanel from './panels/ShopMenuPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
@@ -115,6 +116,7 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'my-profile': MyProfilePanel,
   'greenhouse': GreenhousePanel,
   'greenhouse-detail': GreenhouseDetailPanel,
+  'shop-menu': ShopMenuPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -153,6 +155,7 @@ const FULL_HEIGHT_PANELS = new Set([
   'my-profile',
   'greenhouse',
   'greenhouse-detail',
+  'shop-menu',
 ]);
 
 export default function PanelNavigator() {

@@ -6,7 +6,7 @@ import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { readNfcToken, cancelNfc } from '../../lib/nfc';
 import { verifyNfc } from '../../lib/api';
-import { logStrawberries } from '../../lib/HealthKitService';
+import { logStrawberries, requestHealthKitPermissions } from '../../lib/HealthKitService';
 
 type State = 'scanning' | 'success' | 'error';
 
@@ -30,6 +30,7 @@ export default function VerifyNFCPanel() {
       if (result.quantity) {
         logStrawberries(result.quantity).catch(() => {});
       }
+      requestHealthKitPermissions().catch(() => {});
       setState('success');
       setTimeout(() => showPanel('verified'), 600);
     } catch (err: any) {

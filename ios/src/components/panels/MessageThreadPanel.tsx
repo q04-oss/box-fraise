@@ -44,6 +44,17 @@ export default function MessageThreadPanel() {
   const [loggedHealthIds, setLoggedHealthIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
+    AsyncStorage.getItem('health_logged_message_ids').then(raw => {
+      if (raw) {
+        try {
+          const arr: number[] = JSON.parse(raw);
+          setLoggedHealthIds(new Set(arr));
+        } catch {}
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     AsyncStorage.multiGet(['user_db_id', 'user_email']).then(pairs => {
       const id = pairs[0][1];
       const email = pairs[1][1];
@@ -463,7 +474,11 @@ export default function MessageThreadPanel() {
                         const qty = parseInt(String(meta.quantity), 10);
                         const ok = await logStrawberries(qty);
                         if (ok) {
-                          setLoggedHealthIds(prev => new Set([...prev, item.id]));
+                          setLoggedHealthIds(prev => {
+                            const next = new Set([...prev, item.id]);
+                            AsyncStorage.setItem('health_logged_message_ids', JSON.stringify([...next])).catch(() => {});
+                            return next;
+                          });
                         } else {
                           Alert.alert('Health not available', 'Could not log to Apple Health. Check permissions in Settings.');
                         }

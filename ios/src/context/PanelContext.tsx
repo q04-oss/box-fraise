@@ -57,7 +57,8 @@ export type PanelId =
   | 'portrait-feed'
   | 'my-profile'
   | 'greenhouse'
-  | 'greenhouse-detail';
+  | 'greenhouse-detail'
+  | 'shop-menu';
 
 export interface OrderState {
   variety_id: number | null;

@@ -81,14 +81,27 @@ function scoreItem(item: any, ctx: HealthContext): { score: number; reason: stri
   return { score, reason };
 }
 
-// PATCH /beacon — must be registered BEFORE /:businessId to avoid param capture
-router.patch('/beacon', requireUser, async (req: Request, res: Response) => {
-  const userId = (req as any).userId as number;
-  const { beacon_uuid } = req.body;
-  if (!beacon_uuid || typeof beacon_uuid !== 'string') {
-    res.status(400).json({ error: 'beacon_uuid required' });
-    return;
+// GET /items/:businessId — public, returns all available menu items for a business
+router.get('/items/:businessId', async (req: Request, res: Response) => {
+  const businessId = parseInt(req.params.businessId, 10);
+  if (isNaN(businessId)) { res.status(400).json({ error: 'invalid id' }); return; }
+  try {
+    const rows = await db.select().from(businessMenuItems)
+      .where(and(
+        eq(businessMenuItems.business_id, businessId),
+        eq(businessMenuItems.is_available, true),
+      ));
+    const items = (rows as any).rows ?? rows;
+    items.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    res.json(items);
+  } catch {
+    res.status(500).json({ error: 'internal' });
   }
+});
+
+// POST /items — auth, is_shop only, create a menu item
+router.post('/items', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
   try {
     const [user] = await db.select({ is_shop: users.is_shop, business_id: users.business_id })
       .from(users).where(eq(users.id, userId));
@@ -96,9 +109,86 @@ router.patch('/beacon', requireUser, async (req: Request, res: Response) => {
       res.status(403).json({ error: 'shop accounts only' });
       return;
     }
-    await db.update(businesses)
-      .set({ beacon_uuid })
-      .where(eq(businesses.id, user.business_id));
+    const { name, description, price_cents, category, tags, allergens, sort_order } = req.body;
+    if (!name || !category) {
+      res.status(400).json({ error: 'name and category required' });
+      return;
+    }
+    const inserted = await db.insert(businessMenuItems).values({
+      business_id: user.business_id,
+      name,
+      description: description ?? null,
+      price_cents: price_cents ?? null,
+      category,
+      tags: tags ?? [],
+      allergens: allergens ?? {},
+      sort_order: sort_order ?? null,
+      is_available: true,
+    }).returning();
+    const rows = (inserted as any).rows ?? inserted;
+    res.json(rows[0]);
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// PATCH /items/:itemId — auth, is_shop, must own the item
+router.patch('/items/:itemId', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const itemId = parseInt(req.params.itemId, 10);
+  if (isNaN(itemId)) { res.status(400).json({ error: 'invalid id' }); return; }
+  try {
+    const [user] = await db.select({ is_shop: users.is_shop, business_id: users.business_id })
+      .from(users).where(eq(users.id, userId));
+    if (!user?.is_shop || !user.business_id) {
+      res.status(403).json({ error: 'shop accounts only' });
+      return;
+    }
+    const [existing] = await db.select({ id: businessMenuItems.id, business_id: businessMenuItems.business_id })
+      .from(businessMenuItems).where(eq(businessMenuItems.id, itemId));
+    if (!existing || existing.business_id !== user.business_id) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    const { name, description, price_cents, category, tags, allergens, is_available, sort_order } = req.body;
+    const patch: Record<string, any> = {};
+    if (name !== undefined) patch.name = name;
+    if (description !== undefined) patch.description = description;
+    if (price_cents !== undefined) patch.price_cents = price_cents;
+    if (category !== undefined) patch.category = category;
+    if (tags !== undefined) patch.tags = tags;
+    if (allergens !== undefined) patch.allergens = allergens;
+    if (is_available !== undefined) patch.is_available = is_available;
+    if (sort_order !== undefined) patch.sort_order = sort_order;
+    const updated = await db.update(businessMenuItems).set(patch)
+      .where(eq(businessMenuItems.id, itemId)).returning();
+    const rows = (updated as any).rows ?? updated;
+    res.json(rows[0]);
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// DELETE /items/:itemId — auth, is_shop, must own the item (soft delete)
+router.delete('/items/:itemId', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const itemId = parseInt(req.params.itemId, 10);
+  if (isNaN(itemId)) { res.status(400).json({ error: 'invalid id' }); return; }
+  try {
+    const [user] = await db.select({ is_shop: users.is_shop, business_id: users.business_id })
+      .from(users).where(eq(users.id, userId));
+    if (!user?.is_shop || !user.business_id) {
+      res.status(403).json({ error: 'shop accounts only' });
+      return;
+    }
+    const [existing] = await db.select({ id: businessMenuItems.id, business_id: businessMenuItems.business_id })
+      .from(businessMenuItems).where(eq(businessMenuItems.id, itemId));
+    if (!existing || existing.business_id !== user.business_id) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    await db.update(businessMenuItems).set({ is_available: false })
+      .where(eq(businessMenuItems.id, itemId));
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'internal' });

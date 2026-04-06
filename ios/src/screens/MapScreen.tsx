@@ -12,6 +12,7 @@ import OfflineBanner from '../components/OfflineBanner';
 import PanelErrorBoundary from '../components/PanelErrorBoundary';
 import BeaconNudge from '../components/BeaconNudge';
 import { loadAndMonitorBeacons } from '../lib/beaconService';
+import { initBeaconRecommendations } from '../lib/BeaconRecommendationService';
 import { fetchBusinesses, fetchVarieties, updatePushToken, deleteAuthToken, fetchPersonalToilets } from '../lib/api';
 import { STRAWBERRIES } from '../data/seed';
 import { useColors, fonts, SPACING } from '../theme';
@@ -261,7 +262,7 @@ export default function MapScreen() {
     });
   }, []);
 
-  useEffect(() => { loadBusinesses(); loadVarietiesIfNeeded(); loadAndMonitorBeacons(); loadPersonalToiletsIfLoggedIn(); }, []);
+  useEffect(() => { loadBusinesses(); loadVarietiesIfNeeded(); loadAndMonitorBeacons(); initBeaconRecommendations(); loadPersonalToiletsIfLoggedIn(); }, []);
 
   // Refresh businesses + portal flag when app comes to foreground
   useEffect(() => {

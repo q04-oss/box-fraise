@@ -2691,3 +2691,48 @@ export async function setBusinessBeacon(beaconUuid: string): Promise<{ ok: boole
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? 'failed to set beacon');
   return r.json();
 }
+
+// ─── Shop menu management (menu-recommendation items) ────────────────────────
+
+export async function fetchMenuItems(businessId: number): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/menu-recommendation/items/${businessId}`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function createMenuItemForShop(item: {
+  name: string; description?: string; price_cents?: number;
+  category: string; tags?: string[]; allergens?: Record<string, boolean>; sort_order?: number;
+}): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/menu-recommendation/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(item),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function updateMenuItemForShop(itemId: number, patch: {
+  name?: string; description?: string; price_cents?: number;
+  category?: string; tags?: string[]; allergens?: Record<string, boolean>;
+  is_available?: boolean; sort_order?: number;
+}): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/menu-recommendation/items/${itemId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function deleteMenuItemForShop(itemId: number): Promise<void> {
+  const auth = await authHeader();
+  await fetch(`${BASE_URL}/api/menu-recommendation/items/${itemId}`, {
+    method: 'DELETE',
+    headers: auth,
+  });
+}
