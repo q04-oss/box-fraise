@@ -1,4 +1,4 @@
-const { withXcodeProject, IOSConfig } = require('@expo/config-plugins');
+const { withXcodeProject } = require('@expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -114,9 +114,7 @@ const withARBoxModule = (config) => {
     }
 
     // Get the main app target name (first native target)
-    const targetName = IOSConfig.XcodeUtils.getApplicationNativeTarget({
-      project,
-    }).name;
+    const targetName = project.getFirstTarget()?.firstTarget?.name;
 
     // Add each file to compile sources
     for (const file of MODULE_FILES) {
