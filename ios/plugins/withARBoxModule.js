@@ -7,6 +7,8 @@ const MODULE_FILES = [
   'ARBoxModule.swift',
   'ARBoxViewController.swift',
   'ARCardView.swift',
+  'ARStaffOverlay.swift',
+  'ARMarketStallCardView.swift',
 ];
 
 const SOURCE_DIR = path.join(__dirname, '..', 'modules', 'ARBoxModule');

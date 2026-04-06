@@ -12,10 +12,12 @@ class ARCardView: UIView {
     vitaminCMg: NSNumber?,
     caloriesTodayKcal: NSNumber?,
     collectifPickupsToday: NSNumber?,
+    collectifMemberNames: [String],
     orderCount: NSNumber?,
     cardType: String,
     vendorDescription: String?,
-    vendorTags: String?
+    vendorTags: String?,
+    standingOrderLabel: String?
   ) {
     super.init(frame: .zero)
     backgroundColor = UIColor(red: 0.969, green: 0.961, blue: 0.949, alpha: 0.94) // #F7F5F2
@@ -43,7 +45,9 @@ class ARCardView: UIView {
       buildVarietyCard(stack: stack, name: name, farm: farm, harvestDate: harvestDate,
                        quantity: quantity, chocolate: chocolate, finish: finish,
                        vitaminCMg: vitaminCMg, caloriesTodayKcal: caloriesTodayKcal,
-                       collectifPickupsToday: collectifPickupsToday, orderCount: orderCount)
+                       collectifPickupsToday: collectifPickupsToday,
+                       collectifMemberNames: collectifMemberNames,
+                       orderCount: orderCount, standingOrderLabel: standingOrderLabel)
     }
   }
 
@@ -62,7 +66,9 @@ class ARCardView: UIView {
     vitaminCMg: NSNumber?,
     caloriesTodayKcal: NSNumber?,
     collectifPickupsToday: NSNumber?,
-    orderCount: NSNumber?
+    collectifMemberNames: [String],
+    orderCount: NSNumber?,
+    standingOrderLabel: String?
   ) {
     // Variety name
     let nameLabel = makeLabel(text: name.uppercased(), size: 22, weight: .semibold,
@@ -91,9 +97,44 @@ class ARCardView: UIView {
       stack.addArrangedSubview(metaLabel)
     }
 
-    // Feature 3: Collectif social row
+    // Feature A: Provenance row — days since harvest
+    if !harvestDate.isEmpty {
+      let formatter = DateFormatter()
+      formatter.dateFormat = "yyyy-MM-dd"
+      if let hDate = formatter.date(from: harvestDate) {
+        let days = Calendar.current.dateComponents([.day], from: hDate, to: Date()).day ?? 0
+        if days >= 0 {
+          let provenanceLabel = makeLabel(
+            text: "PROVENANCE  ·  \(farm.isEmpty ? "Farm" : farm)  ·  \(days) days from farm to you",
+            size: 10, weight: .regular,
+            color: UIColor(red: 0.5, green: 0.47, blue: 0.44, alpha: 0.8)
+          )
+          provenanceLabel.numberOfLines = 1
+          stack.addArrangedSubview(provenanceLabel)
+        }
+      }
+    }
+
+    // Feature D: Collectif social row — show names if available, else count
     let pickups = collectifPickupsToday?.intValue ?? 0
-    if pickups > 0 {
+    if !collectifMemberNames.isEmpty {
+      let nameText: String
+      if collectifMemberNames.count == 1 {
+        nameText = "With \(collectifMemberNames[0])"
+      } else if collectifMemberNames.count == 2 {
+        nameText = "With \(collectifMemberNames[0]) & \(collectifMemberNames[1])"
+      } else {
+        let extraCount = pickups - collectifMemberNames.count
+        let extra = extraCount > 0 ? " + \(extraCount) others" : ""
+        nameText = "With \(collectifMemberNames[0]), \(collectifMemberNames[1])\(extra)"
+      }
+      let collectifLabel = makeLabel(
+        text: nameText,
+        size: 11, weight: .regular,
+        color: UIColor(red: 0.5, green: 0.47, blue: 0.44, alpha: 1)
+      )
+      stack.addArrangedSubview(collectifLabel)
+    } else if pickups > 0 {
       let collectifLabel = makeLabel(
         text: "\(pickups) other\(pickups == 1 ? "" : "s") from your collectif today",
         size: 11, weight: .regular,
@@ -160,6 +201,14 @@ class ARCardView: UIView {
         barFill.widthAnchor.constraint(equalTo: barBg.widthAnchor, multiplier: CGFloat(fillFraction)),
       ])
       stack.addArrangedSubview(barWrapper)
+    }
+
+    // Feature C: Standing order preview row
+    if let soLabel = standingOrderLabel, !soLabel.isEmpty {
+      let soRow = makeLabel(text: soLabel, size: 10, weight: .regular,
+                            color: UIColor(red: 0.5, green: 0.47, blue: 0.44, alpha: 0.8))
+      soRow.numberOfLines = 1
+      stack.addArrangedSubview(soRow)
     }
 
     // Reorder pill

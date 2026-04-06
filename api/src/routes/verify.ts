@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, users, legitimacyEvents, varieties } from '../db/schema';
+import { orders, users, legitimacyEvents, varieties, standingOrders } from '../db/schema';
 import { requireUser } from '../lib/auth';
 import { logger } from '../lib/logger';
 
@@ -159,6 +159,61 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
     `);
     const orderCount = (((countRows as any).rows ?? countRows)[0]?.order_count) ?? 0;
 
+    // Feature B: last variety (most recent previous collected order with different variety or older)
+    const lastVarietyRows = await db.execute(sql`
+      SELECT o.variety_id, v.name, v.source_farm, v.harvest_date
+      FROM orders o
+      JOIN users u ON u.apple_user_id = o.apple_id
+      JOIN varieties v ON v.id = o.variety_id
+      WHERE u.id = ${user_id}
+        AND o.id != ${order.id}
+        AND o.status = 'collected'
+      ORDER BY o.created_at DESC
+      LIMIT 1
+    `);
+    const lastVarietyRow = ((lastVarietyRows as any).rows ?? lastVarietyRows)[0] ?? null;
+    const lastVariety = lastVarietyRow ? {
+      id: lastVarietyRow.variety_id,
+      name: lastVarietyRow.name,
+      farm: lastVarietyRow.source_farm ?? null,
+      harvest_date: lastVarietyRow.harvest_date ?? null,
+    } : null;
+
+    // Feature C: next standing order for this user
+    const standingRows = await db.execute(sql`
+      SELECT so.next_order_date, v.name AS variety_name
+      FROM standing_orders so
+      JOIN varieties v ON v.id = so.variety_id
+      WHERE so.sender_id = ${user_id}
+        AND so.status = 'active'
+      ORDER BY so.next_order_date ASC
+      LIMIT 1
+    `);
+    const standingRow = ((standingRows as any).rows ?? standingRows)[0] ?? null;
+    let nextStandingOrder: { variety_name: string; days_until: number } | null = null;
+    if (standingRow?.next_order_date) {
+      const nextDate = new Date(standingRow.next_order_date);
+      const now = new Date();
+      const diffMs = nextDate.getTime() - now.getTime();
+      const daysUntil = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      nextStandingOrder = { variety_name: standingRow.variety_name, days_until: daysUntil };
+    }
+
+    // Feature D: collectif member display names (up to 3)
+    const collectifNameRows = await db.execute(sql`
+      SELECT u.display_name
+      FROM legitimacy_events le
+      JOIN users u ON u.id = le.user_id
+      JOIN collectif_commitments cc_self ON cc_self.user_id = ${user_id} AND cc_self.status = 'captured'
+      JOIN collectif_commitments cc_other ON cc_other.collectif_id = cc_self.collectif_id
+        AND cc_other.user_id = le.user_id AND cc_other.user_id != ${user_id} AND cc_other.status = 'captured'
+      WHERE le.event_type = 'nfc_verified' AND le.created_at >= ${todayStart}
+      LIMIT 3
+    `);
+    const collectifMemberNames: string[] = ((collectifNameRows as any).rows ?? collectifNameRows)
+      .map((r: any) => r.display_name)
+      .filter((n: string | null) => !!n) as string[];
+
     res.json({
       variety_id: order.variety_id,
       variety_name: variety?.name ?? null,
@@ -175,6 +230,12 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
       gift_note: order.is_gift ? (order.gift_note ?? null) : null,
       // Feature 5
       order_count: orderCount,
+      // Feature B: last variety comparison
+      last_variety: lastVariety,
+      // Feature C: next standing order
+      next_standing_order: nextStandingOrder,
+      // Feature D: collectif member names
+      collectif_member_names: collectifMemberNames,
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });

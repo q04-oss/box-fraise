@@ -901,4 +901,55 @@ router.post('/:id/order', requireUser, async (req: any, res: Response) => {
   }
 });
 
+// GET /api/market/stalls/:id/ar — AR card for a market stall vendor
+router.get('/stalls/:id/ar', requireUser, async (req: Request, res: Response) => {
+  const vendorId = parseInt(req.params.id, 10);
+  if (isNaN(vendorId)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const vendorRows = await db.select({
+      id: marketVendors.id,
+      name: marketVendors.name,
+      description: marketVendors.description,
+      instagram: marketVendors.instagram_handle,
+    }).from(marketVendors).where(and(eq(marketVendors.id, vendorId), eq(marketVendors.active, true)));
+    const vendor = ((vendorRows as any).rows ?? vendorRows)[0];
+    if (!vendor) { res.status(404).json({ error: 'not_found' }); return; }
+
+    const listingRows = await db.select({
+      id: marketListings.id,
+      name: marketListings.name,
+      price_cents: marketListings.price_cents,
+      unit_label: marketListings.unit_label,
+      tags: marketListings.tags,
+      stock_quantity: marketListings.stock_quantity,
+    })
+    .from(marketListings)
+    .where(and(
+      eq(marketListings.vendor_id, vendorId),
+      eq(marketListings.is_available, true),
+      gt(marketListings.stock_quantity, 0),
+      gt(marketListings.available_until, new Date()),
+    ))
+    .orderBy(desc(marketListings.stock_quantity))
+    .limit(3);
+    const listings = (listingRows as any).rows ?? listingRows;
+
+    res.json({
+      vendor_name: vendor.name,
+      description: vendor.description ?? null,
+      instagram: vendor.instagram ?? null,
+      listings: listings.map((l: any) => ({
+        name: l.name,
+        price_cents: l.price_cents,
+        unit_label: l.unit_label,
+        tags: l.tags ?? [],
+        stock_quantity: l.stock_quantity,
+      })),
+    });
+  } catch (err) {
+    logger.error('[market] GET /stalls/:id/ar', err);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 export default router;

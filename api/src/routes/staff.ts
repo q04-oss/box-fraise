@@ -24,6 +24,37 @@ const requireStaff = async (req: Request, res: Response, next: NextFunction) => 
   } catch { res.status(403).json({ error: 'staff_only' }); }
 };
 
+// GET /api/staff/order-by-nfc — find order by NFC token (literal route before parameterized)
+router.get('/order-by-nfc', requireStaff, async (req: Request, res: Response) => {
+  const nfc_token = req.query.nfc_token as string | undefined;
+  if (!nfc_token) { res.status(400).json({ error: 'nfc_token is required' }); return; }
+  try {
+    const rows = await db
+      .select({
+        id: orders.id,
+        status: orders.status,
+        variety_name: varieties.name,
+        customer_email: orders.customer_email,
+        quantity: orders.quantity,
+        chocolate: orders.chocolate,
+        finish: orders.finish,
+        is_gift: orders.is_gift,
+        gift_note: orders.gift_note,
+        slot_time: timeSlots.time,
+        push_token: orders.push_token,
+      })
+      .from(orders)
+      .innerJoin(varieties, eq(orders.variety_id, varieties.id))
+      .innerJoin(timeSlots, eq(orders.time_slot_id, timeSlots.id))
+      .where(eq(orders.nfc_token, nfc_token));
+    const row = ((rows as any).rows ?? rows)[0];
+    if (!row) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
 // GET /api/staff/orders — today's orders grouped by slot
 router.get('/orders', requireStaff, async (req: Request, res: Response) => {
   try {

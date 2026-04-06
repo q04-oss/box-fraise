@@ -16,6 +16,15 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
   private var cardNode: SCNNode?
   private var hasRevealedGift = false
 
+  // Feature E: Staff mode
+  var staffMode: Bool = false
+  var staffData: NSDictionary?
+  private var staffOverlay: ARStaffOverlay?
+  var onStaffAction: ((String, Int) -> Void)?
+
+  // Feature F: Market stall mode
+  var marketStallMode: Bool = false
+
   init(varietyData: NSDictionary, onDismiss: @escaping () -> Void) {
     self.varietyData = varietyData
     self.onDismiss = onDismiss
@@ -32,11 +41,29 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
     setupDismissButton()
     startAutoTimer()
 
-    // Feature 4: gift reveal tap handler
-    if isGift && !giftNote.isEmpty {
+    // Feature 4: gift reveal tap handler (skip in staff mode)
+    if !staffMode && isGift && !giftNote.isEmpty {
       setupGiftCard()
       let tap = UITapGestureRecognizer(target: self, action: #selector(handleSceneTap))
       sceneView.addGestureRecognizer(tap)
+    }
+
+    // Feature E: show staff overlay on top of AR scene
+    if staffMode, let sd = staffData {
+      let overlay = ARStaffOverlay(staffData: sd) { [weak self] action in
+        guard let self = self else { return }
+        let orderId = (sd["id"] as? NSNumber)?.intValue ?? 0
+        self.onStaffAction?(action, orderId)
+        self.handleDismiss()
+      }
+      overlay.translatesAutoresizingMaskIntoConstraints = false
+      view.addSubview(overlay)
+      NSLayoutConstraint.activate([
+        overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        overlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -80),
+      ])
+      staffOverlay = overlay
     }
 
     NotificationCenter.default.addObserver(
@@ -70,6 +97,18 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
   }
 
   private func setupCard() {
+    // Feature F: market stall mode — use ARMarketStallCardView
+    if marketStallMode {
+      setupMarketStallCard()
+      return
+    }
+
+    // Feature E: staff mode — simplified card (variety + status)
+    if staffMode, let sd = staffData {
+      setupStaffCard(staffData: sd)
+      return
+    }
+
     let name = (varietyData["variety_name"] as? String) ?? "Strawberry"
     let farm = (varietyData["farm"] as? String) ?? ""
     let harvestDate = (varietyData["harvest_date"] as? String) ?? ""
@@ -79,6 +118,7 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
     let vitaminCMg = varietyData["vitamin_c_today_mg"] as? NSNumber
     let caloriesTodayKcal = varietyData["calories_today_kcal"] as? NSNumber
     let collectifPickupsToday = varietyData["collectif_pickups_today"] as? NSNumber
+    let collectifMemberNamesRaw = varietyData["collectif_member_names"] as? [String] ?? []
     let orderCount = varietyData["order_count"] as? NSNumber
     let cardType = (varietyData["card_type"] as? String) ?? "variety"
     let vendorDescription = varietyData["vendor_description"] as? String
@@ -94,6 +134,9 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
     isGift = (varietyData["is_gift"] as? NSNumber)?.boolValue ?? false
     giftNote = (varietyData["gift_note"] as? String) ?? ""
 
+    // Feature C: standing order label
+    let standingOrderLabel = varietyData["next_standing_order_label"] as? String
+
     let cardView = ARCardView(
       name: name,
       farm: farm,
@@ -104,10 +147,12 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
       vitaminCMg: vitaminCMg,
       caloriesTodayKcal: caloriesTodayKcal,
       collectifPickupsToday: collectifPickupsToday,
+      collectifMemberNames: collectifMemberNamesRaw,
       orderCount: orderCount,
       cardType: cardType,
       vendorDescription: vendorDescription,
-      vendorTags: vendorTagsRaw
+      vendorTags: vendorTagsRaw,
+      standingOrderLabel: standingOrderLabel
     )
     cardView.frame = CGRect(x: 0, y: 0, width: 480, height: 320)
     cardView.layoutIfNeeded()
@@ -134,6 +179,180 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
     if isGift && !giftNote.isEmpty {
       node.opacity = 0
     }
+
+    cardNode = node
+    sceneView.scene.rootNode.addChildNode(node)
+
+    // Feature B: second dimmed card for last variety comparison
+    if let lastVariety = varietyData["last_variety"] as? NSDictionary {
+      setupLastVarietyCard(lastVariety: lastVariety)
+    }
+  }
+
+  // Feature B: second floating card showing previous variety
+  private func setupLastVarietyCard(lastVariety: NSDictionary) {
+    let lastName = (lastVariety["name"] as? String) ?? ""
+    let lastFarm = (lastVariety["farm"] as? String) ?? ""
+    let lastHarvest = (lastVariety["harvest_date"] as? String) ?? ""
+    guard !lastName.isEmpty else { return }
+
+    let lastCardView = ARCardView(
+      name: lastName,
+      farm: lastFarm,
+      harvestDate: lastHarvest,
+      quantity: 0,
+      chocolate: "",
+      finish: "",
+      vitaminCMg: nil,
+      caloriesTodayKcal: nil,
+      collectifPickupsToday: nil,
+      collectifMemberNames: [],
+      orderCount: nil,
+      cardType: "variety",
+      vendorDescription: nil,
+      vendorTags: nil,
+      standingOrderLabel: nil
+    )
+    lastCardView.frame = CGRect(x: 0, y: 0, width: 480, height: 320)
+    lastCardView.layoutIfNeeded()
+
+    let renderer = UIGraphicsImageRenderer(size: lastCardView.bounds.size)
+    let cardImage = renderer.image { ctx in
+      lastCardView.layer.render(in: ctx.cgContext)
+    }
+
+    let plane = SCNPlane(width: 0.30, height: 0.20)
+    let material = SCNMaterial()
+    material.diffuse.contents = cardImage
+    material.diffuse.intensity = 0.55
+    material.isDoubleSided = true
+    plane.materials = [material]
+
+    let node = SCNNode(geometry: plane)
+    node.position = SCNVector3(-0.22, 0.05, -0.65)
+    node.opacity = 0.55
+
+    let billboard = SCNBillboardConstraint()
+    billboard.freeAxes = .Y
+    node.constraints = [billboard]
+
+    // "LAST TIME" label above the secondary card
+    let lastTimeText = SCNText(string: "LAST TIME", extrusionDepth: 0.001)
+    lastTimeText.font = UIFont.monospacedSystemFont(ofSize: 4, weight: .medium)
+    lastTimeText.firstMaterial?.diffuse.contents = UIColor.white.withAlphaComponent(0.7)
+    let labelNode = SCNNode(geometry: lastTimeText)
+    labelNode.position = SCNVector3(-0.22, 0.17, -0.65)
+    labelNode.scale = SCNVector3(0.004, 0.004, 0.004)
+
+    sceneView.scene.rootNode.addChildNode(node)
+    sceneView.scene.rootNode.addChildNode(labelNode)
+  }
+
+  // Feature E: staff mode card (simplified: variety name + status)
+  private func setupStaffCard(staffData: NSDictionary) {
+    let varietyName = (staffData["variety_name"] as? String) ?? "Order"
+    let status = (staffData["status"] as? String) ?? ""
+    let quantity = (staffData["quantity"] as? NSNumber)?.intValue ?? 0
+
+    let cardView = UIView()
+    cardView.backgroundColor = UIColor(red: 0.969, green: 0.961, blue: 0.949, alpha: 0.94)
+    cardView.layer.cornerRadius = 20
+    cardView.layer.masksToBounds = true
+    cardView.frame = CGRect(x: 0, y: 0, width: 480, height: 240)
+
+    let stack = UIStackView()
+    stack.axis = .vertical
+    stack.spacing = 12
+    stack.layoutMargins = UIEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
+    stack.isLayoutMarginsRelativeArrangement = true
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    cardView.addSubview(stack)
+    NSLayoutConstraint.activate([
+      stack.topAnchor.constraint(equalTo: cardView.topAnchor),
+      stack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor),
+      stack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor),
+      stack.bottomAnchor.constraint(equalTo: cardView.bottomAnchor),
+    ])
+
+    let nameLabel = UILabel()
+    nameLabel.text = varietyName.uppercased()
+    nameLabel.font = UIFont.monospacedSystemFont(ofSize: 22, weight: .semibold)
+    nameLabel.textColor = UIColor(red: 0.13, green: 0.12, blue: 0.11, alpha: 1)
+    stack.addArrangedSubview(nameLabel)
+
+    let qtyLabel = UILabel()
+    qtyLabel.text = "QTY \(quantity)"
+    qtyLabel.font = UIFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+    qtyLabel.textColor = UIColor(red: 0.5, green: 0.47, blue: 0.44, alpha: 1)
+    stack.addArrangedSubview(qtyLabel)
+
+    let statusPillColor: UIColor
+    switch status {
+    case "paid": statusPillColor = UIColor(red: 0.788, green: 0.592, blue: 0.227, alpha: 1)
+    case "preparing": statusPillColor = UIColor(red: 0.22, green: 0.75, blue: 0.35, alpha: 1)
+    case "ready": statusPillColor = UIColor(red: 0.063, green: 0.725, blue: 0.506, alpha: 1)
+    default: statusPillColor = UIColor.gray
+    }
+    let pill = UIView()
+    pill.backgroundColor = statusPillColor
+    pill.layer.cornerRadius = 12
+    let pillLabel = UILabel()
+    pillLabel.text = status.uppercased()
+    pillLabel.font = UIFont.monospacedSystemFont(ofSize: 13, weight: .medium)
+    pillLabel.textColor = .white
+    pillLabel.textAlignment = .center
+    pillLabel.translatesAutoresizingMaskIntoConstraints = false
+    pill.addSubview(pillLabel)
+    pill.heightAnchor.constraint(equalToConstant: 44).isActive = true
+    NSLayoutConstraint.activate([
+      pillLabel.centerXAnchor.constraint(equalTo: pill.centerXAnchor),
+      pillLabel.centerYAnchor.constraint(equalTo: pill.centerYAnchor),
+    ])
+    stack.addArrangedSubview(pill)
+
+    cardView.layoutIfNeeded()
+    let renderer = UIGraphicsImageRenderer(size: cardView.bounds.size)
+    let cardImage = renderer.image { ctx in cardView.layer.render(in: ctx.cgContext) }
+
+    let plane = SCNPlane(width: 0.30, height: 0.15)
+    let material = SCNMaterial()
+    material.diffuse.contents = cardImage
+    material.isDoubleSided = true
+    plane.materials = [material]
+
+    let node = SCNNode(geometry: plane)
+    node.position = SCNVector3(0, 0, -0.55)
+
+    let billboard = SCNBillboardConstraint()
+    billboard.freeAxes = .Y
+    node.constraints = [billboard]
+
+    cardNode = node
+    sceneView.scene.rootNode.addChildNode(node)
+  }
+
+  // Feature F: market stall card
+  private func setupMarketStallCard() {
+    let stallData = varietyData
+    let stallCardView = ARMarketStallCardView(stallData: stallData)
+    stallCardView.frame = CGRect(x: 0, y: 0, width: 480, height: 360)
+    stallCardView.layoutIfNeeded()
+
+    let renderer = UIGraphicsImageRenderer(size: stallCardView.bounds.size)
+    let cardImage = renderer.image { ctx in stallCardView.layer.render(in: ctx.cgContext) }
+
+    let plane = SCNPlane(width: 0.30, height: 0.225)
+    let material = SCNMaterial()
+    material.diffuse.contents = cardImage
+    material.isDoubleSided = true
+    plane.materials = [material]
+
+    let node = SCNNode(geometry: plane)
+    node.position = SCNVector3(0, 0, -0.55)
+
+    let billboard = SCNBillboardConstraint()
+    billboard.freeAxes = .Y
+    node.constraints = [billboard]
 
     cardNode = node
     sceneView.scene.rootNode.addChildNode(node)
@@ -204,7 +423,8 @@ class ARBoxViewController: UIViewController, ARSCNViewDelegate {
   }
 
   private func startAutoTimer() {
-    dismissTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: false) { [weak self] _ in
+    let interval: TimeInterval = marketStallMode ? 45 : 30
+    dismissTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
       self?.handleDismiss()
     }
   }

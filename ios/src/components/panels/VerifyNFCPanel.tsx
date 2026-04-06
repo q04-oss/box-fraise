@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { readNfcToken, cancelNfc } from '../../lib/nfc';
-import { verifyNfc, collectMarketOrderByNfc, verifyNfcReorder } from '../../lib/api';
+import { verifyNfc, collectMarketOrderByNfc, verifyNfcReorder, fetchStaffOrderByNfc, fetchMarketStallAR, staffMarkPrepare, staffMarkReady, staffFlagOrder } from '../../lib/api';
 import ARBoxModule, { ARVarietyData } from '../../lib/NativeARBoxModule';
 import { logStrawberries, requestHealthKitPermissions, getTodayHealthContext } from '../../lib/HealthKitService';
 
@@ -23,6 +23,16 @@ export default function VerifyNFCPanel() {
     setErrorMsg('');
     try {
       const token = await readNfcToken();
+
+      // Feature F: market stall NFC tag
+      if (token.startsWith('fraise-stall-')) {
+        const stallId = token.replace('fraise-stall-', '');
+        const stallData = await fetchMarketStallAR(stallId);
+        setState('success');
+        await ARBoxModule.presentMarketStallAR(stallData);
+        showPanel('market-vendor');
+        return;
+      }
 
       if (token === 'fraise.market') {
         const marketResult = await collectMarketOrderByNfc(token);
@@ -47,6 +57,25 @@ export default function VerifyNFCPanel() {
         return;
       }
 
+      // Feature E: staff AR — check if user is staff before normal flow
+      const isStaff = await AsyncStorage.getItem('is_staff') === 'true';
+      if (isStaff) {
+        const staffOrderData = await fetchStaffOrderByNfc(token);
+        setState('success');
+        const actionResult = await ARBoxModule.presentStaffAR(staffOrderData);
+        if (actionResult) {
+          const pin = await AsyncStorage.getItem('staff_pin') ?? '';
+          if (actionResult.action === 'prepare') {
+            await staffMarkPrepare(pin, actionResult.order_id).catch(() => {});
+          } else if (actionResult.action === 'ready') {
+            await staffMarkReady(pin, actionResult.order_id).catch(() => {});
+          } else if (actionResult.action === 'flag') {
+            await staffFlagOrder(pin, actionResult.order_id, '').catch(() => {});
+          }
+        }
+        return;
+      }
+
       const alreadyVerified = await AsyncStorage.getItem('verified') === 'true';
 
       if (alreadyVerified) {
@@ -55,6 +84,13 @@ export default function VerifyNFCPanel() {
         // Feature 1: read HealthKit data fire-and-forget before building payload
         let healthCtx: any = null;
         try { healthCtx = await getTodayHealthContext(); } catch { /* ignore */ }
+
+        // Feature C: format standing order label server data into display string
+        let nextStandingOrderLabel: string | null = null;
+        if (reorderData.next_standing_order) {
+          const so = reorderData.next_standing_order;
+          nextStandingOrderLabel = `NEXT ORDER  ·  ${so.variety_name}  ·  in ${so.days_until} day${so.days_until === 1 ? '' : 's'}`;
+        }
 
         const arPayload: ARVarietyData = {
           variety_id: reorderData.variety_id,
@@ -74,6 +110,12 @@ export default function VerifyNFCPanel() {
           gift_note: reorderData.gift_note ?? null,
           // Feature 5: Variety streak
           order_count: reorderData.order_count ?? 0,
+          // Feature B: last variety
+          last_variety: reorderData.last_variety ?? null,
+          // Feature C: standing order label
+          next_standing_order_label: nextStandingOrderLabel,
+          // Feature D: collectif member names
+          collectif_member_names: reorderData.collectif_member_names ?? [],
         };
         setState('success');
         await ARBoxModule.presentAR(arPayload);
@@ -83,6 +125,10 @@ export default function VerifyNFCPanel() {
         await AsyncStorage.setItem('verified', 'true');
         if (result.fraise_chat_email) {
           await AsyncStorage.setItem('fraise_chat_email', result.fraise_chat_email);
+        }
+        // Store is_staff flag for future scans
+        if (result.is_dj) {
+          await AsyncStorage.setItem('is_staff', 'true');
         }
         if (result.quantity) {
           logStrawberries(result.quantity).catch(() => {});

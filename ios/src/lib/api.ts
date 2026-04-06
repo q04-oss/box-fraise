@@ -2868,6 +2868,9 @@ export async function verifyNfcReorder(nfc_token: string): Promise<{
   is_gift?: boolean;
   gift_note?: string | null;
   order_count?: number;
+  last_variety?: { id: number; name: string; farm: string; harvest_date: string } | null;
+  next_standing_order?: { variety_name: string; days_until: number } | null;
+  collectif_member_names?: string[];
 }> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/verify/reorder`, {
@@ -2938,5 +2941,29 @@ export async function registerAsVendor(data: { name: string; description?: strin
     body: JSON.stringify(data),
   });
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'registration_failed'); }
+  return r.json();
+}
+
+// ─── AR expanded features ─────────────────────────────────────────────────────
+
+// Feature E: fetch order by NFC token for staff AR
+export async function fetchStaffOrderByNfc(nfc_token: string): Promise<any> {
+  const auth = await authHeader();
+  const pin = await AsyncStorage.getItem('staff_pin') ?? '';
+  const r = await fetch(`${BASE_URL}/api/staff/order-by-nfc?nfc_token=${encodeURIComponent(nfc_token)}`, {
+    headers: { 'x-staff-pin': pin, ...auth },
+  });
+  if (r.status === 403) throw new Error('staff_auth_failed');
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'fetch_failed'); }
+  return r.json();
+}
+
+// Feature F: fetch market stall AR data by vendor id
+export async function fetchMarketStallAR(stallId: string): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/market/stalls/${encodeURIComponent(stallId)}/ar`, {
+    headers: auth,
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'fetch_failed'); }
   return r.json();
 }

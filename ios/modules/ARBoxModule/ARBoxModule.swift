@@ -6,25 +6,74 @@ class ARBoxModule: NSObject {
 
   @objc static func requiresMainQueueSetup() -> Bool { return true }
 
+  private func topViewController() -> UIViewController? {
+    guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let rootVC = scene.keyWindow?.rootViewController else { return nil }
+    var topVC = rootVC
+    while let presented = topVC.presentedViewController {
+      topVC = presented
+    }
+    return topVC
+  }
+
   @objc func presentAR(
     _ varietyData: NSDictionary,
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    DispatchQueue.main.async {
-      guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            let rootVC = scene.keyWindow?.rootViewController else {
+    DispatchQueue.main.async { [weak self] in
+      guard let topVC = self?.topViewController() else {
         reject("NO_ROOT_VC", "No root view controller found", nil)
         return
-      }
-      // Find topmost presented VC
-      var topVC = rootVC
-      while let presented = topVC.presentedViewController {
-        topVC = presented
       }
       let arVC = ARBoxViewController(varietyData: varietyData) {
         resolve(nil)
       }
+      arVC.modalPresentationStyle = .fullScreen
+      topVC.present(arVC, animated: true)
+    }
+  }
+
+  // Feature E: Staff AR scanning
+  @objc func presentStaffAR(
+    _ staffData: NSDictionary,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async { [weak self] in
+      guard let topVC = self?.topViewController() else {
+        reject("NO_ROOT_VC", "No root view controller found", nil)
+        return
+      }
+      let arVC = ARBoxViewController(varietyData: staffData) {
+        // dismissed without action — resolve with nil
+        resolve(nil)
+      }
+      arVC.staffMode = true
+      arVC.staffData = staffData
+      arVC.onStaffAction = { action, orderId in
+        resolve(["action": action, "order_id": orderId])
+      }
+      arVC.modalPresentationStyle = .fullScreen
+      topVC.present(arVC, animated: true)
+    }
+  }
+
+  // Feature F: Market stall AR
+  @objc func presentMarketStallAR(
+    _ stallData: NSDictionary,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async { [weak self] in
+      guard let topVC = self?.topViewController() else {
+        reject("NO_ROOT_VC", "No root view controller found", nil)
+        return
+      }
+      let arVC = ARBoxViewController(varietyData: stallData) {
+        resolve(nil)
+      }
+      arVC.marketStallMode = true
       arVC.modalPresentationStyle = .fullScreen
       topVC.present(arVC, animated: true)
     }

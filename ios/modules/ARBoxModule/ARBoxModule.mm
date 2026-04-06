@@ -7,3 +7,15 @@ RCT_EXTERN_METHOD(
   resolve:(RCTPromiseResolveBlock)resolve
   reject:(RCTPromiseRejectBlock)reject
 )
+
+RCT_EXTERN_METHOD(
+  presentStaffAR:(NSDictionary *)staffData
+  resolve:(RCTPromiseResolveBlock)resolve
+  reject:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  presentMarketStallAR:(NSDictionary *)stallData
+  resolve:(RCTPromiseResolveBlock)resolve
+  reject:(RCTPromiseRejectBlock)reject
+)
