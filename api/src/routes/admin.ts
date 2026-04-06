@@ -3048,14 +3048,14 @@ router.post('/migrate/social-expanded', async (_req: Request, res: Response) => 
       )
     `);
 
-    // tasting_entries public flag
-    await db.execute(sql`ALTER TABLE tasting_entries ADD COLUMN IF NOT EXISTS public boolean NOT NULL DEFAULT false`);
+    // tasting_journal public flag (opt-in to social feed)
+    await db.execute(sql`ALTER TABLE tasting_journal ADD COLUMN IF NOT EXISTS public boolean NOT NULL DEFAULT false`);
 
     // tasting_feed_reactions
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS tasting_feed_reactions (
         id serial PRIMARY KEY,
-        entry_id integer NOT NULL REFERENCES tasting_entries(id) ON DELETE CASCADE,
+        entry_id integer NOT NULL REFERENCES tasting_journal(id) ON DELETE CASCADE,
         user_id integer NOT NULL REFERENCES users(id),
         emoji text NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now(),

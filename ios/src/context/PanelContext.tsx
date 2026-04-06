@@ -93,7 +93,6 @@ export type PanelId =
   | 'notifications'
   | 'user-profile'
   | 'tasting-journal'
-  | 'proposals'
   | 'ar-video-feed'
   | 'ar-video-detail'
   | 'submit-ar-video'

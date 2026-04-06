@@ -82,7 +82,7 @@ import arVideosRouter from './routes/ar-videos';
 import socialRouter from './routes/social';
 import { logger } from './lib/logger';
 import { db } from './db';
-import { editorialPieces, users, notifications } from './db/schema';
+import { editorialPieces, users, notifications, memberships } from './db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { sendPushNotification } from './lib/push';
 import { requireUser } from './lib/auth';

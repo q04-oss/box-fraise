@@ -186,6 +186,9 @@ export const users = pgTable('users', {
   social_time_bank_seconds: integer('social_time_bank_seconds').notNull().default(0),
   social_time_bank_updated_at: timestamp('social_time_bank_updated_at'),
   social_lifetime_credits_seconds: integer('social_lifetime_credits_seconds').notNull().default(0),
+  current_streak_weeks: integer('current_streak_weeks').notNull().default(0),
+  longest_streak_weeks: integer('longest_streak_weeks').notNull().default(0),
+  last_tap_week: text('last_tap_week'), // ISO week string e.g. "2026-W14"
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -1331,22 +1334,37 @@ export const arVideoStatusEnum = pgEnum('ar_video_status', [
 export const arVideos = pgTable('ar_videos', {
   id: serial('id').primaryKey(),
   author_user_id: integer('author_user_id').notNull().references(() => users.id),
+  variety_id: integer('variety_id').references(() => varieties.id),
   abstract: text('abstract'),
   title: text('title'),
   description: text('description'),
   tag: text('tag'),
   status: arVideoStatusEnum('status').notNull().default('abstract_submitted'),
-  // Cloudinary source video (uploaded by user after commission)
   source_video_url: text('source_video_url'),
-  // Luma AI task tracking
   luma_task_id: text('luma_task_id'),
-  luma_scene_url: text('luma_scene_url'),   // embed/view URL from Luma
-  splat_url: text('splat_url'),              // .splat file if available
+  luma_scene_url: text('luma_scene_url'),
+  splat_url: text('splat_url'),
   thumbnail_url: text('thumbnail_url'),
-  // Editorial
   commission_cents: integer('commission_cents'),
   editor_note: text('editor_note'),
   published_at: timestamp('published_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const varietyReviews = pgTable('variety_reviews', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  variety_id: integer('variety_id').notNull().references(() => varieties.id),
+  rating: integer('rating').notNull(), // 1–5
+  note: text('note'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const tastingFeedReactions = pgTable('tasting_feed_reactions', {
+  id: serial('id').primaryKey(),
+  entry_id: integer('entry_id').notNull(), // references tasting_journal.id
+  user_id: integer('user_id').notNull().references(() => users.id),
+  emoji: text('emoji').notNull(),
+  created_at: timestamp('created_at').notNull().defaultNow(),
 });

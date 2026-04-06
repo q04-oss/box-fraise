@@ -132,7 +132,7 @@ router.get('/tasting-feed', async (req: Request, res: Response) => {
              u.portrait_url AS author_portrait_url,
              u.social_tier,
              COALESCE(r.reaction_counts, '{}') AS reactions
-      FROM tasting_entries te
+      FROM tasting_journal te
       JOIN users u ON u.id = te.user_id
       LEFT JOIN varieties v ON v.id = te.variety_id
       LEFT JOIN LATERAL (
