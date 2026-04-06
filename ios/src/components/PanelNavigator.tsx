@@ -95,6 +95,9 @@ import NotificationsPanel from './panels/NotificationsPanel';
 import UserProfilePanel from './panels/UserProfilePanel';
 import TastingJournalPanel from './panels/TastingJournalPanel';
 import ProposalsPanel from './panels/ProposalsPanel';
+import ARVideoFeedPanel from './panels/ARVideoFeedPanel';
+import ARVideoDetailPanel from './panels/ARVideoDetailPanel';
+import SubmitARVideoPanel from './panels/SubmitARVideoPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home: HomePanel,
@@ -189,6 +192,9 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'user-profile': UserProfilePanel,
   'tasting-journal': TastingJournalPanel,
   'proposals': ProposalsPanel,
+  'ar-video-feed': ARVideoFeedPanel,
+  'ar-video-detail': ARVideoDetailPanel,
+  'submit-ar-video': SubmitARVideoPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -261,6 +267,9 @@ const FULL_HEIGHT_PANELS = new Set([
   'user-profile',
   'tasting-journal',
   'proposals',
+  'ar-video-feed',
+  'ar-video-detail',
+  'submit-ar-video',
 ]);
 
 export default function PanelNavigator() {

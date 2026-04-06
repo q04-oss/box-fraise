@@ -1111,6 +1111,40 @@ router.post('/migrate', async (_req: Request, res: Response) => {
     await db.execute(sql`ALTER TABLE editorial_pieces ADD COLUMN IF NOT EXISTS tag TEXT`);
     await db.execute(sql`CREATE TABLE IF NOT EXISTS membership_waitlist (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), tier membership_tier NOT NULL, message TEXT, created_at TIMESTAMP NOT NULL DEFAULT NOW())`);
 
+    // Social access + AR video platform
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_access_expires_at TIMESTAMP`);
+    await db.execute(sql`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ar_video_status') THEN
+          CREATE TYPE ar_video_status AS ENUM (
+            'abstract_submitted','abstract_declined','commissioned',
+            'processing','processing_failed','submitted','published','declined'
+          );
+        END IF;
+      END $$
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ar_videos (
+        id SERIAL PRIMARY KEY,
+        author_user_id INTEGER NOT NULL REFERENCES users(id),
+        abstract TEXT,
+        title TEXT,
+        description TEXT,
+        tag TEXT,
+        status ar_video_status NOT NULL DEFAULT 'abstract_submitted',
+        source_video_url TEXT,
+        luma_task_id TEXT,
+        luma_scene_url TEXT,
+        splat_url TEXT,
+        thumbnail_url TEXT,
+        commission_cents INTEGER,
+        editor_note TEXT,
+        published_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     // Portal / NFC additions
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS portal_opted_in boolean NOT NULL DEFAULT false`);
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS portrait_url text`);

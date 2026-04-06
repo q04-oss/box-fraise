@@ -42,11 +42,16 @@ router.post('/nfc', requireUser, async (req: Request, res: Response) => {
         throw Object.assign(new Error('already_used'), { code: 'already_used' });
       }
 
+      // Social access window: 30 days from NFC tap
+      const socialExpiry = new Date(now);
+      socialExpiry.setDate(socialExpiry.getDate() + 30);
+
       await tx.update(users)
         .set({
           verified: true,
           verified_at: now,
           verified_by: 'nfc',
+          social_access_expires_at: socialExpiry,
           ...(fraiseChatEmail ? { fraise_chat_email: fraiseChatEmail } : {}),
         })
         .where(eq(users.id, user_id));
