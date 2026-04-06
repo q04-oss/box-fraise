@@ -1,6 +1,6 @@
 #import <React/RCTBridgeModule.h>
 
-RCT_EXTERN_MODULE(ARBoxModule, NSObject)
+@interface RCT_EXTERN_MODULE(ARBoxModule, NSObject)
 
 RCT_EXTERN_METHOD(
   presentAR:(NSDictionary *)varietyData
@@ -24,3 +24,5 @@ RCT_EXTERN_METHOD(
   presentBatchScanAR:(RCTPromiseResolveBlock)resolve
   reject:(RCTPromiseRejectBlock)reject
 )
+
+@end
