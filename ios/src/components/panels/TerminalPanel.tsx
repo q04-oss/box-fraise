@@ -16,7 +16,8 @@ import {
   demoLogin, updateDisplayName,
   createOrder, confirmOrder, operatorLogin,
   startIdentityVerification, fetchMyVentures,
-  fetchMyMarketOrders, collectMarketOrder, fetchAdBalance,
+  fetchMyMarketOrders, collectMarketOrder, fetchAdBalance, fetchAvailableAds,
+  respondToAdImpression,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES, getDateOptions } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -52,6 +53,7 @@ export default function TerminalPanel() {
   const [myVentures, setMyVentures] = useState<any[]>([]);
   const [marketOrders, setMarketOrders] = useState<any[]>([]);
   const [adBalanceCents, setAdBalanceCents] = useState(0);
+  const [availableAds, setAvailableAds] = useState<any[]>([]);
 const nameInputRef = useRef<TextInput>(null);
 
   // Inline order state
@@ -157,6 +159,7 @@ const nameInputRef = useRef<TextInput>(null);
         fetchMyVentures().then(setMyVentures).catch(() => {});
         fetchMyMarketOrders().then(setMarketOrders).catch(() => {});
         fetchAdBalance().then(r => setAdBalanceCents(r.ad_balance_cents)).catch(() => {});
+        fetchAvailableAds().then(setAvailableAds).catch(() => {});
       }
     }).finally(() => setLoading(false));
   }, []);
@@ -898,6 +901,52 @@ const nameInputRef = useRef<TextInput>(null);
               </TouchableOpacity>
             )}
 
+            {/* AD OFFERS */}
+            {availableAds.length > 0 && (
+              <>
+                <View style={[styles.divider, { backgroundColor: c.border }]} />
+                <Text style={[styles.label, { color: c.muted, paddingVertical: 10 }]}>AD OFFERS</Text>
+                {availableAds.map((ad: any) => (
+                  <View key={ad.impression_id} style={[styles.adOfferCard, { borderColor: c.border, backgroundColor: c.card }]}>
+                    <View style={styles.adOfferTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.adOfferBiz, { color: c.accent }]}>{ad.business_name.toUpperCase()}</Text>
+                        <Text style={[styles.adOfferTitle, { color: c.text }]}>{ad.title}</Text>
+                        <Text style={[styles.adOfferBody, { color: c.muted }]} numberOfLines={3}>{ad.body}</Text>
+                      </View>
+                      <Text style={[styles.adOfferValue, { color: c.accent }]}>CA${(ad.value_cents / 100).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.adOfferBtns}>
+                      <TouchableOpacity
+                        style={[styles.adOfferBtn, { borderColor: c.border }]}
+                        onPress={async () => {
+                          try {
+                            await respondToAdImpression(ad.impression_id, false);
+                            setAvailableAds(prev => prev.filter(a => a.impression_id !== ad.impression_id));
+                          } catch { /* ignore */ }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.adOfferBtnText, { color: c.muted }]}>deny</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.adOfferBtn, { backgroundColor: c.accent }]}
+                        onPress={async () => {
+                          try {
+                            const { new_balance_cents } = await respondToAdImpression(ad.impression_id, true);
+                            setAdBalanceCents(new_balance_cents);
+                            setAvailableAds(prev => prev.filter(a => a.impression_id !== ad.impression_id));
+                          } catch { /* ignore */ }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.adOfferBtnText, { color: c.ctaText ?? '#fff' }]}>accept</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
 
 </>
             )}
@@ -1025,4 +1074,13 @@ const styles = StyleSheet.create({
   marketOrderStatus: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   operatorInput: { width: '100%', height: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 16, fontSize: 22, fontFamily: fonts.dmMono, textAlign: 'center', letterSpacing: 4 },
   operatorSubmit: { width: '100%', height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  adOfferCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, marginBottom: 8, gap: 10 },
+  adOfferTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  adOfferBiz: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  adOfferTitle: { fontSize: 15, fontFamily: fonts.playfair, marginTop: 2 },
+  adOfferBody: { fontSize: 12, fontFamily: fonts.dmSans, lineHeight: 16, marginTop: 2 },
+  adOfferValue: { fontSize: 13, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  adOfferBtns: { flexDirection: 'row', gap: 8 },
+  adOfferBtn: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
+  adOfferBtnText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });

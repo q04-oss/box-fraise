@@ -2,9 +2,8 @@ import { Router, Request, Response } from 'express';
 import { eq, and, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { db } from '../db';
-import { users, businesses, adCampaigns, adImpressions } from '../db/schema';
+import { users, businesses, adCampaigns, adImpressions, seasonPatronages } from '../db/schema';
 import { requireUser } from '../lib/auth';
-import { sendPushNotification } from '../lib/push';
 import { logger } from '../lib/logger';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
@@ -213,62 +212,25 @@ router.post('/campaigns/:id/fund', requireUser, async (req: Request, res: Respon
   }
 });
 
-// POST /api/ads/campaigns/:id/broadcast — send remote ad to opted-in users
-router.post('/campaigns/:id/broadcast', requireUser, async (req: Request, res: Response) => {
+// ─── Proximity campaign lookup (patrons only) ────────────────────────────────
+
+// GET /api/ads/proximity/:businessId — active proximity campaign, only for patrons
+router.get('/proximity/:businessId', requireUser, async (req: Request, res: Response) => {
   const userId = (req as any).userId as number;
-  const campaignId = parseInt(req.params.id, 10);
-  if (isNaN(campaignId)) { res.status(400).json({ error: 'invalid id' }); return; }
-  try {
-    const [operator] = await db.select({ business_id: users.business_id, is_shop: users.is_shop })
-      .from(users).where(eq(users.id, userId));
-    if (!operator?.is_shop || !operator.business_id) { res.status(403).json({ error: 'not_operator' }); return; }
-    const [campaign] = await db.select().from(adCampaigns)
-      .where(and(eq(adCampaigns.id, campaignId), eq(adCampaigns.business_id, operator.business_id)));
-    if (!campaign) { res.status(404).json({ error: 'not found' }); return; }
-    if (!campaign.active) { res.status(400).json({ error: 'campaign_not_active' }); return; }
-    if (campaign.type !== 'remote') { res.status(400).json({ error: 'not_remote_campaign' }); return; }
-    const remaining = campaign.budget_cents - campaign.spent_cents;
-    if (remaining <= 0) { res.status(400).json({ error: 'no_budget' }); return; }
-
-    // Get all users with push tokens (up to budget limit)
-    const maxImpressions = Math.floor(remaining / campaign.value_cents);
-    const targets = await db.execute<{ id: number; push_token: string }>(sql`
-      SELECT id, push_token FROM users
-      WHERE push_token IS NOT NULL AND banned = false AND id != ${userId}
-      LIMIT ${maxImpressions}
-    `);
-    const rows = (targets as any).rows ?? targets;
-
-    // Create pending impressions
-    let sent = 0;
-    for (const target of rows) {
-      const [impression] = await db.insert(adImpressions).values({
-        campaign_id: campaignId,
-        user_id: target.id,
-        payout_cents: campaign.value_cents,
-      }).returning();
-      await sendPushNotification(target.push_token, {
-        title: campaign.title,
-        body: campaign.body,
-        data: { screen: 'ad-offer', impression_id: impression.id, campaign_id: campaignId, value_cents: campaign.value_cents },
-      }).catch(() => {});
-      sent++;
-    }
-
-    res.json({ sent });
-  } catch (err) {
-    logger.error(`Broadcast error: ${String(err)}`);
-    res.status(500).json({ error: 'internal' });
-  }
-});
-
-// ─── Proximity campaign lookup ────────────────────────────────────────────────
-
-// GET /api/ads/proximity/:businessId — active proximity campaign for a business
-router.get('/proximity/:businessId', async (req: Request, res: Response) => {
   const businessId = parseInt(req.params.businessId, 10);
   if (isNaN(businessId)) { res.status(400).json({ error: 'invalid id' }); return; }
   try {
+    // Must be a patron of this business
+    const [patronage] = await db.select({ id: seasonPatronages.id })
+      .from(seasonPatronages)
+      .where(and(
+        eq(seasonPatronages.patron_user_id, userId),
+        eq(seasonPatronages.location_id, businessId),
+        eq(seasonPatronages.status, 'claimed'),
+      ))
+      .limit(1);
+    if (!patronage) { res.json(null); return; }
+
     const [campaign] = await db.select().from(adCampaigns)
       .where(and(
         eq(adCampaigns.business_id, businessId),
@@ -350,22 +312,65 @@ router.post('/impressions/:id/respond', requireUser, async (req: Request, res: R
         await db.update(adCampaigns).set({ active: false }).where(eq(adCampaigns.id, impression.campaign_id));
       }
 
-      // Payout trigger at $100
-      if (newBalance >= 10000) {
-        const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId));
-        if (user?.push_token) {
-          await sendPushNotification(user.push_token, {
-            title: 'Ad earnings ready',
-            body: `You have $${(newBalance / 100).toFixed(2)} in ad earnings available to withdraw.`,
-            data: { screen: 'terminal' },
-          }).catch(() => {});
-        }
-      }
     }
 
     res.json({ ok: true, new_balance_cents: newBalance });
   } catch (err) {
     logger.error(`Impression respond error: ${String(err)}`);
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// ─── Available remote ads feed ────────────────────────────────────────────────
+
+// GET /api/ads/available — remote campaigns available for this user in the terminal feed
+// Returns active remote campaigns with their pending impression id (creates one if needed)
+router.get('/available', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  try {
+    const activeCampaigns = await db.select().from(adCampaigns)
+      .where(and(
+        eq(adCampaigns.type, 'remote'),
+        eq(adCampaigns.active, true),
+        sql`${adCampaigns.budget_cents} > ${adCampaigns.spent_cents}`,
+      ));
+
+    const result = [];
+    for (const campaign of activeCampaigns) {
+      // Skip if user already responded to this campaign
+      const [existing] = await db.select({ id: adImpressions.id, accepted: adImpressions.accepted })
+        .from(adImpressions)
+        .where(and(eq(adImpressions.campaign_id, campaign.id), eq(adImpressions.user_id, userId)));
+      if (existing?.accepted !== null && existing?.accepted !== undefined) continue;
+
+      // Get or create pending impression
+      let impressionId = existing?.id ?? null;
+      if (!impressionId) {
+        const [impression] = await db.insert(adImpressions).values({
+          campaign_id: campaign.id,
+          user_id: userId,
+          payout_cents: campaign.value_cents,
+        }).returning();
+        impressionId = impression.id;
+      }
+
+      // Get business name
+      const [biz] = await db.select({ name: businesses.name })
+        .from(businesses).where(eq(businesses.id, campaign.business_id));
+
+      result.push({
+        impression_id: impressionId,
+        campaign_id: campaign.id,
+        title: campaign.title,
+        body: campaign.body,
+        value_cents: campaign.value_cents,
+        business_name: biz?.name ?? '',
+      });
+    }
+
+    res.json(result);
+  } catch (err) {
+    logger.error(`Available ads error: ${String(err)}`);
     res.status(500).json({ error: 'internal' });
   }
 });

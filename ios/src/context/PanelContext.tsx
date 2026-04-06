@@ -38,7 +38,7 @@ export type PanelId =
   | 'vendor-stall'
   | 'market-admin'
   | 'ad-campaigns'
-  | 'ad-offer';
+  | 'toilet';
 
 export interface OrderState {
   variety_id: number | null;
@@ -111,6 +111,8 @@ export interface Business {
   contact?: string | null;
   hours?: string | null;
   venture_id?: number | null;
+  has_toilet?: boolean;
+  toilet_fee_cents?: number;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;

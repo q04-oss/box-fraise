@@ -2019,15 +2019,16 @@ export async function fundAdCampaign(id: number, amount_cents: number): Promise<
   return r.json();
 }
 
-export async function broadcastAdCampaign(id: number): Promise<{ sent: number }> {
+export async function fetchAvailableAds(): Promise<any[]> {
   const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/ads/campaigns/${id}/broadcast`, { method: 'POST', headers: auth });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+  const r = await fetch(`${BASE_URL}/api/ads/available`, { headers: auth });
+  if (!r.ok) return [];
   return r.json();
 }
 
 export async function fetchProximityAdCampaign(businessId: number): Promise<any | null> {
-  const r = await fetch(`${BASE_URL}/api/ads/proximity/${businessId}`);
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/ads/proximity/${businessId}`, { headers: auth });
   if (!r.ok) return null;
   return r.json();
 }
@@ -2058,5 +2059,39 @@ export async function fetchAdBalance(): Promise<{ ad_balance_cents: number }> {
   const auth = await authHeader();
   const r = await fetch(`${BASE_URL}/api/ads/balance`, { headers: auth });
   if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function initiateToiletVisit(business_id: number, payment_method: 'stripe' | 'ad_balance'): Promise<{ visit_id: number; client_secret?: string; access_code?: string; fee_cents: number }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/toilets/visit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ business_id, payment_method }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function confirmToiletVisit(visit_id: number): Promise<{ access_code: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/toilets/visits/${visit_id}/confirm`, { method: 'POST', headers: auth });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+  return r.json();
+}
+
+export async function submitToiletReview(visit_id: number, rating: number, note?: string): Promise<void> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/toilets/visits/${visit_id}/review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ rating, note }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'failed'); }
+}
+
+export async function fetchToiletReviews(businessId: number): Promise<{ avg_rating: number | null; review_count: number; reviews: any[] }> {
+  const r = await fetch(`${BASE_URL}/api/toilets/reviews/${businessId}`);
+  if (!r.ok) return { avg_rating: null, review_count: 0, reviews: [] };
   return r.json();
 }

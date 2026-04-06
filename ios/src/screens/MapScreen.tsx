@@ -218,18 +218,6 @@ export default function MapScreen() {
       }
       setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
     }
-    if (pendingScreen === 'ad-offer') {
-      clearPendingScreen();
-      if (pendingData?.impression_id) {
-        showPanel('ad-offer', {
-          impression_id: pendingData.impression_id,
-          title: pendingData.title,
-          body: pendingData.body,
-          value_cents: pendingData.value_cents,
-        });
-        setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-      }
-    }
   }, [pendingScreen, businesses]);
 
   const loadBusinesses = () => {
@@ -535,6 +523,9 @@ export default function MapScreen() {
                 {b.placed_user_name && (
                   <View style={styles.pinPlacedDot} />
                 )}
+                {b.has_toilet && (
+                  <View style={styles.pinToiletDot} />
+                )}
               </View>
             </TouchableOpacity>
             <Callout tooltip>
@@ -701,6 +692,12 @@ const styles = StyleSheet.create({
     position: 'absolute', top: -3, right: -3,
     width: 7, height: 7, borderRadius: 4,
     backgroundColor: '#C9973A',
+    borderWidth: 1.5, borderColor: '#fff',
+  },
+  pinToiletDot: {
+    position: 'absolute', bottom: -3, right: -3,
+    width: 7, height: 7, borderRadius: 4,
+    backgroundColor: '#5B8DB8',
     borderWidth: 1.5, borderColor: '#fff',
   },
   bizLoadingIndicator: { position: 'absolute', alignSelf: 'center' },

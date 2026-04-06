@@ -8,7 +8,7 @@ import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import {
   fetchAdCampaigns, createAdCampaign, toggleAdCampaign,
-  fetchAdConnectStatus, createAdConnectOnboarding, broadcastAdCampaign,
+  fetchAdConnectStatus, createAdConnectOnboarding,
   fundAdCampaign,
 } from '../../lib/api';
 
@@ -117,22 +117,6 @@ export default function AdCampaignsPanel() {
       },
       'plain-text',
     );
-  };
-
-  const handleBroadcast = async (campaign: any) => {
-    Alert.alert('Broadcast ad?', `Send "${campaign.title}" to all users now?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Send', onPress: async () => {
-          try {
-            const { sent } = await broadcastAdCampaign(campaign.id);
-            Alert.alert('Sent', `Delivered to ${sent} user${sent !== 1 ? 's' : ''}.`);
-          } catch (e: any) {
-            Alert.alert('Error', e.message ?? 'Could not broadcast.');
-          }
-        },
-      },
-    ]);
   };
 
   return (
@@ -282,15 +266,6 @@ export default function AdCampaignsPanel() {
                   >
                     <Text style={[styles.actionBtnText, { color: c.muted }]}>add budget</Text>
                   </TouchableOpacity>
-                  {campaign.type === 'remote' && campaign.active && (
-                    <TouchableOpacity
-                      style={[styles.actionBtn, { borderColor: c.accent }]}
-                      onPress={() => handleBroadcast(campaign)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.actionBtnText, { color: c.accent }]}>broadcast →</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </View>
             );
