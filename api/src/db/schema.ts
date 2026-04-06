@@ -217,6 +217,23 @@ export const businesses = pgTable('businesses', {
   inaugurated_at: timestamp('inaugurated_at'),
   approved_by_admin: boolean('approved_by_admin').notNull().default(false),
   venture_id: integer('venture_id'), // associated venture (optional)
+  has_toilet: boolean('has_toilet').notNull().default(false),
+  toilet_fee_cents: integer('toilet_fee_cents').notNull().default(150),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const toiletVisits = pgTable('toilet_visits', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  business_id: integer('business_id').notNull().references(() => businesses.id),
+  fee_cents: integer('fee_cents').notNull(),
+  payment_method: text('payment_method').notNull(), // 'stripe' | 'ad_balance'
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  paid: boolean('paid').notNull().default(false),
+  access_code: text('access_code'),
+  rating: integer('rating'), // 1-5
+  review_note: text('review_note'),
+  reviewed_at: timestamp('reviewed_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 

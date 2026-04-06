@@ -4,7 +4,7 @@ import { eq, sql, and, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, membershipFunds, fundContributions, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
 import { logger } from '../lib/logger';
@@ -816,6 +816,14 @@ router.post('/webhook', async (req: Request, res: Response) => {
             .set({ budget_cents: sql`${adCampaigns.budget_cents} + ${amountCents}` })
             .where(eq(adCampaigns.id, campaignId));
           logger.info(`Ad campaign ${campaignId} funded: +${amountCents} cents`);
+        }
+      } else if (type === 'toilet_visit') {
+        const visitId = parseInt(pi.metadata?.visit_id ?? '', 10);
+        if (!isNaN(visitId)) {
+          const code = String(Math.floor(1000 + Math.random() * 9000));
+          await db.update(toiletVisits).set({ paid: true, access_code: code })
+            .where(and(eq(toiletVisits.id, visitId), eq(toiletVisits.paid, false)));
+          logger.info(`Toilet visit ${visitId} paid via Stripe`);
         }
       }
     }

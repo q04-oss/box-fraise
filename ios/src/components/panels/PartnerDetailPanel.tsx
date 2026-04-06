@@ -4,7 +4,7 @@ import {
   StyleSheet, ActivityIndicator, Linking, Platform, Alert,
 } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
-import { fetchBusinessPortraits, fetchBusinessVisitCount, createTip, fetchNearbyJobs, JobPosting } from '../../lib/api';
+import { fetchBusinessPortraits, fetchBusinessVisitCount, createTip, fetchNearbyJobs, JobPosting, fetchToiletReviews } from '../../lib/api';
 import { useStripe } from '@stripe/stripe-react-native';
 import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
@@ -32,19 +32,23 @@ export default function PartnerDetailPanel() {
   const [tipping, setTipping] = useState(false);
   const [tipAmount, setTipAmount] = useState<number | null>(null);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [toiletReviews, setToiletReviews] = useState<{ avg_rating: number | null; review_count: number; reviews: any[] } | null>(null);
 
   const biz = activeLocation;
 
   const loadData = (isRefresh = false) => {
     if (!biz) { setLoading(false); return; }
+    const toiletPromise = biz.has_toilet ? fetchToiletReviews(biz.id).catch(() => null) : Promise.resolve(null);
     Promise.all([
       fetchBusinessPortraits(biz.id).catch(() => []),
       fetchBusinessVisitCount(biz.id).catch(() => null),
       fetchNearbyJobs(biz.id).catch(() => []),
-    ]).then(([p, v, j]) => {
+      toiletPromise,
+    ]).then(([p, v, j, t]) => {
       setPortraits(p as any[]);
       setVisitCount(v ? (v as any).visit_count : null);
       setJobs((j as JobPosting[]).filter(job => job.active));
+      if (t) setToiletReviews(t as any);
     }).finally(() => { setLoading(false); if (isRefresh) setRefreshing(false); });
   };
 
@@ -252,6 +256,50 @@ export default function PartnerDetailPanel() {
           </View>
         )}
 
+        {/* Toilet section */}
+        {biz.has_toilet && (
+          <View style={[styles.toiletSection, { borderBottomColor: c.border }]}>
+            <View style={styles.toiletHeader}>
+              <View>
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>TOILET</Text>
+                {toiletReviews && toiletReviews.review_count > 0 ? (
+                  <View style={styles.toiletRatingRow}>
+                    <Text style={[styles.toiletRating, { color: c.text }]}>
+                      {'★'.repeat(Math.round(toiletReviews.avg_rating ?? 0))}{'☆'.repeat(5 - Math.round(toiletReviews.avg_rating ?? 0))}
+                    </Text>
+                    <Text style={[styles.toiletRatingCount, { color: c.muted }]}>
+                      {toiletReviews.avg_rating?.toFixed(1)}  ·  {toiletReviews.review_count} {toiletReviews.review_count === 1 ? 'visit' : 'visits'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.toiletNoReviews, { color: c.muted }]}>no reviews yet</Text>
+                )}
+              </View>
+              <TouchableOpacity
+                style={[styles.toiletBtn, { backgroundColor: c.accent }]}
+                onPress={() => showPanel('toilet')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.toiletBtnText, { color: c.ctaText ?? '#fff' }]}>
+                  CA${((biz.toilet_fee_cents ?? 150) / 100).toFixed(2)}  →
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {toiletReviews && toiletReviews.reviews.length > 0 && (
+              <View style={styles.toiletReviews}>
+                {toiletReviews.reviews.map((r: any) => (
+                  <View key={r.id} style={[styles.toiletReviewRow, { borderTopColor: c.border }]}>
+                    <Text style={[styles.toiletReviewStars, { color: c.accent }]}>{'★'.repeat(r.rating)}</Text>
+                    {!!r.review_note && (
+                      <Text style={[styles.toiletReviewNote, { color: c.muted }]} numberOfLines={2}>{r.review_note}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Commission a campaign CTA */}
         <TouchableOpacity
           style={[styles.commissionCard, { borderColor: c.border }]}
@@ -405,6 +453,25 @@ const styles = StyleSheet.create({
   jobTitle: { fontSize: 15, fontFamily: fonts.playfair },
   jobPay: { fontSize: 11, fontFamily: fonts.dmMono, marginTop: 2 },
   jobArrow: { fontSize: 16 },
+
+  toiletSection: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+  },
+  toiletHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  toiletRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  toiletRating: { fontSize: 14, letterSpacing: 1 },
+  toiletRatingCount: { fontSize: 10, fontFamily: fonts.dmMono },
+  toiletNoReviews: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic', marginTop: 4 },
+  toiletBtn: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  toiletBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  toiletReviews: { gap: 0 },
+  toiletReviewRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, gap: 3 },
+  toiletReviewStars: { fontSize: 12, letterSpacing: 1 },
+  toiletReviewNote: { fontSize: 12, fontFamily: fonts.dmSans },
 
   commissionCard: {
     marginHorizontal: SPACING.md,
