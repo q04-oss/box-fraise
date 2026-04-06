@@ -3,17 +3,20 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   TextInput, Alert, ActivityIndicator, Linking,
 } from 'react-native';
+import { useStripe } from '@stripe/stripe-react-native';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import {
   fetchAdCampaigns, createAdCampaign, toggleAdCampaign,
   fetchAdConnectStatus, createAdConnectOnboarding, broadcastAdCampaign,
+  fundAdCampaign,
 } from '../../lib/api';
 
 type Screen = 'list' | 'create';
 
 export default function AdCampaignsPanel() {
   const { goBack } = usePanel();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const [screen, setScreen] = useState<Screen>('list');
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -82,6 +85,38 @@ export default function AdCampaignsPanel() {
       const msg = e.message === 'no_budget' ? 'Fund this campaign before activating it.' : e.message ?? 'Could not toggle.';
       Alert.alert('Error', msg);
     }
+  };
+
+  const handleFund = async (campaign: any) => {
+    Alert.prompt(
+      'Add budget',
+      'Enter amount in CA$ (minimum $10)',
+      async (value) => {
+        const dollars = parseFloat(value);
+        if (isNaN(dollars) || dollars < 10) {
+          Alert.alert('Invalid amount', 'Minimum is CA$10.');
+          return;
+        }
+        try {
+          const { client_secret } = await fundAdCampaign(campaign.id, Math.round(dollars * 100));
+          const { error: initErr } = await initPaymentSheet({
+            paymentIntentClientSecret: client_secret,
+            merchantDisplayName: 'Maison Fraise',
+          });
+          if (initErr) throw new Error(initErr.message);
+          const { error: presentErr } = await presentPaymentSheet();
+          if (presentErr) {
+            if (presentErr.code !== 'Canceled') Alert.alert('Payment failed', 'Please try again.');
+            return;
+          }
+          Alert.alert('Funded', `CA$${dollars.toFixed(2)} added to campaign budget.`);
+          load();
+        } catch (e: any) {
+          Alert.alert('Error', e.message ?? 'Could not fund campaign.');
+        }
+      },
+      'plain-text',
+    );
   };
 
   const handleBroadcast = async (campaign: any) => {
@@ -239,15 +274,24 @@ export default function AdCampaignsPanel() {
                     budget CA${budgetDollars}  ·  CA${remainingDollars} left
                   </Text>
                 </View>
-                {campaign.type === 'remote' && campaign.active && (
+                <View style={styles.campaignActions}>
                   <TouchableOpacity
-                    style={[styles.broadcastBtn, { borderColor: c.accent }]}
-                    onPress={() => handleBroadcast(campaign)}
+                    style={[styles.actionBtn, { borderColor: c.border }]}
+                    onPress={() => handleFund(campaign)}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.broadcastBtnText, { color: c.accent }]}>broadcast now →</Text>
+                    <Text style={[styles.actionBtnText, { color: c.muted }]}>add budget</Text>
                   </TouchableOpacity>
-                )}
+                  {campaign.type === 'remote' && campaign.active && (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { borderColor: c.accent }]}
+                      onPress={() => handleBroadcast(campaign)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.actionBtnText, { color: c.accent }]}>broadcast →</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             );
           })}
@@ -299,6 +343,7 @@ const styles = StyleSheet.create({
   activeToggleText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   campaignStats: { gap: 2 },
   statText: { fontSize: 11, fontFamily: fonts.dmMono },
-  broadcastBtn: { borderWidth: 1, borderRadius: 8, paddingVertical: 8, alignItems: 'center', marginTop: 4 },
-  broadcastBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  campaignActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  actionBtn: { flex: 1, borderWidth: 1, borderRadius: 8, paddingVertical: 8, alignItems: 'center' },
+  actionBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });

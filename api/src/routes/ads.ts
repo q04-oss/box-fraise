@@ -250,7 +250,7 @@ router.post('/campaigns/:id/broadcast', requireUser, async (req: Request, res: R
       await sendPushNotification(target.push_token, {
         title: campaign.title,
         body: campaign.body,
-        data: { screen: 'ad-offer', impression_id: impression.id, campaign_id: campaignId },
+        data: { screen: 'ad-offer', impression_id: impression.id, campaign_id: campaignId, value_cents: campaign.value_cents },
       }).catch(() => {});
       sent++;
     }
