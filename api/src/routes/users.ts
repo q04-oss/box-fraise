@@ -35,6 +35,23 @@ router.get('/me', requireUser, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/users/me/social-access
+router.get('/me/social-access', requireUser, async (req: Request, res: Response) => {
+  const user_id = (req as any).userId as number;
+  try {
+    const [user] = await db
+      .select({ social_access_expires_at: users.social_access_expires_at })
+      .from(users)
+      .where(eq(users.id, user_id))
+      .limit(1);
+    const expires_at = user?.social_access_expires_at ?? null;
+    const active = expires_at !== null && expires_at > new Date();
+    res.json({ active, expires_at });
+  } catch {
+    res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 // GET /api/users/me/stats — auth required. Returns profile stats.
 router.get('/me/stats', requireUser, async (req: Request, res: Response) => {
   const userId = (req as any).userId as number;

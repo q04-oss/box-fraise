@@ -3673,3 +3673,59 @@ export async function fetchSolarIrradiance(lat: number, lng: number): Promise<{ 
     };
   } catch { return null; }
 }
+
+// ─── Social access ────────────────────────────────────────────────────────────
+
+export async function fetchSocialAccess(): Promise<{ active: boolean; expires_at: string | null }> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/users/me/social-access`, { headers });
+  if (!r.ok) return { active: false, expires_at: null };
+  return r.json();
+}
+
+// ─── AR Videos ───────────────────────────────────────────────────────────────
+
+export async function fetchARVideoFeed(): Promise<any[]> {
+  const r = await fetch(`${BASE_URL}/api/ar-videos`);
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchARVideo(id: number): Promise<any | null> {
+  const r = await fetch(`${BASE_URL}/api/ar-videos/${id}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function fetchMyARVideos(): Promise<any[]> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/ar-videos/mine`, { headers });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function submitARVideoAbstract(abstract: string, tag?: string | null): Promise<any> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/ar-videos/abstract`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ abstract, ...(tag ? { tag } : {}) }),
+  });
+  if (!r.ok) { const e = await r.json(); throw { status: r.status, ...e }; }
+  return r.json();
+}
+
+export async function uploadARVideo(
+  videoId: number,
+  title: string,
+  description: string,
+  videoBase64: string,
+  thumbnailBase64?: string,
+): Promise<any> {
+  const headers = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/ar-videos/${videoId}/upload`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ title, description, video_base64: videoBase64, thumbnail_base64: thumbnailBase64 }),
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'upload_failed'); }
+  return r.json();
+}

@@ -179,6 +179,7 @@ export const users = pgTable('users', {
   stripe_connect_account_id: text('stripe_connect_account_id'),
   stripe_connect_onboarded: boolean('stripe_connect_onboarded').notNull().default(false),
   ad_balance_cents: integer('ad_balance_cents').notNull().default(0),
+  social_access_expires_at: timestamp('social_access_expires_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -1310,4 +1311,36 @@ export const marketOrderItems = pgTable('market_order_items', {
   listing_name: text('listing_name').notNull(), // snapshot at time of order
   quantity: integer('quantity').notNull().default(1),
   unit_price_cents: integer('unit_price_cents').notNull(),
+});
+
+// ─── AR Video platform ────────────────────────────────────────────────────────
+
+export const arVideoStatusEnum = pgEnum('ar_video_status', [
+  'abstract_submitted', 'abstract_declined',
+  'commissioned',
+  'processing', 'processing_failed',
+  'submitted', 'published', 'declined',
+]);
+
+export const arVideos = pgTable('ar_videos', {
+  id: serial('id').primaryKey(),
+  author_user_id: integer('author_user_id').notNull().references(() => users.id),
+  abstract: text('abstract'),
+  title: text('title'),
+  description: text('description'),
+  tag: text('tag'),
+  status: arVideoStatusEnum('status').notNull().default('abstract_submitted'),
+  // Cloudinary source video (uploaded by user after commission)
+  source_video_url: text('source_video_url'),
+  // Luma AI task tracking
+  luma_task_id: text('luma_task_id'),
+  luma_scene_url: text('luma_scene_url'),   // embed/view URL from Luma
+  splat_url: text('splat_url'),              // .splat file if available
+  thumbnail_url: text('thumbnail_url'),
+  // Editorial
+  commission_cents: integer('commission_cents'),
+  editor_note: text('editor_note'),
+  published_at: timestamp('published_at'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+  updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
