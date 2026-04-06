@@ -2611,26 +2611,9 @@ export async function fetchMyStats(): Promise<any> {
   return r.json();
 }
 
-export async function fetchGreenhouses(): Promise<any[]> {
-  const r = await fetch(`${BASE_URL}/api/greenhouses`);
-  if (!r.ok) return [];
-  return r.json();
-}
-
 export async function fetchGreenhouseDetail(id: number): Promise<any> {
   const r = await fetch(`${BASE_URL}/api/greenhouses/${id}`);
   if (!r.ok) throw new Error('not found');
-  return r.json();
-}
-
-export async function fundGreenhouse(id: number, years: number): Promise<{ client_secret: string; amount_cents: number; years: number }> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/greenhouses/${id}/fund`, {
-    method: 'POST',
-    headers: { ...auth, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ years }),
-  });
-  if (!r.ok) throw new Error((await r.json()).error ?? 'fund failed');
   return r.json();
 }
 

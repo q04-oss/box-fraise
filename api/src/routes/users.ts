@@ -48,17 +48,20 @@ router.get('/me/stats', requireUser, async (req: Request, res: Response) => {
     }).from(users).where(eq(users.id, userId));
     if (!user) { res.status(404).json({ error: 'not_found' }); return; }
 
-    const [eveningRow] = await db.execute<{ count: string }>(sql`
+    const eveningRes = await db.execute(sql`
       SELECT COUNT(*)::text as count FROM evening_tokens
       WHERE (user_a_id = ${userId} OR user_b_id = ${userId}) AND minted_at IS NOT NULL
     `);
-    const [portraitRow] = await db.execute<{ count: string }>(sql`
+    const portraitRes = await db.execute(sql`
       SELECT COUNT(*)::text as count FROM portrait_tokens WHERE owner_id = ${userId}
     `);
-    const [nfcRow] = await db.execute<{ count: string }>(sql`
+    const nfcRes = await db.execute(sql`
       SELECT COUNT(*)::text as count FROM nfc_connections
       WHERE user_a = ${userId} OR user_b = ${userId}
     `);
+    const eveningRow = ((eveningRes as any).rows ?? eveningRes)[0];
+    const portraitRow = ((portraitRes as any).rows ?? portraitRes)[0];
+    const nfcRow = ((nfcRes as any).rows ?? nfcRes)[0];
     const [membershipRow] = await db.select({ tier: memberships.tier })
       .from(memberships)
       .where(and(eq(memberships.user_id, userId), eq(memberships.status, 'active')))
