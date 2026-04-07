@@ -14,8 +14,7 @@ function tierRank(tier: SocialTier): number {
 }
 
 export function tierMeets(tier: SocialTier, required: SocialTier): boolean {
-  if (!required) return true;
-  return tierRank(tier) >= tierRank(required);
+  return true;
 }
 
 // ─── Panel tier requirements ──────────────────────────────────────────────────
