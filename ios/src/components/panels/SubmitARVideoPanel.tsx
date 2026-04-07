@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { submitARVideoAbstract, fetchMyARVideos, uploadARVideo } from '../../lib/api';
+import { submitARVideoAbstract, fetchMyARVideos, uploadARVideo, submitArtPitch, fetchMyArtPitches } from '../../lib/api';
 
 const TAGS = ['Nature', 'Art', 'Architecture', 'Food', 'Dance'];
 
@@ -217,6 +217,128 @@ function UploadForm({ video, onSubmitted }: { video: any; onSubmitted: () => voi
   );
 }
 
+const ART_PITCH_STATUS_LABELS: Record<string, string> = {
+  submitted: 'Under consideration',
+  approved: 'Approved',
+  rejected: 'Not accepted',
+};
+
+const ART_PITCH_STATUS_COLORS: Record<string, string> = {
+  submitted: '#C9973A',
+  approved: '#34C759',
+  rejected: '#FF3B30',
+};
+
+function ArtPitchSection({ onPitchSubmitted, pitches }: { onPitchSubmitted: () => void; pitches: any[] }) {
+  const c = useColors();
+  const [title, setTitle] = useState('');
+  const [abstract, setAbstract] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const titleLen = title.trim().length;
+  const abstractLen = abstract.trim().length;
+  const canSubmit = titleLen >= 3 && titleLen <= 120 && abstractLen >= 50 && abstractLen <= 1000 && !submitting;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await submitArtPitch(title.trim(), abstract.trim());
+      setTitle('');
+      setAbstract('');
+      onPitchSubmitted();
+    } catch (err: any) {
+      if (err?.error === 'pitch_pending') {
+        Alert.alert('Pitch pending', 'You already have a pitch under consideration.');
+      } else {
+        Alert.alert('Error', 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <View style={[styles.divider, { borderTopColor: c.border }]}>
+        <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: fonts.dmMono }]}>PITCH A PAINTING</Text>
+      </View>
+      <Text style={[styles.hint, { color: c.muted, fontFamily: fonts.dmSans }]}>
+        Pitch a painting concept. If selected, you'll receive a grant to create the work.
+      </Text>
+
+      <TextInput
+        style={[styles.titleInput, { color: c.text, fontFamily: fonts.playfair, borderBottomColor: c.border }]}
+        placeholder="Title (3–120 chars)"
+        placeholderTextColor={c.muted}
+        value={title}
+        onChangeText={setTitle}
+        returnKeyType="next"
+        maxLength={120}
+      />
+
+      <TextInput
+        style={[styles.abstractInput, { color: c.text, fontFamily: fonts.dmSans, borderColor: c.border }]}
+        placeholder="Describe your concept… (50–1000 chars)"
+        placeholderTextColor={c.muted}
+        value={abstract}
+        onChangeText={setAbstract}
+        multiline
+        textAlignVertical="top"
+        maxLength={1000}
+      />
+      <Text style={[styles.charCount, { fontFamily: fonts.dmMono, color: abstractLen >= 50 ? c.accent : c.muted }]}>
+        {abstractLen} / 1000{abstractLen < 50 ? ` (min 50)` : ''}
+      </Text>
+
+      <TouchableOpacity
+        style={[styles.submitBtn, { backgroundColor: canSubmit ? c.accent : c.card, borderColor: c.border }]}
+        onPress={handleSubmit}
+        disabled={!canSubmit}
+        activeOpacity={0.8}
+      >
+        {submitting ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={[styles.submitText, { fontFamily: fonts.dmMono, color: canSubmit ? '#FFFFFF' : c.muted }]}>
+            Submit pitch
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {pitches.length > 0 && (
+        <>
+          <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: fonts.dmMono, marginBottom: SPACING.sm }]}>
+            MY PITCHES
+          </Text>
+          {pitches.map(item => {
+            const statusKey = item.status ?? 'submitted';
+            const statusColor = ART_PITCH_STATUS_COLORS[statusKey] ?? '#8E8E93';
+            const statusLabel = ART_PITCH_STATUS_LABELS[statusKey] ?? statusKey;
+            return (
+              <View key={String(item.id)} style={[styles.pieceRow, { borderBottomColor: c.border }]}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.pieceTitle, { color: c.text, fontFamily: fonts.playfair }]} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <Text style={[styles.pieceDate, { color: c.muted, fontFamily: fonts.dmMono }]}>
+                    {formatDate(item.created_at)}
+                  </Text>
+                </View>
+                <View style={[styles.statusBadge, { borderColor: statusColor }]}>
+                  <Text style={[styles.statusText, { color: statusColor, fontFamily: fonts.dmMono }]}>
+                    {statusLabel}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export default function SubmitARVideoPanel() {
@@ -225,14 +347,18 @@ export default function SubmitARVideoPanel() {
   const insets = useSafeAreaInsets();
 
   const [myVideos, setMyVideos] = useState<any[]>([]);
+  const [myArtPitches, setMyArtPitches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = () => {
     setLoading(true);
-    fetchMyARVideos()
-      .then(setMyVideos)
-      .catch(() => setMyVideos([]))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetchMyARVideos().catch(() => []),
+      fetchMyArtPitches().catch(() => []),
+    ]).then(([videos, pitches]) => {
+      setMyVideos(videos);
+      setMyArtPitches(pitches);
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -322,6 +448,11 @@ export default function SubmitARVideoPanel() {
               );
             })}
           </>
+        )}
+
+        {/* Art pitch section */}
+        {!loading && (
+          <ArtPitchSection onPitchSubmitted={load} pitches={myArtPitches} />
         )}
 
         <View style={{ height: SPACING.xl }} />

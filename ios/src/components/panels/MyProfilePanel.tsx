@@ -4,9 +4,10 @@ import {
 } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { fetchMyStats, updateDisplayName, fetchBoxWall } from '../../lib/api';
+import { fetchMyStats, updateDisplayName, fetchBoxWall, fetchMyArtContributions } from '../../lib/api';
 import { useSocialAccess } from '../SocialGate';
 import { getAverageVitaminCMgPerDay } from '../../lib/HealthKitService';
+import ARBoxModule from '../../lib/NativeARBoxModule';
 
 
 export default function MyProfilePanel() {
@@ -21,6 +22,7 @@ export default function MyProfilePanel() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [artContributions, setArtContributions] = useState<{ painted: any[]; collected: any[] }>({ painted: [], collected: [] });
 
   useEffect(() => {
     fetchMyStats().catch(() => null).then(s => {
@@ -29,6 +31,8 @@ export default function MyProfilePanel() {
         fetchBoxWall(s.id).then(wall => setBoxWallCount(Array.isArray(wall) ? wall.length : 0)).catch(() => {});
       }
     }).finally(() => setLoading(false));
+
+    fetchMyArtContributions().then(setArtContributions).catch(() => {});
 
     getAverageVitaminCMgPerDay(7).then(avg => {
       if (avg < 50) setVitaminCNudge(true);
@@ -162,6 +166,37 @@ export default function MyProfilePanel() {
             </View>
           )}
 
+          {/* Art contributions */}
+          {(artContributions.painted.length > 0 || artContributions.collected.length > 0) && (
+            <View style={[styles.section, { borderBottomColor: c.border }]}>
+              {artContributions.painted.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: c.muted }]}>ARTIST</Text>
+                  {artContributions.painted.map((p: any) => (
+                    <Text key={String(p.artwork_id)} style={[styles.artItem, { color: c.text }]} numberOfLines={1}>
+                      {p.title}
+                    </Text>
+                  ))}
+                </>
+              )}
+              {artContributions.collected.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: c.muted, marginTop: artContributions.painted.length > 0 ? 8 : 0 }]}>COLLECTOR</Text>
+                  {artContributions.collected.map((b: any) => (
+                    <View key={String(b.artwork_id)} style={styles.artCollectedRow}>
+                      <Text style={[styles.artItem, { color: c.text, flex: 1 }]} numberOfLines={1}>
+                        {b.title}
+                      </Text>
+                      <Text style={[styles.artAmount, { color: c.muted }]}>
+                        CA${((b.amount_cents ?? 0) / 100).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+
           {/* Vitamin C nudge */}
           {vitaminCNudge && (
             <View style={[styles.nudgeCard, { borderColor: c.accent, backgroundColor: c.card }]}>
@@ -253,7 +288,56 @@ export default function MyProfilePanel() {
               <Text style={[styles.navLabel, { color: c.text }]}>Discover</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.navRow, { borderBottomColor: c.border }]}
+              onPress={() => showPanel('art-auctions')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.navLabel, { color: c.text }]}>Art Auctions</Text>
+              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
+            </TouchableOpacity>
           </View>
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.devArBtn, { borderColor: c.accent }]}
+              activeOpacity={0.7}
+              onPress={() => {
+                ARBoxModule.presentAR({
+                  variety_id: 1,
+                  variety_name: 'Albion',
+                  farm: 'Domaine Lacroix',
+                  harvest_date: '2026-04-05',
+                  quantity: 2,
+                  chocolate: 'dark',
+                  finish: 'floral',
+                  brix_score: 11.4,
+                  growing_method: 'organic',
+                  lineage_parents: ['Seascape', 'Pajaro'],
+                  altitude_m: 320,
+                  soil_type: 'sandy loam',
+                  optimal_eating_window_days: 3,
+                  weather_at_harvest: 'Sunny, 18°C',
+                  farm_photo_url: null,
+                  tasting_notes: ['bright', 'citrus', 'sweet'],
+                  variety_description: 'A classic Californian variety with bright acidity and rich sweetness.',
+                  price_history: [],
+                  carbon_footprint_kg: 0.12,
+                  sunlight_hours: 8,
+                  pairing_suggestions: ['dark chocolate', 'aged brie'],
+                  collectif_name: null,
+                  show_referral_bubble: false,
+                  tasting_word_cloud: [],
+                  batch_members: [],
+                  lot_companions: [],
+                }).catch((e: any) => Alert.alert('AR Error', String(e?.message ?? e)));
+              }}
+            >
+              <Text style={[styles.devArBtnText, { color: c.accent, fontFamily: fonts.dmMono }]}>
+                DEV · TEST AR EXPERIENCE
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
     </View>
@@ -310,4 +394,12 @@ const styles = StyleSheet.create({
   nudgeTitle: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1.5 },
   nudgeSub: { fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20 },
   nudgeCta: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1, marginTop: 4 },
+  devArBtn: {
+    margin: SPACING.md, borderRadius: 12, borderWidth: 1,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  devArBtnText: { fontSize: 11, letterSpacing: 1.5 },
+  artItem: { fontFamily: fonts.dmSans, fontSize: 14, lineHeight: 20 },
+  artCollectedRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  artAmount: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
 });

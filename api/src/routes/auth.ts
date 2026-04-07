@@ -39,6 +39,72 @@ db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_account
 db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_onboarded boolean NOT NULL DEFAULT false`).catch(() => {});
 db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs jsonb`).catch(() => {});
 
+// Fine art tables
+db.execute(sql`CREATE TABLE IF NOT EXISTS art_pitches (
+  id serial PRIMARY KEY,
+  user_id integer NOT NULL REFERENCES users(id),
+  title text NOT NULL,
+  abstract text NOT NULL,
+  reference_image_url text,
+  status text NOT NULL DEFAULT 'submitted',
+  grant_amount_cents integer,
+  stripe_transfer_id text,
+  admin_note text,
+  reviewed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS artworks (
+  id serial PRIMARY KEY,
+  pitch_id integer NOT NULL REFERENCES art_pitches(id),
+  user_id integer NOT NULL REFERENCES users(id),
+  title text NOT NULL,
+  media_url text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'posted',
+  created_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS art_acquisitions (
+  id serial PRIMARY KEY,
+  artwork_id integer NOT NULL UNIQUE REFERENCES artworks(id),
+  acquisition_price_cents integer NOT NULL,
+  management_fee_annual_cents integer NOT NULL,
+  nfc_token_serial text,
+  acquired_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS art_auctions (
+  id serial PRIMARY KEY,
+  artwork_id integer NOT NULL REFERENCES artworks(id),
+  reserve_price_cents integer NOT NULL,
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'active',
+  winning_bid_id integer,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS art_bids (
+  id serial PRIMARY KEY,
+  auction_id integer NOT NULL REFERENCES art_auctions(id),
+  user_id integer NOT NULL REFERENCES users(id),
+  amount_cents integer NOT NULL,
+  stripe_payment_intent_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
+db.execute(sql`CREATE TABLE IF NOT EXISTS art_management_fees (
+  id serial PRIMARY KEY,
+  acquisition_id integer NOT NULL REFERENCES art_acquisitions(id),
+  collector_user_id integer NOT NULL REFERENCES users(id),
+  amount_cents integer NOT NULL,
+  due_at timestamptz NOT NULL,
+  paid_at timestamptz,
+  stripe_payment_intent_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`).catch(() => {});
+
 const router = Router();
 
 async function handleAppleSignIn(req: Request, res: Response) {

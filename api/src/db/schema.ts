@@ -1368,3 +1368,88 @@ export const tastingFeedReactions = pgTable('tasting_feed_reactions', {
   emoji: text('emoji').notNull(),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─── Fine Art ─────────────────────────────────────────────────────────────────
+
+export const artPitchStatusEnum = pgEnum('art_pitch_status', [
+  'submitted', 'approved', 'rejected',
+]);
+
+export const artworkStatusEnum = pgEnum('artwork_status', [
+  'pending_upload', 'posted', 'acquired', 'auctioned',
+]);
+
+export const artAuctionStatusEnum = pgEnum('art_auction_status', [
+  'active', 'ended', 'cancelled',
+]);
+
+// User pitches a concept for a painting + grant
+export const artPitches = pgTable('art_pitches', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  abstract: text('abstract').notNull(),
+  reference_image_url: text('reference_image_url'),
+  status: artPitchStatusEnum('status').notNull().default('submitted'),
+  grant_amount_cents: integer('grant_amount_cents'),
+  stripe_transfer_id: text('stripe_transfer_id'),
+  admin_note: text('admin_note'),
+  reviewed_at: timestamp('reviewed_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Finished painting uploaded by artist after grant
+export const artworks = pgTable('artworks', {
+  id: serial('id').primaryKey(),
+  pitch_id: integer('pitch_id').notNull().references(() => artPitches.id),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  media_url: text('media_url').notNull(),
+  description: text('description'),
+  status: artworkStatusEnum('status').notNull().default('posted'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Maison acquires a piece — permanent collection
+export const artAcquisitions = pgTable('art_acquisitions', {
+  id: serial('id').primaryKey(),
+  artwork_id: integer('artwork_id').notNull().references(() => artworks.id).unique(),
+  acquisition_price_cents: integer('acquisition_price_cents').notNull(),
+  management_fee_annual_cents: integer('management_fee_annual_cents').notNull(),
+  nfc_token_serial: text('nfc_token_serial'),
+  acquired_at: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Timed auctions for non-acquired works
+export const artAuctions = pgTable('art_auctions', {
+  id: serial('id').primaryKey(),
+  artwork_id: integer('artwork_id').notNull().references(() => artworks.id),
+  reserve_price_cents: integer('reserve_price_cents').notNull(),
+  starts_at: timestamp('starts_at', { withTimezone: true }).notNull(),
+  ends_at: timestamp('ends_at', { withTimezone: true }).notNull(),
+  status: artAuctionStatusEnum('status').notNull().default('active'),
+  winning_bid_id: integer('winning_bid_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Bids on auctions
+export const artBids = pgTable('art_bids', {
+  id: serial('id').primaryKey(),
+  auction_id: integer('auction_id').notNull().references(() => artAuctions.id),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  amount_cents: integer('amount_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Annual management fees paid by winning collector
+export const artManagementFees = pgTable('art_management_fees', {
+  id: serial('id').primaryKey(),
+  acquisition_id: integer('acquisition_id').notNull().references(() => artAcquisitions.id),
+  collector_user_id: integer('collector_user_id').notNull().references(() => users.id),
+  amount_cents: integer('amount_cents').notNull(),
+  due_at: timestamp('due_at', { withTimezone: true }).notNull(),
+  paid_at: timestamp('paid_at', { withTimezone: true }),
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

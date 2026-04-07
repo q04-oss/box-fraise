@@ -98,6 +98,7 @@ import ARVideoFeedPanel from './panels/ARVideoFeedPanel';
 import ARVideoDetailPanel from './panels/ARVideoDetailPanel';
 import SubmitARVideoPanel from './panels/SubmitARVideoPanel';
 import TastingFeedPanel from './panels/TastingFeedPanel';
+import ArtAuctionPanel from './panels/ArtAuctionPanel';
 import { TierGate, PANEL_TIER_REQUIREMENTS } from './TierGate';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
@@ -196,6 +197,7 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'ar-video-detail': ARVideoDetailPanel,
   'submit-ar-video': SubmitARVideoPanel,
   'tasting-feed': TastingFeedPanel,
+  'art-auctions': ArtAuctionPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -271,6 +273,7 @@ const FULL_HEIGHT_PANELS = new Set([
   'ar-video-detail',
   'submit-ar-video',
   'tasting-feed',
+  'art-auctions',
 ]);
 
 export default function PanelNavigator() {

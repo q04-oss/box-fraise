@@ -17,6 +17,7 @@ import { fetchBusinesses, fetchVarieties, updatePushToken, deleteAuthToken, fetc
 import { STRAWBERRIES } from '../data/seed';
 import { useColors, fonts, SPACING } from '../theme';
 import { useApp } from '../../App';
+import ARBoxModule from '../lib/NativeARBoxModule';
 
 const SHEET_NAME = 'main-sheet';
 const COLLAPSED_HEIGHT = 80;
@@ -116,7 +117,7 @@ export default function MapScreen() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
   const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties } = usePanel();
-  const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
+  const { pendingScreen, pendingData, clearPendingScreen, pushToken, reviewMode } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
   const [bizError, setBizError] = useState(false);
@@ -655,6 +656,45 @@ export default function MapScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {reviewMode && (
+        <TouchableOpacity
+          style={[styles.arDemoBtn, { backgroundColor: c.accent, bottom: fabBottom + 12 }]}
+          activeOpacity={0.85}
+          onPress={() => {
+            ARBoxModule.presentAR({
+              variety_id: 1,
+              variety_name: 'Albion',
+              farm: 'Domaine Lacroix',
+              harvest_date: '2026-04-05',
+              quantity: 2,
+              chocolate: 'dark',
+              finish: 'floral',
+              brix_score: 11.4,
+              growing_method: 'organic',
+              lineage_parents: ['Seascape', 'Pajaro'],
+              altitude_m: 320,
+              soil_type: 'sandy loam',
+              optimal_eating_window_days: 3,
+              weather_at_harvest: 'Sunny, 18°C',
+              farm_photo_url: null,
+              tasting_notes: ['bright', 'citrus', 'sweet'],
+              variety_description: 'A classic Californian variety with bright acidity and rich sweetness.',
+              price_history: [],
+              carbon_footprint_kg: 0.12,
+              sunlight_hours: 8,
+              pairing_suggestions: ['dark chocolate', 'aged brie'],
+              collectif_name: null,
+              show_referral_bubble: false,
+              tasting_word_cloud: [],
+              batch_members: [],
+              lot_companions: [],
+            }).catch((e: any) => Alert.alert('AR Error', String(e?.message ?? e)));
+          }}
+        >
+          <Text style={[styles.arDemoBtnText, { color: '#fff', fontFamily: fonts.dmMono }]}>TRY AR</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -695,6 +735,21 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabIcon: { fontSize: 22 },
+  arDemoBtn: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  arDemoBtnText: { fontSize: 13, letterSpacing: 2 },
   pinCollection: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',

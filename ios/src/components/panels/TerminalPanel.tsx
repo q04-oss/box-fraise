@@ -28,7 +28,7 @@ type OrderStep = 'variety' | 'chocolate' | 'finish' | 'quantity' | 'when' | 'rev
 
 export default function TerminalPanel() {
   const { goHome, showPanel, setOrder, order, setActiveLocation, varieties, businesses, activeLocation, panelData, setPanelData } = usePanel();
-  const { pushToken, reviewMode } = useApp();
+  const { pushToken, reviewMode, enableReviewMode } = useApp();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const scrollRef = useRef<ScrollView>(null);
@@ -211,6 +211,7 @@ const nameInputRef = useRef<TextInput>(null);
       await setAuthToken(result.token);
       setUserDbId(result.user_id);
       setUserEmail('demo@maison-fraise.com');
+      enableReviewMode();
       if (pushToken) { const { updatePushToken } = await import('../../lib/api'); updatePushToken(pushToken).catch(() => {}); }
     } catch (e: any) {
       Alert.alert('Demo unavailable', String(e?.message ?? e));

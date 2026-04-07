@@ -3822,3 +3822,53 @@ export async function fetchHarvestDispatches(): Promise<any[]> {
   if (!r.ok) return [];
   return r.json();
 }
+
+export async function submitArtPitch(title: string, abstract: string, referenceImageUrl?: string): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/pitch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ title, abstract, reference_image_url: referenceImageUrl ?? null }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw e; }
+  return r.json();
+}
+
+export async function fetchMyArtPitches(): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/pitches/mine`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchArtAuctions(): Promise<any[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/auctions`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
+export async function fetchArtAuction(id: number): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/auctions/${id}`, { headers: auth });
+  if (!r.ok) throw new Error('not_found');
+  return r.json();
+}
+
+export async function placeArtBid(auctionId: number, amountCents: number): Promise<any> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/auctions/${auctionId}/bid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ amount_cents: amountCents }),
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw e; }
+  return r.json();
+}
+
+export async function fetchMyArtContributions(): Promise<{ painted: any[]; collected: any[] }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/art/my-contributions`, { headers: auth });
+  if (!r.ok) return { painted: [], collected: [] };
+  return r.json();
+}
