@@ -3287,13 +3287,14 @@ router.post('/grant-worker-access', requirePin, async (req: Request, res: Respon
   try {
     const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
-    await db.insert(locationStaff).values({
-      user_id: user.id,
-      location_id: parseInt(location_id, 10),
-      status: 'approved',
-      requested_at: new Date(),
-      reviewed_at: new Date(),
-    }).onConflictDoUpdate({ target: [locationStaff.user_id, locationStaff.location_id], set: { status: 'approved', reviewed_at: new Date() } });
+    const locId = parseInt(location_id, 10);
+    const [existing] = await db.select({ id: locationStaff.id }).from(locationStaff)
+      .where(and(eq(locationStaff.user_id, user.id), eq(locationStaff.location_id, locId)));
+    if (existing) {
+      await db.update(locationStaff).set({ status: 'approved', reviewed_at: new Date() }).where(eq(locationStaff.id, existing.id));
+    } else {
+      await db.insert(locationStaff).values({ user_id: user.id, location_id: locId, status: 'approved', requested_at: new Date(), reviewed_at: new Date() });
+    }
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'internal' });
