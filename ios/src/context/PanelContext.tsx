@@ -96,7 +96,12 @@ export type PanelId =
   | 'ar-video-feed'
   | 'ar-video-detail'
   | 'submit-ar-video'
-  | 'tasting-feed';
+  | 'tasting-feed'
+  | 'walk-in'
+  | 'walk-in-write'
+  | 'walk-in-inventory'
+  | 'nfc-write'
+  | 'art-auctions';
 
 export interface OrderState {
   variety_id: number | null;
@@ -170,6 +175,7 @@ export interface Business {
   venture_id?: number | null;
   has_toilet?: boolean;
   toilet_fee_cents?: number;
+  allows_walkin?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
