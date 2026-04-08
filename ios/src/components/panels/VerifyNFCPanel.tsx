@@ -375,6 +375,30 @@ export default function VerifyNFCPanel() {
     return () => { cancelNfc(); };
   }, []);
 
+  if (state === 'error') {
+    return (
+      <View style={[styles.container, { backgroundColor: c.panelBg }]}>
+        <View style={[styles.errorHeader, { borderBottomColor: c.border }]}>
+          <TouchableOpacity onPress={() => { cancelNfc(); goHome(); }} activeOpacity={0.7} style={styles.errorBack}>
+            <Text style={[styles.errorBackText, { color: c.accent }]}>←</Text>
+          </TouchableOpacity>
+          <Text style={[styles.errorTitle, { color: c.text }]}>Didn't catch it.</Text>
+          <View style={styles.errorBack} />
+        </View>
+        <View style={styles.errorBody}>
+          <Text style={[styles.subtitle, { color: c.muted }]}>{errorMsg}</Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: c.card, borderColor: c.border }]}
+            onPress={scan}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.retryBtnText, { color: c.accent }]}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={styles.body}>
@@ -408,20 +432,6 @@ export default function VerifyNFCPanel() {
             )}
           </>
         )}
-
-        {state === 'error' && (
-          <>
-            <Text style={[styles.title, { color: c.text }]}>Didn't catch it.</Text>
-            <Text style={[styles.subtitle, { color: c.muted }]}>{errorMsg}</Text>
-            <TouchableOpacity
-              style={[styles.retryBtn, { backgroundColor: c.card, borderColor: c.border }]}
-              onPress={scan}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.retryBtnText, { color: c.accent }]}>Try again</Text>
-            </TouchableOpacity>
-          </>
-        )}
       </View>
 
       <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
@@ -439,6 +449,11 @@ export default function VerifyNFCPanel() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  errorHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: 14, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  errorBack: { width: 40 },
+  errorBackText: { fontSize: 28, lineHeight: 34 },
+  errorTitle: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
+  errorBody: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, alignItems: 'center', gap: SPACING.md },
   body: { flex: 1, padding: SPACING.md, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
   badge: {
     width: 72, height: 72, borderRadius: 36,
