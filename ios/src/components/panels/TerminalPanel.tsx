@@ -104,16 +104,16 @@ const nameInputRef = useRef<TextInput>(null);
 
   // Fetch batch fill progress per variety whenever the active location changes
   useEffect(() => {
-    if (!activeLocation?.id) { setBatchStatus({}); return; }
+    if (!location?.id) { setBatchStatus({}); return; }
     let cancelled = false;
-    fetchBatchStatus(activeLocation.id).then(rows => {
+    fetchBatchStatus(location.id).then(rows => {
       if (cancelled) return;
       const map: Record<number, { queued_boxes: number; min_quantity: number }> = {};
       rows.forEach(r => { map[r.variety_id] = { queued_boxes: r.queued_boxes, min_quantity: r.min_quantity }; });
       setBatchStatus(map);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [activeLocation?.id]);
+  }, [location?.id]);
 
   // Auto-open or reset order based on how terminal was triggered
   useEffect(() => {
@@ -581,16 +581,19 @@ const nameInputRef = useRef<TextInput>(null);
                               >
                                 <View style={{ flex: 1 }}>
                                   <Text style={[styles.optionName, { color: c.text }]}>{v.name}</Text>
-                                  {batchStatus[v.id] && (
-                                    <View style={styles.batchBarWrap}>
-                                      <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
-                                        <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, (batchStatus[v.id].queued_boxes / batchStatus[v.id].min_quantity) * 100)}%` }]} />
+                                  {(() => {
+                                    const bs = batchStatus[v.id] ?? { queued_boxes: 0, min_quantity: 4 };
+                                    return (
+                                      <View style={styles.batchBarWrap}>
+                                        <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
+                                          <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, (bs.queued_boxes / bs.min_quantity) * 100)}%` }]} />
+                                        </View>
+                                        <Text style={[styles.batchBarLabel, { color: c.muted }]}>
+                                          {bs.queued_boxes} of {bs.min_quantity} boxes queued
+                                        </Text>
                                       </View>
-                                      <Text style={[styles.batchBarLabel, { color: c.muted }]}>
-                                        {batchStatus[v.id].queued_boxes} of {batchStatus[v.id].min_quantity} boxes queued
-                                      </Text>
-                                    </View>
-                                  )}
+                                    );
+                                  })()}
                                 </View>
                                 <Text style={[styles.optionMeta, { color: c.muted }]}>CA${(v.price_cents / 100).toFixed(0)}</Text>
                               </TouchableOpacity>
