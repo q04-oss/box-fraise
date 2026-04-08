@@ -505,23 +505,20 @@ const nameInputRef = useRef<TextInput>(null);
                       {inlineOrder.variety_name}{'  ·  '}{inlineOrder.chocolate_name}{'  ·  '}{inlineOrder.finish_name}{'  ·  '}×{inlineOrder.quantity}
                     </Text>
                     <Text style={[styles.confirmedDetail, { color: c.muted }]}>{location?.name}</Text>
-                    {confirmedOrder.status === 'queued' && (
-                      <>
-                        {confirmedOrder.queued_boxes != null && (
-                          <View style={styles.batchBarWrap}>
-                            <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
-                              <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, (confirmedOrder.queued_boxes / confirmedOrder.min_quantity) * 100)}%` }]} />
-                            </View>
-                            <Text style={[styles.batchBarLabel, { color: c.muted }]}>
-                              {confirmedOrder.queued_boxes} of {confirmedOrder.min_quantity} boxes
-                              {confirmedOrder.queued_boxes < confirmedOrder.min_quantity
-                                ? ` · ${confirmedOrder.min_quantity - confirmedOrder.queued_boxes} more to fill`
-                                : ' · batch filling now'}
-                            </Text>
-                          </View>
+                    {confirmedOrder.queued_boxes != null && (
+                      <View style={styles.batchBarWrap}>
+                        <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
+                          <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, (confirmedOrder.queued_boxes / confirmedOrder.min_quantity) * 100)}%` }]} />
+                        </View>
+                        <Text style={[styles.batchBarLabel, { color: c.muted }]}>
+                          {confirmedOrder.status === 'queued'
+                            ? `${confirmedOrder.queued_boxes} of ${confirmedOrder.min_quantity} boxes · ${confirmedOrder.min_quantity - confirmedOrder.queued_boxes} more to fill`
+                            : 'batch filled · being prepared'}
+                        </Text>
+                        {confirmedOrder.status === 'queued' && (
+                          <Text style={[styles.confirmedHint, { color: c.muted }]}>card held — charged when batch fills</Text>
                         )}
-                        <Text style={[styles.confirmedHint, { color: c.muted }]}>your card is held but not charged yet. we'll notify you when the batch fills.</Text>
-                      </>
+                      </View>
                     )}
                     <TouchableOpacity onPress={() => { resetInlineOrder(); }} style={styles.newOrderBtn} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.accent }]}>NEW ORDER</Text>

@@ -159,8 +159,10 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
 
     // Fetch final state of this order (may now be 'paid' if batch just triggered)
     const [updated] = await db.select().from(orders).where(eq(orders.id, id));
-    let queued_boxes: number | null = null;
-    if (!triggered) {
+    let queued_boxes: number;
+    if (triggered) {
+      queued_boxes = MIN_QUANTITY;
+    } else {
       const queuedRows = await db.select({ qty: orders.quantity }).from(orders).where(and(eq(orders.variety_id, order.variety_id), eq(orders.location_id, order.location_id), eq(orders.status, 'queued')));
       queued_boxes = queuedRows.reduce((s, r) => s + r.qty, 0);
     }
