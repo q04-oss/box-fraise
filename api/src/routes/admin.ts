@@ -3318,6 +3318,28 @@ router.post('/grant-worker-access', requirePin, async (req: Request, res: Respon
   }
 });
 
+// POST /api/admin/seed-nfc-verified — mark order as nfc_token_used + seed legitimacy event for reorder testing
+router.post('/seed-nfc-verified', requirePin, async (req: Request, res: Response) => {
+  const { order_id, user_id } = req.body;
+  if (!order_id || !user_id) { res.status(400).json({ error: 'order_id and user_id required' }); return; }
+  try {
+    const oid = parseInt(order_id, 10);
+    const uid = parseInt(user_id, 10);
+    await db.execute(sql`UPDATE orders SET nfc_token_used = true WHERE id = ${oid}`);
+    await db.execute(sql`
+      INSERT INTO legitimacy_events (user_id, event_type, weight, created_at)
+      SELECT ${uid}, 'nfc_verified', 1, now()
+      WHERE NOT EXISTS (
+        SELECT 1 FROM legitimacy_events WHERE user_id = ${uid} AND event_type = 'nfc_verified'
+      )
+    `);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('seed-nfc-verified error: ' + String(err));
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // GET /api/admin/worker-requests — list all worker access requests
 router.get('/worker-requests', requirePin, async (req: Request, res: Response) => {
   try {
