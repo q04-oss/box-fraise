@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { eq, isNull, sql, and, lte, sum, gte, desc, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding, collectifs, collectifCommitments, contentTokens, venturePosts, ventureRevenueSplits, earningsLedger, batches } from '../db/schema';
+import { orders, varieties, timeSlots, campaigns, campaignSignups, businesses, users, legitimacyEvents, locations, popupRsvps, popupNominations, djOffers, portraits, popupRequests, employmentContracts, contractRequests, businessVisits, referralCodes, editorialPieces, membershipFunds, memberships, membershipWaitlist, portalAccess, portalContent, tokens, tokenTrades, tokenTradeOffers, seasonPatronages, patronTokens, greenhouses, provenanceTokens, locationFunding, collectifs, collectifCommitments, contentTokens, venturePosts, ventureRevenueSplits, earningsLedger, batches, locationStaff, locationStaffStatusEnum, batchPreferences } from '../db/schema';
 import { logger } from '../lib/logger';
 import { sendOrderReady, sendContractOffer, sendAuditionResult } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
@@ -212,6 +212,33 @@ router.patch('/orders/:id/worker', async (req: Request, res: Response) => {
     const [updated] = await db.update(orders).set({ worker_id }).where(eq(orders.id, id)).returning();
     if (!updated) { res.status(404).json({ error: 'Order not found' }); return; }
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/admin/seed-test-order — create a fake paid order for NFC testing (no Stripe required)
+router.post('/seed-test-order', async (req: Request, res: Response) => {
+  try {
+    const [variety] = await db.select({ id: varieties.id, name: varieties.name }).from(varieties).where(eq(varieties.active, true)).limit(1);
+    const [location] = await db.select({ id: locations.id }).from(locations).limit(1);
+    if (!variety || !location) { res.status(400).json({ error: 'No variety or location found' }); return; }
+
+    const nfc_token = randomUUID();
+    const [order] = await db.insert(orders).values({
+      variety_id: variety.id,
+      location_id: location.id,
+      chocolate: 'none',
+      finish: 'plain',
+      quantity: 1,
+      total_cents: 0,
+      customer_email: 'nfc-test@fraise.local',
+      status: 'paid',
+      nfc_token,
+      nfc_token_used: false,
+    }).returning({ id: orders.id, nfc_token: orders.nfc_token });
+
+    res.json({ order_id: order.id, nfc_token: order.nfc_token, variety_name: variety.name });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -894,7 +921,7 @@ router.patch('/popup-requests/:id', async (req: Request, res: Response) => {
         ? 'Your popup request has been approved. We\'ll be in touch.'
         : 'Your popup request was not approved this time.';
       sendPushNotification(requester.push_token, {
-        title: 'Maison Fraise',
+        title: 'Box Fraise',
         body: msg,
         data: { screen: 'home' },
       }).catch(() => {});
@@ -1356,7 +1383,7 @@ router.post('/contracts', async (req: Request, res: Response) => {
     const [user] = await db.select().from(users).where(eq(users.id, user_id));
     if (user?.push_token) {
       sendPushNotification(user.push_token, {
-        title: 'Maison Fraise is placing you.',
+        title: 'Box Fraise is placing you.',
         body: `You've been offered a placement at ${business.name}. Open the app to review.`,
         data: { screen: 'contract-offer', contract_id: contract.id },
       }).catch(() => {});
@@ -1788,7 +1815,7 @@ router.post('/broadcast', async (req: Request, res: Response) => {
 
     await Promise.allSettled(
       tokens.map(token =>
-        sendPushNotification(token, { title: 'Maison Fraise', body: message })
+        sendPushNotification(token, { title: 'Box Fraise', body: message })
       )
     );
 
@@ -2694,7 +2721,7 @@ router.post('/businesses/:id/shop-account', async (req: Request, res: Response) 
     // Generate a fraise.chat email for the shop: slug@fraise.chat
     const slug = biz.name.toLowerCase().replace(/[^a-z0-9]/g, '');
     const fraiseChatEmail = `${slug}@fraise.chat`;
-    const email = `shop+${id}@maison-fraise.com`;
+    const email = `shop+${id}@box-fraise.com`;
     const userCode = slug.substring(0, 6).toUpperCase().padEnd(6, '0');
 
     const [shopUser] = await db.insert(users).values({
@@ -3233,6 +3260,92 @@ router.post('/node-applications/:id/reject', async (req: Request, res: Response)
     res.json({ ok: true });
   } catch (err) {
     logger.error('admin node-applications reject error: ' + String(err));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// GET /api/admin/worker-requests — list all worker access requests
+router.get('/worker-requests', requirePin, async (req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        id: locationStaff.id,
+        status: locationStaff.status,
+        requested_at: locationStaff.requested_at,
+        reviewed_at: locationStaff.reviewed_at,
+        user_id: locationStaff.user_id,
+        location_id: locationStaff.location_id,
+        display_name: users.display_name,
+        user_code: users.user_code,
+        location_name: locations.name,
+      })
+      .from(locationStaff)
+      .leftJoin(users, eq(locationStaff.user_id, users.id))
+      .leftJoin(locations, eq(locationStaff.location_id, locations.id))
+      .orderBy(locationStaff.requested_at);
+    res.json(rows);
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/admin/worker-requests/:id/approve
+router.post('/worker-requests/:id/approve', requirePin, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  try {
+    await db.update(locationStaff)
+      .set({ status: 'approved', reviewed_at: new Date() })
+      .where(eq(locationStaff.id, id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/admin/worker-requests/:id/deny
+router.post('/worker-requests/:id/deny', requirePin, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  try {
+    await db.update(locationStaff)
+      .set({ status: 'denied', reviewed_at: new Date() })
+      .where(eq(locationStaff.id, id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// DELETE /api/admin/worker-requests/:id — revoke access
+router.delete('/worker-requests/:id', requirePin, async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id);
+  try {
+    await db.delete(locationStaff).where(eq(locationStaff.id, id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// GET /api/admin/batch-preferences — summary of auto-subscribers per variety
+router.get('/batch-preferences', requirePin, async (_req: Request, res: Response) => {
+  try {
+    const rows = await db
+      .select({
+        variety_name: varieties.name,
+        chocolate: batchPreferences.chocolate,
+        finish: batchPreferences.finish,
+        quantity: batchPreferences.quantity,
+        status: batchPreferences.status,
+        display_name: users.display_name,
+        email: users.email,
+      })
+      .from(batchPreferences)
+      .innerJoin(varieties, eq(batchPreferences.variety_id, varieties.id))
+      .innerJoin(users, eq(batchPreferences.user_id, users.id))
+      .where(eq(batchPreferences.status, 'active'))
+      .orderBy(varieties.name);
+    res.json(rows);
+  } catch {
     res.status(500).json({ error: 'internal' });
   }
 });
