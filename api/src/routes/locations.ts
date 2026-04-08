@@ -85,7 +85,7 @@ locationsRouter.get('/:id/batch-status', async (req: Request, res: Response) => 
     const [varietyRows, queuedRows] = await Promise.all([
       db.select({ id: varieties.id })
         .from(varieties)
-        .where(and(eq(varieties.location_id, locationId), eq(varieties.active, true))),
+        .where(eq(varieties.active, true)),
       db.select({ variety_id: orders.variety_id, quantity: orders.quantity })
         .from(orders)
         .where(and(eq(orders.location_id, locationId), eq(orders.status, 'queued'))),
