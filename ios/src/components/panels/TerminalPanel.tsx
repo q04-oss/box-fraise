@@ -489,11 +489,9 @@ const nameInputRef = useRef<TextInput>(null);
                       {inlineOrder.variety_name}{'  ·  '}{inlineOrder.chocolate_name}{'  ·  '}{inlineOrder.finish_name}{'  ·  '}×{inlineOrder.quantity}
                     </Text>
                     <Text style={[styles.confirmedDetail, { color: c.muted }]}>{location?.name}</Text>
-                    {confirmedOrder.status === 'queued' ? (
+                    {confirmedOrder.status === 'queued' && (
                       <Text style={[styles.confirmedHint, { color: c.muted }]}>we'll notify you when your batch fills</Text>
-                    ) : confirmedOrder.nfc_token ? (
-                      <Text style={[styles.confirmedHint, { color: c.accent }]}>tap to collect at the shop</Text>
-                    ) : null}
+                    )}
                     <TouchableOpacity onPress={() => { resetInlineOrder(); }} style={styles.newOrderBtn} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.accent }]}>NEW ORDER</Text>
                     </TouchableOpacity>
