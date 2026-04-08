@@ -492,14 +492,14 @@ const nameInputRef = useRef<TextInput>(null);
                 {orderStep === 'confirmed' && confirmedOrder && (
                   <View style={styles.confirmedBlock}>
                     <Text style={[styles.confirmedTitle, { color: c.text }]}>
-                      {confirmedOrder.status === 'queued' ? 'in the queue' : 'order placed'}
+                      {confirmedOrder.status === 'queued' ? "you're in the queue." : 'order placed.'}
                     </Text>
                     <Text style={[styles.confirmedDetail, { color: c.muted }]}>
                       {inlineOrder.variety_name}{'  ·  '}{inlineOrder.chocolate_name}{'  ·  '}{inlineOrder.finish_name}{'  ·  '}×{inlineOrder.quantity}
                     </Text>
                     <Text style={[styles.confirmedDetail, { color: c.muted }]}>{location?.name}</Text>
                     {confirmedOrder.status === 'queued' && (
-                      <Text style={[styles.confirmedHint, { color: c.muted }]}>we'll notify you when your batch fills</Text>
+                      <Text style={[styles.confirmedHint, { color: c.muted }]}>your card is held but not charged yet. when enough orders come in we make the batch — usually within a few days. you'll get a notification when it's confirmed.</Text>
                     )}
                     <TouchableOpacity onPress={() => { resetInlineOrder(); }} style={styles.newOrderBtn} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.accent }]}>NEW ORDER</Text>
@@ -643,6 +643,7 @@ const nameInputRef = useRef<TextInput>(null);
                           </Text>
                           <Text style={[styles.reviewDetail, { color: c.muted }]}>{location?.name}</Text>
                           <Text style={[styles.reviewTotal, { color: c.text }]}>CA${(totalCents / 100).toFixed(2)}</Text>
+                          <Text style={[styles.batchNote, { color: c.muted }]}>card held — only charged once enough orders fill a batch</Text>
                         </View>
                       </>
                     )}
@@ -989,6 +990,7 @@ const styles = StyleSheet.create({
   reviewDetail: { fontSize: 12, fontFamily: fonts.dmMono },
   reviewFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, gap: 12 },
   reviewTotal: { fontSize: 24, fontFamily: fonts.playfair },
+  batchNote: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 4 },
   reviewPayBtns: { flex: 1, gap: 8, alignItems: 'flex-end' },
   payBtn: { borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24 },
   payBtnOutline: { borderWidth: 1 },
