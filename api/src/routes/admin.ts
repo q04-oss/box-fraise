@@ -3280,13 +3280,26 @@ router.post('/verify-user', requirePin, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/admin/find-user?email=... — debug: look up a user by email
+router.get('/find-user', requirePin, async (req: Request, res: Response) => {
+  const email = req.query.email as string;
+  if (!email) { res.status(400).json({ error: 'email query param required' }); return; }
+  try {
+    const rows = await db.select({ id: users.id, email: users.email, verified: users.verified, apple_user_id: users.apple_user_id })
+      .from(users).where(sql`lower(${users.email}) = lower(${email})`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // POST /api/admin/grant-worker-access — directly approve worker access for a user by email + location_id
 router.post('/grant-worker-access', requirePin, async (req: Request, res: Response) => {
   const { email, location_id } = req.body;
   if (!email || !location_id) { res.status(400).json({ error: 'email and location_id required' }); return; }
   try {
-    const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    const [user] = await db.select({ id: users.id, email: users.email }).from(users).where(sql`lower(${users.email}) = lower(${email})`);
+    if (!user) { res.status(404).json({ error: `User not found for email: ${email}` }); return; }
     const locId = parseInt(location_id, 10);
     const [existing] = await db.select({ id: locationStaff.id }).from(locationStaff)
       .where(and(eq(locationStaff.user_id, user.id), eq(locationStaff.location_id, locId)));
