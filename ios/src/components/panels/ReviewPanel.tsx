@@ -216,14 +216,16 @@ export default function ReviewPanel() {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom || SPACING.md }]}>
+      <View style={[styles.footer, { backgroundColor: c.accent }]}>
         <TouchableOpacity
-          style={[styles.payBtn, { backgroundColor: c.accent }, loading && styles.payBtnDisabled]}
+          style={[styles.payBtn, { paddingBottom: Math.max(insets.bottom, SPACING.md) }, loading && styles.payBtnDisabled]}
           onPress={handlePay}
           disabled={loading}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Text style={styles.payBtnText}>{loading ? 'Processing…' : 'Place Order'}</Text>
+          <Text style={styles.payBtnText}>
+            {loading ? 'Processing…' : `Pay · CA$${(totalCents / 100).toFixed(2)}`}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -263,8 +265,8 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.sm },
   totalLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.8 },
   totalAmount: { fontSize: 28, fontFamily: fonts.playfair },
-  footer: { paddingHorizontal: SPACING.md, paddingTop: 12 },
-  payBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  payBtnDisabled: { opacity: 0.5 },
-  payBtnText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },
+  footer: {},
+  payBtn: { paddingTop: 20, alignItems: 'center' },
+  payBtnDisabled: { opacity: 0.55 },
+  payBtnText: { fontSize: 17, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },
 });
