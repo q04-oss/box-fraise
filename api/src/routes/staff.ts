@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { db } from '../db';
-import { orders, users, varieties, timeSlots, locations, walkInTokens } from '../db/schema';
+import { orders, users, varieties, timeSlots, locations, walkInTokens, locationStaff, businessVisits } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { fireWebhook } from '../lib/webhooks';
 
@@ -31,7 +31,7 @@ const requireStaff = async (req: Request, res: Response, next: NextFunction) => 
     } catch { /* fall through */ }
   }
 
-  // Fallback: authenticated user with is_dj flag
+  // JWT-based: approved location_staff entry OR legacy is_dj flag
   const authHeader = req.headers.authorization;
   if (!authHeader) { res.status(403).json({ error: 'staff_only' }); return; }
   try {
@@ -39,6 +39,28 @@ const requireStaff = async (req: Request, res: Response, next: NextFunction) => 
     const { verifyToken } = await import('../lib/auth');
     const payload = verifyToken(token);
     if (!payload) { res.status(403).json({ error: 'staff_only' }); return; }
+
+    // Check location_staff approval
+    const locationId = req.query.location_id ? parseInt(req.query.location_id as string) : null;
+    if (locationId) {
+      const [staffEntry] = await db
+        .select({ id: locationStaff.id })
+        .from(locationStaff)
+        .where(and(
+          eq(locationStaff.user_id, payload.userId),
+          eq(locationStaff.location_id, locationId),
+          eq(locationStaff.status, 'approved')
+        ))
+        .limit(1);
+      if (staffEntry) {
+        (req as any).staffLocationId = locationId;
+        (req as any).staffUserId = payload.userId;
+        next();
+        return;
+      }
+    }
+
+    // Legacy fallback: is_dj flag
     const [user] = await db.select({ is_dj: users.is_dj }).from(users).where(eq(users.id, payload.userId));
     if (!user?.is_dj) { res.status(403).json({ error: 'staff_only' }); return; }
     next();
@@ -331,6 +353,94 @@ router.post('/walkin-tokens', requireStaff, async (req: Request, res: Response) 
     await db.insert(walkInTokens).values({ token, location_id, variety_id });
     res.status(201).json({ token });
   } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// Helper: check if a user has visited the business linked to a location
+async function hasVisitedLocation(userId: number, locationId: number): Promise<boolean> {
+  const [loc] = await db
+    .select({ business_id: locations.business_id })
+    .from(locations)
+    .where(eq(locations.id, locationId))
+    .limit(1);
+  if (!loc?.business_id) return true;
+  const [visit] = await db
+    .select({ id: businessVisits.id })
+    .from(businessVisits)
+    .where(and(
+      eq(businessVisits.visitor_user_id, userId),
+      eq(businessVisits.business_id, loc.business_id),
+    ))
+    .limit(1);
+  return !!visit;
+}
+
+// POST /api/staff/request-access — authenticated user requests worker access for a location
+router.post('/request-access', async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) { res.status(401).json({ error: 'unauthorized' }); return; }
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const { verifyToken } = await import('../lib/auth');
+    const payload = verifyToken(token);
+    if (!payload) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+    const { location_id } = req.body;
+    if (!location_id) { res.status(400).json({ error: 'location_id required' }); return; }
+
+    // Must have visited the location's business to be eligible
+    const visited = await hasVisitedLocation(payload.userId, location_id);
+    if (!visited) { res.status(403).json({ error: 'visit_required' }); return; }
+
+    // Check for existing request
+    const [existing] = await db
+      .select({ id: locationStaff.id, status: locationStaff.status })
+      .from(locationStaff)
+      .where(and(eq(locationStaff.user_id, payload.userId), eq(locationStaff.location_id, location_id)))
+      .limit(1);
+
+    if (existing) {
+      res.json({ status: existing.status });
+      return;
+    }
+
+    await db.insert(locationStaff).values({
+      user_id: payload.userId,
+      location_id,
+      status: 'pending',
+    });
+    res.json({ status: 'pending' });
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// GET /api/staff/my-access — check current user's access status for a location
+router.get('/my-access', async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) { res.status(401).json({ error: 'unauthorized' }); return; }
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const { verifyToken } = await import('../lib/auth');
+    const payload = verifyToken(token);
+    if (!payload) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+    const location_id = req.query.location_id ? parseInt(req.query.location_id as string) : null;
+    if (!location_id) { res.status(400).json({ error: 'location_id required' }); return; }
+
+    // Return ineligible if they haven't visited
+    const visited = await hasVisitedLocation(payload.userId, location_id);
+    if (!visited) { res.json({ status: 'ineligible' }); return; }
+
+    const [entry] = await db
+      .select({ status: locationStaff.status })
+      .from(locationStaff)
+      .where(and(eq(locationStaff.user_id, payload.userId), eq(locationStaff.location_id, location_id)))
+      .limit(1);
+
+    res.json({ status: entry?.status ?? 'none' });
+  } catch {
     res.status(500).json({ error: 'internal' });
   }
 });
