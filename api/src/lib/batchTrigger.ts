@@ -131,8 +131,8 @@ export async function checkAndTriggerBatch(
 
         if (order.push_token) {
           sendPushNotification(order.push_token, {
-            title: 'Batch confirmed',
-            body: `Your strawberries are confirmed — ready ${deliveryDate} at ${location?.name ?? 'the shop'}.`,
+            title: 'Order confirmed',
+            body: `Collect from ${location?.name ?? 'the shop'} from ${deliveryDate}.`,
             data: { screen: 'order-history' },
           }).catch(() => {});
         }
