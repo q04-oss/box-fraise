@@ -206,7 +206,7 @@ router.post('/operator', async (req: Request, res: Response) => {
 
 // POST /api/auth/demo — demo login for Apple reviewers
 const DEMO_EMAIL = 'demo@boxfraise.com';
-const DEMO_PASSWORD = 'fraise2026';
+const DEMO_PASSWORD = 'BoxFraise2025!';
 router.post('/demo', async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
