@@ -96,7 +96,12 @@ export type PanelId =
   | 'ar-video-feed'
   | 'ar-video-detail'
   | 'submit-ar-video'
-  | 'tasting-feed';
+  | 'tasting-feed'
+  | 'walk-in'
+  | 'walk-in-write'
+  | 'walk-in-inventory'
+  | 'nfc-write'
+  | 'art-auctions';
 
 export interface OrderState {
   variety_id: number | null;

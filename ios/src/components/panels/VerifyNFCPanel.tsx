@@ -65,8 +65,7 @@ export default function VerifyNFCPanel() {
         if (!data) { setErrorMsg('Tag not recognised.'); setState('error'); return; }
 
         // Location is a pre-order pickup node — redirect to ordering flow
-        if (data.walkin_unavailable || !data.allows_walkin) {
-          setState('success');
+        if (data.allows_walkin === false) {
           showPanel('location', { preselect_location_id: data.location_id, preselect_location_name: data.location_name });
           return;
         }

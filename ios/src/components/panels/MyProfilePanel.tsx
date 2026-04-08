@@ -202,7 +202,7 @@ export default function MyProfilePanel() {
             <View style={[styles.nudgeCard, { borderColor: c.accent, backgroundColor: c.card }]}>
               <Text style={[styles.nudgeTitle, { color: c.text }]}>YOUR VITAMIN C HAS BEEN LOW THIS WEEK</Text>
               <Text style={[styles.nudgeSub, { color: c.muted }]}>Plain strawberries are one of the richest sources.</Text>
-              <TouchableOpacity onPress={() => showPanel('standing-order')} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => showPanel('standingOrder')} activeOpacity={0.7}>
                 <Text style={[styles.nudgeCta, { color: c.accent }]}>order plain strawberries →</Text>
               </TouchableOpacity>
             </View>
