@@ -219,21 +219,18 @@ export default function HomePanel() {
                 ) : (
                   bizVarieties.map((v, idx) => {
                     const freshColor = v.freshnessColor ?? c.accent;
-                    const isSoldOut = v.stock_remaining <= 0;
-                    const stockLow = !isSoldOut && v.stock_remaining <= 3;
                     return (
                       <React.Fragment key={v.id}>
                         {idx > 0 && <View style={[styles.varietyDivider, { backgroundColor: c.border }]} />}
                         <TouchableOpacity
-                          style={[styles.varietyBlock, isSoldOut && { opacity: 0.35 }]}
-                          onPress={isSoldOut ? undefined : () => handleVarietyPress(v)}
-                          disabled={isSoldOut}
+                          style={styles.varietyBlock}
+                          onPress={() => handleVarietyPress(v)}
                           activeOpacity={0.8}
                         >
                           {/* Top row: name + price */}
                           <View style={styles.varietyTopRow}>
                             <Text style={[styles.varietyName, { color: c.text }]}>{v.name}</Text>
-                            <Text style={[styles.varietyPrice, { color: isSoldOut ? c.muted : c.text }]}>
+                            <Text style={[styles.varietyPrice, { color: c.text }]}>
                               CA${(v.price_cents / 100).toFixed(0)}
                             </Text>
                           </View>
@@ -268,9 +265,6 @@ export default function HomePanel() {
 
                           {/* Image + stock */}
                           <View style={styles.varietyBottomRow}>
-                            <Text style={[styles.stock, { color: isSoldOut ? '#FF3B30' : stockLow ? '#FF3B30' : c.muted }]}>
-                              {isSoldOut ? 'sold out' : stockLow ? 'almost gone' : `${v.stock_remaining} left`}
-                            </Text>
                             <View style={styles.batchBarWrap}>
                               <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
                                 <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, ((batchStatus[v.id]?.queued_boxes ?? 0) / (batchStatus[v.id]?.min_quantity ?? 4)) * 100)}%` }]} />
@@ -342,7 +336,6 @@ const styles = StyleSheet.create({
   rating: { fontSize: 10, fontFamily: fonts.dmMono },
   varietyDesc: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
   varietyBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 4 },
-  stock: { fontSize: 11, fontFamily: fonts.dmSans },
   thumb: { width: 64, height: 64, borderRadius: 8 },
   retryRow: { paddingVertical: 16 },
   retryText: { fontSize: 12, fontFamily: fonts.dmSans, fontStyle: 'italic' },
