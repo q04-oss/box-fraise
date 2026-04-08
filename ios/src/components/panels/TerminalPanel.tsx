@@ -14,7 +14,7 @@ import ARBoxModule from '../../lib/NativeARBoxModule';
 import { usePanel } from '../../context/PanelContext';
 import {
   verifyAppleSignIn, setAuthToken, deleteAuthToken,
-  fetchOrdersByEmail,
+  fetchOrdersByEmail, fetchMe,
   updateDisplayName, demoLogin,
   createOrder, confirmOrder, payOrderWithBalance, operatorLogin,
   startIdentityVerification, fetchAdBalance, fetchAvailableAds,
@@ -130,7 +130,16 @@ const nameInputRef = useRef<TextInput>(null);
       AsyncStorage.getItem('is_shop'),
       AsyncStorage.getItem('is_staff'),
     ]).then(([email, verified, dbId, chatEmail, name, shopFlag, staffFlag]) => {
-      setIsVerified(verified === 'true');
+      const cachedVerified = verified === 'true';
+      setIsVerified(cachedVerified);
+      if (!cachedVerified) {
+        fetchMe().then(me => {
+          if (me?.verified) {
+            AsyncStorage.setItem('verified', 'true').catch(() => {});
+            setIsVerified(true);
+          }
+        }).catch(() => {});
+      }
       if (shopFlag === 'true') setIsShop(true);
       if (staffFlag === 'true') {
         setIsStaff(true);

@@ -20,7 +20,7 @@ async function authHeader(): Promise<Record<string, string>> {
 }
 
 
-export async function fetchMe(): Promise<{ portal_opted_in: boolean } | null> {
+export async function fetchMe(): Promise<{ portal_opted_in: boolean; verified?: boolean } | null> {
   const auth = await authHeader();
   if (!auth['Authorization']) return null;
   const r = await fetch(`${BASE_URL}/api/users/me`, { headers: auth });
