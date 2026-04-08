@@ -378,13 +378,13 @@ export default function VerifyNFCPanel() {
           <Text style={[styles.headerBackText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={state === ‘error’ ? scan : undefined}
-          disabled={state !== ‘error’}
+          onPress={state === 'error' ? scan : undefined}
+          disabled={state !== 'error'}
           activeOpacity={0.6}
           style={styles.headerTitleBtn}
         >
           <Text style={[styles.headerTitle, { color: c.text }]}>
-            {state === ‘error’ ? "Didn’t catch it." : ‘box fraise’}
+            {state === 'error' ? "Didn't catch it." : 'box fraise'}
           </Text>
         </TouchableOpacity>
         <View style={styles.headerRight} />
