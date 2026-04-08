@@ -439,7 +439,7 @@ const nameInputRef = useRef<TextInput>(null);
         ) : userEmail ? (
           <>
             {/* ── Operator (shop) view ── */}
-            {isShop ? (
+            {false && isShop ? (
               <View style={styles.operatorBlock}>
                 <Text style={[styles.operatorTag, { color: c.accent }]}>fraise.chat</Text>
                 <TouchableOpacity onPress={handleSignOut} onLongPress={handleSignOut} delayLongPress={600} activeOpacity={0.7}>
@@ -556,7 +556,7 @@ const nameInputRef = useRef<TextInput>(null);
             ) : (
             <>
             {/* Identity block */}
-            <View style={styles.identityBlock}>
+            {false && <View style={styles.identityBlock}>
               {editingName ? (
                 <TextInput
                   ref={nameInputRef}
@@ -585,31 +585,10 @@ const nameInputRef = useRef<TextInput>(null);
                   ad earnings: CA${(adBalanceCents / 100).toFixed(2)}
                 </Text>
               )}
-            </View>
+            </View>}
 
             {/* ORDER section */}
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <View style={styles.orderToggle}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (orderStep === 'confirmed') { resetInlineOrder(); setOrderOpen(true); }
-                  else setOrderOpen(v => !v);
-                }}
-                activeOpacity={0.7}
-                style={styles.orderToggleLeft}
-              >
-                <Text style={[styles.label, { color: c.muted }]}>ORDER</Text>
-                {location && (
-                  <Text style={[styles.orderHint, { color: c.muted }]}>{location.name}</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => showPanel('order-history')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 12, right: 4 }}>
-                <Text style={[styles.label, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            </View>
-
-            {orderOpen && (
-              <View style={styles.orderBody}>
+            <View style={styles.orderBody}>
 
                 {/* No location warning */}
                 {!location && (
@@ -881,7 +860,6 @@ const nameInputRef = useRef<TextInput>(null);
                   </>
                 )}
               </View>
-            )}
 
             {reviewMode && (<>
             {/* VENTURES */}
