@@ -3298,10 +3298,18 @@ router.post('/grant-worker-access', requirePin, async (req: Request, res: Respon
   const { user_id, location_id } = req.body;
   if (!user_id || !location_id) { res.status(400).json({ error: 'user_id and location_id required' }); return; }
   try {
+    const uid = parseInt(user_id, 10);
+    const locId = parseInt(location_id, 10);
     await db.execute(sql`
       INSERT INTO location_staff (user_id, location_id, status, requested_at, reviewed_at)
-      VALUES (${parseInt(user_id, 10)}, ${parseInt(location_id, 10)}, 'approved', now(), now())
+      VALUES (${uid}, ${locId}, 'approved', now(), now())
       ON CONFLICT (user_id, location_id) DO UPDATE SET status = 'approved', reviewed_at = now()
+    `);
+    // Also seed a business visit so hasVisitedLocation passes
+    await db.execute(sql`
+      INSERT INTO business_visits (business_id, contracted_user_id, visitor_user_id)
+      SELECT l.business_id, ${uid}, ${uid} FROM locations l WHERE l.id = ${locId} AND l.business_id IS NOT NULL
+      ON CONFLICT DO NOTHING
     `);
     res.json({ ok: true });
   } catch (err) {
