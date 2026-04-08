@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isReviewMode } from './reviewMode';
 import { API_BASE_URL as BASE_URL } from '../config/api';
 
 export async function getAuthToken(): Promise<string | null> {
@@ -20,10 +19,6 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
-function reviewHeaders(): Record<string, string> {
-  if (!isReviewMode()) return {};
-  return { 'X-Review-Mode': process.env.EXPO_PUBLIC_REVIEW_PIN ?? '' };
-}
 
 export async function fetchMe(): Promise<{ portal_opted_in: boolean } | null> {
   const auth = await authHeader();
@@ -76,58 +71,6 @@ export async function generateGiftNote(tone: string, variety_name: string, recip
   return res.json() as Promise<{ note: string }>;
 }
 
-export async function createStandingOrder(body: {
-  recipient_id?: number;
-  variety_id: number;
-  chocolate: string;
-  finish: string;
-  quantity: number;
-  location_id: number;
-  time_slot_preference: string;
-  frequency: string;
-  next_order_date: string;
-  gift_tone?: string;
-}) {
-  const auth = await authHeader();
-  const res = await fetch(`${BASE_URL}/api/standing-orders`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error ?? err.detail ?? 'Failed to create standing order');
-  }
-  return res.json();
-}
-
-export async function fetchStandingOrders() {
-  const auth = await authHeader();
-  const res = await fetch(`${BASE_URL}/api/standing-orders`, { headers: auth });
-  if (!res.ok) throw new Error('Failed to fetch standing orders');
-  return res.json();
-}
-
-export async function updateStandingOrder(id: number, status: 'active' | 'paused') {
-  const auth = await authHeader();
-  const res = await fetch(`${BASE_URL}/api/standing-orders/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) throw new Error('Failed to update standing order');
-  return res.json();
-}
-
-export async function cancelStandingOrder(id: number) {
-  const auth = await authHeader();
-  const res = await fetch(`${BASE_URL}/api/standing-orders/${id}`, {
-    method: 'DELETE',
-    headers: auth,
-  });
-  if (!res.ok) throw new Error('Failed to cancel standing order');
-  return res.json();
-}
 
 export async function fetchLiveBatches(locationId: number, varietyId: number): Promise<Array<{ id: number; quantity_remaining: number; variety_name: string; price_cents: number }>> {
   const res = await fetch(`${BASE_URL}/api/batches?location_id=${locationId}&variety_id=${varietyId}`);
@@ -150,7 +93,7 @@ export async function createOrder(body: {
 }) {
   const res = await fetch(`${BASE_URL}/api/orders`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...reviewHeaders() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, gift_note: body.gift_note ?? null }),
   });
   if (!res.ok) {
@@ -189,7 +132,7 @@ export async function payOrderWithBalance(body: {
 export async function confirmOrder(orderId: number) {
   const res = await fetch(`${BASE_URL}/api/orders/${orderId}/confirm`, {
     method: 'POST',
-    headers: { ...reviewHeaders() },
+    headers: {},
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -788,16 +731,13 @@ export async function operatorLogin(code: string): Promise<{
   return r.json();
 }
 
-export async function demoLogin(): Promise<{ user_id: number; token: string }> {
+export async function demoLogin(email: string, password: string): Promise<{ user_id: number; token: string }> {
   const r = await fetch(`${BASE_URL}/api/auth/demo`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: process.env.EXPO_PUBLIC_DEMO_EMAIL ?? 'demo@maison-fraise.com',
-      password: process.env.EXPO_PUBLIC_DEMO_PASSWORD ?? 'demo1234',
-    }),
+    body: JSON.stringify({ email, password }),
   });
-  if (!r.ok) throw new Error('demo_unavailable');
+  if (!r.ok) throw new Error('invalid_credentials');
   return r.json();
 }
 
@@ -1221,24 +1161,6 @@ export async function fetchMyTokenOffers(): Promise<any[]> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-
-export async function placeStandingOrderFromFund(
-  varietyId: number,
-  quantity: number,
-  locationId: number,
-  timeSlotId: number,
-  chocolate: string,
-  finish: string,
-): Promise<{ ok: boolean; order_id: number; new_balance_cents: number }> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-orders/from-fund`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify({ variety_id: varietyId, quantity, location_id: locationId, time_slot_id: timeSlotId, chocolate, finish }),
-  });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'fund_order_failed'); }
-  return r.json();
-}
 
 // ─── Greenhouse API ───────────────────────────────────────────────────────────
 
@@ -2671,14 +2593,6 @@ export async function fetchGreenhouseDetail(id: number): Promise<any> {
   return r.json();
 }
 
-export async function payStandingOrderFromBalance(standingOrderId: number): Promise<{ ok: boolean; order_id: number; next_order_date: string }> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-orders/${standingOrderId}/pay-from-balance`, {
-    method: 'POST', headers: auth,
-  });
-  if (!r.ok) throw new Error((await r.json()).error ?? 'payment failed');
-  return r.json();
-}
 
 export async function sendGift(recipientId: number, params: {
   variety_id: number; chocolate: string; finish: string; quantity: number;
@@ -2923,7 +2837,6 @@ export async function verifyNfcReorder(nfc_token: string): Promise<{
   gift_note?: string | null;
   order_count?: number;
   last_variety?: { id: number; name: string; farm: string; harvest_date: string } | null;
-  next_standing_order?: { variety_name: string; days_until: number } | null;
   collectif_member_names?: string[];
   // Fields used by VerifyNFCPanel but typed loosely via API
   streak_weeks?: number | null;
@@ -3034,85 +2947,41 @@ export async function fetchMarketStallAR(stallId: string): Promise<any> {
   return r.json();
 }
 
-// Standing order renewal
-export async function fetchRenewalStatus(): Promise<any> {
+export async function fetchBatchPreferences(): Promise<any[]> {
   const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-orders/renewal-status`, { headers: auth });
+  const r = await fetch(`${BASE_URL}/api/batch-preferences`, { headers: auth });
   if (!r.ok) throw new Error('fetch_failed');
   return r.json();
 }
 
-export async function renewStandingOrder(id: number): Promise<void> {
+export async function saveBatchPreference(body: {
+  variety_id: number; chocolate: string; finish: string;
+  quantity: number; location_id: number;
+}): Promise<any> {
   const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-orders/${id}/renew`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-  });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'renew_failed'); }
-}
-
-export async function giftStandingOrder(body: { recipient_email: string; note?: string }): Promise<void> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-orders/gift`, {
+  const r = await fetch(`${BASE_URL}/api/batch-preferences`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...auth },
     body: JSON.stringify(body),
   });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'gift_failed'); }
-}
-
-// Waitlist
-export async function fetchWaitlistPosition(): Promise<any> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-waitlist/position`, { headers: auth });
-  if (!r.ok) throw new Error('fetch_failed');
+  if (!r.ok) throw new Error('save_failed');
   return r.json();
 }
 
-export async function joinWaitlist(referral_code?: string): Promise<any> {
+export async function updateBatchPreference(id: number, status: 'active' | 'paused'): Promise<any> {
   const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-waitlist`, {
-    method: 'POST',
+  const r = await fetch(`${BASE_URL}/api/batch-preferences/${id}`, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...auth },
-    body: JSON.stringify({ referral_code }),
+    body: JSON.stringify({ status }),
   });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'join_failed'); }
+  if (!r.ok) throw new Error('update_failed');
   return r.json();
 }
 
-export async function claimWaitlistSlot(): Promise<void> {
+export async function deleteBatchPreference(id: number): Promise<void> {
   const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-waitlist/claim`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-  });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'claim_failed'); }
-}
-
-// Transfers
-export async function fetchIncomingTransfers(): Promise<any[]> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-transfers/incoming`, { headers: auth });
-  if (!r.ok) throw new Error('fetch_failed');
-  return r.json();
-}
-
-export async function acceptTransfer(id: number): Promise<void> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-transfers/${id}/accept`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-  });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'accept_failed'); }
-}
-
-export async function cancelTransfer(id: number): Promise<void> {
-  const auth = await authHeader();
-  const r = await fetch(`${BASE_URL}/api/standing-order-transfers/${id}/cancel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...auth },
-  });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error ?? 'cancel_failed'); }
+  await fetch(`${BASE_URL}/api/batch-preferences/${id}`, { method: 'DELETE', headers: auth });
 }
 
 // Drops
@@ -4003,5 +3872,25 @@ export async function submitNodeApplication(body: {
     const err = await r.json().catch(() => ({}));
     throw new Error(err.error ?? 'submit_failed');
   }
+  return r.json();
+}
+
+export async function requestWorkerAccess(locationId: number): Promise<{ status: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/staff/request-access`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ location_id: locationId }),
+  });
+  if (!r.ok) throw new Error('request_failed');
+  return r.json();
+}
+
+export async function fetchMyWorkerAccess(locationId: number): Promise<{ status: string | null }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/staff/my-access?location_id=${locationId}`, {
+    headers: auth,
+  });
+  if (!r.ok) throw new Error('fetch_failed');
   return r.json();
 }

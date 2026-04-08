@@ -64,7 +64,7 @@ router.post('/connect/onboard', requireUser, async (req: Request, res: Response)
       await db.update(users).set({ stripe_connect_account_id: accountId }).where(eq(users.id, userId));
     }
 
-    const baseUrl = process.env.API_BASE_URL ?? 'https://api.maison-fraise.com';
+    const baseUrl = process.env.API_BASE_URL ?? 'https://api.box-fraise.com';
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${baseUrl}/api/ads/connect/refresh`,
@@ -92,15 +92,15 @@ router.get('/connect/return', async (req: Request, res: Response) => {
         await db.update(users).set({ stripe_connect_onboarded: true }).where(eq(users.id, userId));
       }
     }
-    res.redirect('maisonfraise://connect-complete');
+    res.redirect('boxfraise://connect-complete');
   } catch {
-    res.redirect('maisonfraise://connect-complete');
+    res.redirect('boxfraise://connect-complete');
   }
 });
 
 // GET /api/ads/connect/refresh — if onboarding link expired, generate new one
 router.get('/connect/refresh', (_req: Request, res: Response) => {
-  res.redirect('maisonfraise://connect-refresh');
+  res.redirect('boxfraise://connect-refresh');
 });
 
 // GET /api/ads/connect/status — operator checks their Connect status

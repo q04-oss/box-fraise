@@ -12,7 +12,6 @@ import {
 import { DMSans_400Regular } from '@expo-google-fonts/dm-sans';
 import { DMMono_400Regular } from '@expo-google-fonts/dm-mono';
 import RootNavigator from './src/navigation/RootNavigator';
-import { enableReviewMode as activateReviewMode } from './src/lib/reviewMode';
 import { updatePushToken } from './src/lib/api';
 import './src/lib/geofence'; // registers background geofence task at startup
 
@@ -26,8 +25,6 @@ Notifications.setNotificationHandler({
 });
 
 interface AppContextType {
-  reviewMode: boolean;
-  enableReviewMode: () => void;
   pushToken: string | null;
   pendingScreen: string | null;
   pendingData: Record<string, any> | null;
@@ -37,8 +34,6 @@ interface AppContextType {
 }
 
 export const AppContext = createContext<AppContextType>({
-  reviewMode: false,
-  enableReviewMode: () => {},
   pushToken: null,
   pendingScreen: null,
   pendingData: null,
@@ -50,7 +45,6 @@ export const AppContext = createContext<AppContextType>({
 export const useApp = () => useContext(AppContext);
 
 export default function App() {
-  const [reviewMode, setReviewMode] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [pendingScreen, setPendingScreen] = useState<string | null>(null);
   const [pendingData, setPendingData] = useState<Record<string, any> | null>(null);
@@ -122,14 +116,7 @@ export default function App() {
     return () => sub.remove();
   }, [pushToken]);
 
-  const handleEnableReviewMode = () => {
-    activateReviewMode();
-    setReviewMode(true);
-  };
-
-  const publishableKey = reviewMode
-    ? (process.env.EXPO_PUBLIC_STRIPE_TEST_PUBLISHABLE_KEY ?? '')
-    : (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '');
+  const publishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
   if (!fontsLoaded && !fontError) {
     return (
@@ -140,9 +127,9 @@ export default function App() {
   }
 
   return (
-    <AppContext.Provider value={{ reviewMode, enableReviewMode: handleEnableReviewMode, pushToken, pendingScreen, pendingData, clearPendingScreen: () => { setPendingScreen(null); setPendingData(null); }, connectReturn, clearConnectReturn: () => setConnectReturn(false) }}>
+    <AppContext.Provider value={{ pushToken, pendingScreen, pendingData, clearPendingScreen: () => { setPendingScreen(null); setPendingData(null); }, connectReturn, clearConnectReturn: () => setConnectReturn(false) }}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-      <StripeProvider key={reviewMode ? 'test' : 'live'} publishableKey={publishableKey} merchantIdentifier="merchant.com.maisonfraise.app">
+      <StripeProvider publishableKey={publishableKey} merchantIdentifier="merchant.com.boxfraise.app">
         <SafeAreaProvider>
           <RootNavigator />
         </SafeAreaProvider>

@@ -14,7 +14,7 @@ import { SPACING } from '../../theme';
 
 export default function ReviewPanel() {
   const { goBack, showPanel, jumpToPanel, currentPanel, order, setOrder, varieties, businesses } = usePanel();
-  const { reviewMode, pushToken } = useApp();
+  const { pushToken } = useApp();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -95,43 +95,38 @@ export default function ReviewPanel() {
         excess_amount_cents: undefined,
       });
 
-      let confirmed;
-      if (reviewMode) {
-        confirmed = await confirmOrder(created.id);
-      } else {
-        const { error: initErr } = await initPaymentSheet({
-          merchantDisplayName: 'Maison Fraise',
-          paymentIntentClientSecret: client_secret,
-          applePay: {
-            merchantCountryCode: 'CA',
-            merchantIdentifier: 'merchant.com.maisonfraise.app',
+      const { error: initErr } = await initPaymentSheet({
+        merchantDisplayName: 'Box Fraise',
+        paymentIntentClientSecret: client_secret,
+        applePay: {
+          merchantCountryCode: 'CA',
+          merchantIdentifier: 'merchant.com.boxfraise.app',
+        },
+        googlePay: {
+          merchantCountryCode: 'CA',
+          testEnv: __DEV__,
+        },
+        defaultBillingDetails: { email },
+        appearance: {
+          colors: {
+            primary: c.accent,
+            background: '#FFFFFF',
+            componentBackground: '#F7F5F2',
+            componentText: '#1C1C1E',
+            componentBorder: '#E5E1DA',
+            placeholderText: '#8E8E93',
           },
-          googlePay: {
-            merchantCountryCode: 'CA',
-            testEnv: __DEV__,
-          },
-          defaultBillingDetails: { email },
-          appearance: {
-            colors: {
-              primary: c.accent,
-              background: '#FFFFFF',
-              componentBackground: '#F7F5F2',
-              componentText: '#1C1C1E',
-              componentBorder: '#E5E1DA',
-              placeholderText: '#8E8E93',
-            },
-          },
-        });
-        if (initErr) throw new Error(initErr.message);
-        TrueSheet.present('main-sheet', 0);
-        const { error: presentErr } = await presentPaymentSheet();
-        if (presentErr) {
-          setTimeout(() => TrueSheet.present('main-sheet', 1), 150);
-          if (presentErr.code === 'Canceled') { setLoading(false); return; }
-          throw new Error(presentErr.message);
-        }
-        confirmed = await confirmOrder(created.id);
+        },
+      });
+      if (initErr) throw new Error(initErr.message);
+      TrueSheet.present('main-sheet', 0);
+      const { error: presentErr } = await presentPaymentSheet();
+      if (presentErr) {
+        setTimeout(() => TrueSheet.present('main-sheet', 1), 150);
+        if (presentErr.code === 'Canceled') { setLoading(false); return; }
+        throw new Error(presentErr.message);
       }
+      const confirmed = await confirmOrder(created.id);
 
       setOrder({
         order_id: confirmed.id,

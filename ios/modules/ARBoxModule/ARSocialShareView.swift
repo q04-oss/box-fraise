@@ -55,10 +55,10 @@ class ARSocialShareView: UIView {
     // Accent rule at y: 1800
     ctx.fill(CGRect(x: 0, y: 1800, width: 1080, height: 3))
 
-    // "maison fraise" italic
+    // "box fraise" italic
     let maisonFont = UIFont.italicSystemFont(ofSize: 72)
     let maisonAttrs: [NSAttributedString.Key: Any] = [.font: maisonFont, .foregroundColor: dark]
-    let maisonStr = "maison fraise" as NSString
+    let maisonStr = "box fraise" as NSString
     let maisonSize = maisonStr.size(withAttributes: maisonAttrs)
     maisonStr.draw(at: CGPoint(x: (1080 - maisonSize.width) / 2, y: 200), withAttributes: maisonAttrs)
 

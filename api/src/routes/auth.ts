@@ -116,7 +116,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
 
   try {
     const payload = await appleSignin.verifyIdToken(identityToken, {
-      audience: 'com.maisonfraise.app',
+      audience: 'com.boxfraise.app',
       ignoreExpiration: false,
     });
     const appleId = payload.sub;

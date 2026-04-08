@@ -13,7 +13,7 @@ import PanelErrorBoundary from '../components/PanelErrorBoundary';
 import BeaconNudge from '../components/BeaconNudge';
 import { loadAndMonitorBeacons } from '../lib/beaconService';
 import { initBeaconRecommendations } from '../lib/BeaconRecommendationService';
-import { fetchBusinesses, fetchVarieties, updatePushToken, deleteAuthToken, fetchPersonalToilets } from '../lib/api';
+import { fetchBusinesses, fetchVarieties, updatePushToken, deleteAuthToken } from '../lib/api';
 import { STRAWBERRIES } from '../data/seed';
 import { useColors, fonts, SPACING } from '../theme';
 import { useApp } from '../../App';
@@ -117,7 +117,7 @@ export default function MapScreen() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
   const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties } = usePanel();
-  const { pendingScreen, pendingData, clearPendingScreen, pushToken, reviewMode } = useApp();
+  const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
   const [bizError, setBizError] = useState(false);
@@ -125,15 +125,12 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const userCoords = useRef<{ latitude: number; longitude: number } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
-  const [portalOptedIn, setPortalOptedIn] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [personalToilets, setPersonalToilets] = useState<any[]>([]);
 
 
   const syncVerifiedState = useCallback(() => {
-    AsyncStorage.multiGet(['verified', 'portal_opted_in', 'user_db_id']).then(([v, p, u]) => {
+    AsyncStorage.multiGet(['verified', 'user_db_id']).then(([v, u]) => {
       if (v[1] === 'true') setIsVerified(true);
-      if (p[1] === 'true') setPortalOptedIn(true);
       setIsLoggedIn(!!u[1]);
     });
   }, []);
@@ -177,48 +174,6 @@ export default function MapScreen() {
       showPanel('verifyNFC');
       setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
     }
-    if (pendingScreen === 'messages') {
-      clearPendingScreen();
-      if (pendingData?.user_id) {
-        setPanelData({ userId: pendingData.user_id });
-        showPanel('messageThread');
-      } else {
-        showPanel('conversations');
-      }
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
-    if (pendingScreen === 'standingOrder') {
-      clearPendingScreen();
-      if (pendingData?.collectif_id) {
-        showPanel('collectif-detail', { collectifId: parseInt(pendingData.collectif_id, 10) });
-      } else {
-        showPanel('collectif-list');
-      }
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
-    if (pendingScreen === 'tokens') {
-      clearPendingScreen();
-      if (pendingData?.token_id) {
-        showPanel('token-detail', { tokenId: pendingData.token_id });
-      } else {
-        showPanel('tokens');
-      }
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
-    if (pendingScreen === 'token-offer') {
-      clearPendingScreen();
-      showPanel('tokens');
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
-    if (pendingScreen === 'tournaments') {
-      clearPendingScreen();
-      if (pendingData?.tournament_id) {
-        showPanel('tournament-detail', { tournamentId: pendingData.tournament_id });
-      } else {
-        showPanel('tournaments');
-      }
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
   }, [pendingScreen, businesses]);
 
   const loadBusinesses = () => {
@@ -250,21 +205,13 @@ export default function MapScreen() {
       .catch(() => {});
   };
 
-  const loadPersonalToiletsIfLoggedIn = useCallback(() => {
-    AsyncStorage.getItem('user_db_id').then(id => {
-      if (!id) return;
-      fetchPersonalToilets()
-        .then((data: any[]) => setPersonalToilets(data.filter((t: any) => t.lat && t.lng)))
-        .catch(() => {});
-    });
-  }, []);
 
-  useEffect(() => { loadBusinesses(); loadVarietiesIfNeeded(); loadAndMonitorBeacons(); initBeaconRecommendations(); loadPersonalToiletsIfLoggedIn(); }, []);
+  useEffect(() => { loadBusinesses(); loadVarietiesIfNeeded(); loadAndMonitorBeacons(); initBeaconRecommendations(); }, []);
 
   // Refresh businesses + portal flag when app comes to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') { loadBusinesses(); syncVerifiedState(); loadPersonalToiletsIfLoggedIn(); }
+      if (state === 'active') { loadBusinesses(); syncVerifiedState(); }
     });
     return () => sub.remove();
   }, [syncVerifiedState]);
@@ -286,16 +233,6 @@ export default function MapScreen() {
     doMarkerNav(biz);
   };
 
-  const handleMarkerLongPress = (biz: any) => {
-    goHome();
-    showPanel('collectif-create', {
-      collectifType: biz.type === 'popup' ? 'popup' : 'product',
-      businessName: biz.name,
-      proposedVenue: biz.name,
-      proposedDate: biz.type === 'popup' && biz.starts_at ? biz.starts_at.slice(0, 10) : '',
-    });
-    setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-  };
 
   const handlePartnerPress = (biz: any) => {
     setActiveLocation(biz);
@@ -311,8 +248,8 @@ export default function MapScreen() {
 
   const handlePopupPress = (biz: any) => {
     setActiveLocation(biz);
-    showPanel('popup-detail');
-    setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
+    showPanel('home');
+    setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
     mapRef.current?.animateToRegion({
       latitude: biz.lat - 0.003,
       longitude: biz.lng,
@@ -379,12 +316,6 @@ export default function MapScreen() {
     handleShowAll();
   };
 
-  const handleStrawberryLongPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    jumpToPanel('conversations');
-    setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
-  };
-
   const isLive = (b: any): boolean => {
     if (!b.launched_at) return false;
     const start = new Date(b.launched_at);
@@ -442,11 +373,9 @@ export default function MapScreen() {
             coordinate={{ latitude: b.lat, longitude: b.lng }}
             onPress={() => handleMarkerPress(b)}
           >
-            <TouchableOpacity onLongPress={() => handleMarkerLongPress(b)} delayLongPress={400} activeOpacity={1}>
-              <View style={[styles.pinCollection, { backgroundColor: c.markerBg }]}>
-                <View style={styles.pinCollectionDot} />
-              </View>
-            </TouchableOpacity>
+            <View style={[styles.pinCollection, { backgroundColor: c.markerBg }]}>
+              <View style={styles.pinCollectionDot} />
+            </View>
             <Callout tooltip>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
@@ -470,17 +399,15 @@ export default function MapScreen() {
               tracksViewChanges={live}
               onPress={() => handlePopupPress(b)}
             >
-              <TouchableOpacity onLongPress={() => handleMarkerLongPress(b)} delayLongPress={400} activeOpacity={1}>
-                {live
-                  ? <LivePopupPin color="#C0392B" />
-                  : (
-                    <View style={styles.pinPopup}>
-                      <View style={[styles.pinPopupRing, { borderColor: '#C0392B' }]} />
-                      <View style={[styles.pinPopupDot, { backgroundColor: '#C0392B' }]} />
-                    </View>
-                  )
-                }
-              </TouchableOpacity>
+              {live
+                ? <LivePopupPin color="#C0392B" />
+                : (
+                  <View style={styles.pinPopup}>
+                    <View style={[styles.pinPopupRing, { borderColor: '#C0392B' }]} />
+                    <View style={[styles.pinPopupDot, { backgroundColor: '#C0392B' }]} />
+                  </View>
+                )
+              }
             </Marker>
           );
         })}
@@ -505,17 +432,12 @@ export default function MapScreen() {
             onPress={() => handlePartnerPress(b)}
             tracksViewChanges={false}
           >
-            <TouchableOpacity onLongPress={() => handleMarkerLongPress(b)} delayLongPress={400} activeOpacity={1}>
-              <View style={[styles.pinPartner, { borderColor: c.markerBg }]}>
-                <View style={[styles.pinPartnerDot, { backgroundColor: c.markerBg }]} />
-                {b.placed_user_name && (
-                  <View style={styles.pinPlacedDot} />
-                )}
-                {b.has_toilet && (
-                  <View style={styles.pinToiletDot} />
-                )}
-              </View>
-            </TouchableOpacity>
+            <View style={[styles.pinPartner, { borderColor: c.markerBg }]}>
+              <View style={[styles.pinPartnerDot, { backgroundColor: c.markerBg }]} />
+              {b.placed_user_name && (
+                <View style={styles.pinPlacedDot} />
+              )}
+            </View>
             <Callout tooltip>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
@@ -530,36 +452,6 @@ export default function MapScreen() {
           </Marker>
         ))}
 
-        {personalToilets.map(t => (
-          <Marker
-            key={`pt-${t.id}`}
-            coordinate={{ latitude: t.lat, longitude: t.lng }}
-            tracksViewChanges={false}
-            onPress={() => {
-              showPanel('toilet', {
-                personal_toilet: {
-                  id: t.id,
-                  title: t.title,
-                  host_name: t.display_name,
-                  instagram_handle: t.instagram_handle,
-                  price_cents: t.price_cents,
-                  description: t.description,
-                },
-              });
-              setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-            }}
-          >
-            <View style={styles.pinPersonalToilet} />
-            <Callout tooltip>
-              <View style={[styles.callout, { backgroundColor: c.card }]}>
-                <Text style={[styles.calloutName, { color: c.text }]}>{t.title}</Text>
-                {!!t.address && (
-                  <Text style={[styles.calloutAddress, { color: c.muted }]}>{t.address}</Text>
-                )}
-              </View>
-            </Callout>
-          </Marker>
-        ))}
       </MapView>
 
       <TrueSheet
@@ -620,8 +512,6 @@ export default function MapScreen() {
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: c.card }]}
             onPress={handleStrawberryPress}
-            onLongPress={handleStrawberryLongPress}
-            delayLongPress={500}
             activeOpacity={0.8}
           >
             <Text style={styles.fabIcon}>🍓</Text>
@@ -729,19 +619,6 @@ const styles = StyleSheet.create({
     width: 7, height: 7, borderRadius: 4,
     backgroundColor: '#C9973A',
     borderWidth: 1.5, borderColor: '#fff',
-  },
-  pinToiletDot: {
-    position: 'absolute', bottom: -3, right: -3,
-    width: 7, height: 7, borderRadius: 4,
-    backgroundColor: '#5B8DB8',
-    borderWidth: 1.5, borderColor: '#fff',
-  },
-  pinPersonalToilet: {
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#5B8DB8',
-    borderWidth: 2, borderColor: '#fff',
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
   },
   bizLoadingIndicator: { position: 'absolute', alignSelf: 'center' },
   bizErrorBanner: {

@@ -14,12 +14,12 @@ import { usePanel } from '../../context/PanelContext';
 import {
   verifyAppleSignIn, setAuthToken, deleteAuthToken,
   fetchOrdersByEmail,
-  demoLogin, updateDisplayName,
+  updateDisplayName, demoLogin,
   createOrder, confirmOrder, payOrderWithBalance, operatorLogin,
-  startIdentityVerification, fetchMyVentures,
-  fetchMyMarketOrders, collectMarketOrder, fetchAdBalance, fetchAvailableAds,
-  respondToAdImpression, fetchStaffOrders,
+  startIdentityVerification, fetchAdBalance, fetchAvailableAds,
+  respondToAdImpression,
   fetchMyNodeApplication, submitNodeApplication, NodeApplication,
+  requestWorkerAccess, fetchMyWorkerAccess,
 } from '../../lib/api';
 import { CHOCOLATES, FINISHES } from '../../data/seed';
 import { useColors, fonts, SPACING } from '../../theme';
@@ -30,7 +30,7 @@ type OrderStep = 'variety' | 'chocolate' | 'finish' | 'quantity' | 'review' | 'c
 
 export default function TerminalPanel() {
   const { goHome, showPanel, setOrder, order, setActiveLocation, varieties, businesses, activeLocation, panelData, setPanelData } = usePanel();
-  const { pushToken, reviewMode, enableReviewMode } = useApp();
+  const { pushToken } = useApp();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const c = useColors();
   const scrollRef = useRef<ScrollView>(null);
@@ -44,21 +44,20 @@ export default function TerminalPanel() {
   const [editingName, setEditingName] = useState(false);
   const [isShop, setIsShop] = useState(false);
   const [isStaff, setIsStaff] = useState(false);
-  const [staffOrders, setStaffOrders] = useState<any[]>([]);
-  const [staffPin, setStaffPin] = useState('');
-  const [staffPinInput, setStaffPinInput] = useState('');
-  const [staffPinNeeded, setStaffPinNeeded] = useState(false);
+  const [workerAccess, setWorkerAccess] = useState<'none' | 'pending' | 'approved' | 'denied' | 'ineligible' | null>(null);
+  const [requestingAccess, setRequestingAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [operatorCode, setOperatorCode] = useState('');
   const [showOperatorLogin, setShowOperatorLogin] = useState(false);
+  const [showReviewerLogin, setShowReviewerLogin] = useState(false);
+  const [reviewerEmail, setReviewerEmail] = useState('');
+  const [reviewerPassword, setReviewerPassword] = useState('');
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [idVerifyCode, setIdVerifyCode] = useState('');
   const [showIdVerify, setShowIdVerify] = useState(false);
   const [idVerifyLoading, setIdVerifyLoading] = useState(false);
   const [idVerifyAttested, setIdVerifyAttested] = useState(false);
-  const [myVentures, setMyVentures] = useState<any[]>([]);
-  const [marketOrders, setMarketOrders] = useState<any[]>([]);
   const [adBalanceCents, setAdBalanceCents] = useState(0);
   const [availableAds, setAvailableAds] = useState<any[]>([]);
   const [nodeApplication, setNodeApplication] = useState<NodeApplication | null | undefined>(undefined);
@@ -131,16 +130,6 @@ const nameInputRef = useRef<TextInput>(null);
       if (shopFlag === 'true') setIsShop(true);
       if (staffFlag === 'true') {
         setIsStaff(true);
-        AsyncStorage.getItem('staff_pin').then(pin => {
-          if (pin) {
-            setStaffPin(pin);
-            setStaffPinInput(pin);
-            const today = new Date().toISOString().slice(0, 10);
-            fetchStaffOrders(pin, today).then(setStaffOrders).catch(() => {});
-          } else {
-            setStaffPinNeeded(true);
-          }
-        });
       }
       if (dbId) setUserDbId(parseInt(dbId, 10));
       if (chatEmail) setFraiseChatEmail(chatEmail);
@@ -155,8 +144,6 @@ const nameInputRef = useRef<TextInput>(null);
             setRecentOrders(paid.slice(0, 5));
           })
           .catch(() => {});
-        fetchMyVentures().then(setMyVentures).catch(() => {});
-        fetchMyMarketOrders().then(setMarketOrders).catch(() => {});
         fetchAdBalance().then(r => setAdBalanceCents(r.ad_balance_cents)).catch(() => {});
         fetchAvailableAds().then(setAvailableAds).catch(() => {});
         if (verified === 'true') {
@@ -174,6 +161,26 @@ const nameInputRef = useRef<TextInput>(null);
       }
     }).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!userDbId || !location?.id) return;
+    fetchMyWorkerAccess(location.id)
+      .then(r => setWorkerAccess(r.status as any ?? 'none'))
+      .catch(() => setWorkerAccess('none'));
+  }, [userDbId, location?.id]);
+
+  const handleRequestWorkerAccess = async () => {
+    if (!location?.id || requestingAccess) return;
+    setRequestingAccess(true);
+    try {
+      const r = await requestWorkerAccess(location.id);
+      setWorkerAccess(r.status as any);
+    } catch {
+      Alert.alert('Could not send request', 'Please try again.');
+    } finally {
+      setRequestingAccess(false);
+    }
+  };
 
   const handleAppleSignIn = async () => {
     setSigningIn(true);
@@ -213,22 +220,6 @@ const nameInputRef = useRef<TextInput>(null);
     } finally { setSigningIn(false); }
   };
 
-  const handleDemoLogin = async () => {
-    setSigningIn(true);
-    try {
-      const result = await demoLogin();
-      await AsyncStorage.setItem('user_db_id', String(result.user_id));
-      await AsyncStorage.setItem('user_email', 'demo@maison-fraise.com');
-      await setAuthToken(result.token);
-      setUserDbId(result.user_id);
-      setUserEmail('demo@maison-fraise.com');
-      enableReviewMode();
-      if (pushToken) { const { updatePushToken } = await import('../../lib/api'); updatePushToken(pushToken).catch(() => {}); }
-    } catch (e: any) {
-      Alert.alert('Demo unavailable', String(e?.message ?? e));
-    } finally { setSigningIn(false); }
-  };
-
   const handleOperatorLogin = async () => {
     const code = operatorCode.trim().toUpperCase();
     if (code.length !== 6) { Alert.alert('Enter your 6-character operator code.'); return; }
@@ -256,6 +247,27 @@ const nameInputRef = useRef<TextInput>(null);
     } finally {
       setSigningIn(false);
     }
+  };
+
+  const handleReviewerLogin = async () => {
+    const email = reviewerEmail.trim();
+    const password = reviewerPassword.trim();
+    if (!email || !password) { Alert.alert('Enter email and password.'); return; }
+    setSigningIn(true);
+    try {
+      const result = await demoLogin(email, password);
+      await AsyncStorage.setItem('user_db_id', String(result.user_id));
+      await AsyncStorage.setItem('user_email', email);
+      await setAuthToken(result.token);
+      setUserDbId(result.user_id);
+      setUserEmail(email);
+      setIsVerified(true);
+      await AsyncStorage.setItem('verified', 'true');
+      setShowReviewerLogin(false);
+      if (pushToken) { const { updatePushToken } = await import('../../lib/api'); updatePushToken(pushToken).catch(() => {}); }
+    } catch {
+      Alert.alert('Sign in failed', 'Check your credentials and try again.');
+    } finally { setSigningIn(false); }
   };
 
   const handleSignOut = () => {
@@ -347,35 +359,30 @@ const nameInputRef = useRef<TextInput>(null);
         excess_amount_cents: undefined,
       });
 
-      let confirmed;
-      if (reviewMode) {
-        confirmed = await confirmOrder(created.id);
-      } else {
-        const { error: initErr } = await initPaymentSheet({
-          merchantDisplayName: 'Maison Fraise',
-          paymentIntentClientSecret: client_secret,
-          applePay: { merchantCountryCode: 'CA', merchantIdentifier: 'merchant.com.maisonfraise.app' },
-          googlePay: { merchantCountryCode: 'CA', testEnv: __DEV__ },
-          defaultBillingDetails: { email },
-          appearance: {
-            colors: {
-              primary: c.accent, background: '#FFFFFF',
-              componentBackground: '#F7F5F2', componentText: '#1C1C1E',
-              componentBorder: '#E5E1DA', placeholderText: '#8E8E93',
-            },
+      const { error: initErr } = await initPaymentSheet({
+        merchantDisplayName: 'Box Fraise',
+        paymentIntentClientSecret: client_secret,
+        applePay: { merchantCountryCode: 'CA', merchantIdentifier: 'merchant.com.boxfraise.app' },
+        googlePay: { merchantCountryCode: 'CA', testEnv: __DEV__ },
+        defaultBillingDetails: { email },
+        appearance: {
+          colors: {
+            primary: c.accent, background: '#FFFFFF',
+            componentBackground: '#F7F5F2', componentText: '#1C1C1E',
+            componentBorder: '#E5E1DA', placeholderText: '#8E8E93',
           },
-        });
-        if (initErr) throw new Error(initErr.message);
-        TrueSheet.present(SHEET_NAME, 0);
-        const { error: presentErr } = await presentPaymentSheet();
-        if (presentErr) {
-          setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 150);
-          if (presentErr.code === 'Canceled') { setPaying(false); return; }
-          throw new Error(presentErr.message);
-        }
-        paymentCollected = true;
-        confirmed = await confirmOrder(created.id);
+        },
+      });
+      if (initErr) throw new Error(initErr.message);
+      TrueSheet.present(SHEET_NAME, 0);
+      const { error: presentErr } = await presentPaymentSheet();
+      if (presentErr) {
+        setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 150);
+        if (presentErr.code === 'Canceled') { setPaying(false); return; }
+        throw new Error(presentErr.message);
       }
+      paymentCollected = true;
+      const confirmed = await confirmOrder(created.id);
 
       if (confirmed.user_db_id) await AsyncStorage.setItem('user_db_id', String(confirmed.user_db_id));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -459,154 +466,7 @@ const nameInputRef = useRef<TextInput>(null);
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
         ) : userEmail ? (
           <>
-            {/* ── Operator (shop) view ── */}
-            {false && isShop ? (
-              <View style={styles.operatorBlock}>
-                <Text style={[styles.operatorTag, { color: c.accent }]}>fraise.chat</Text>
-                <TouchableOpacity onPress={handleSignOut} onLongPress={handleSignOut} delayLongPress={600} activeOpacity={0.7}>
-                  <Text style={[styles.name, { color: c.text }]}>{displayName}</Text>
-                </TouchableOpacity>
-                {fraiseChatEmail && (
-                  <Text style={[styles.chatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
-                )}
-                <View style={[styles.divider, { backgroundColor: c.border, marginTop: 20 }]} />
-                <TouchableOpacity
-                  style={styles.inboxBtn}
-                  onPress={() => showPanel('conversations')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.label, { color: c.muted }]}>INBOX</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                {showIdVerify ? (
-                  <View style={styles.block}>
-                    <Text style={[styles.label, { color: c.muted }]}>MEMBER CODE</Text>
-                    <TextInput
-                      style={[styles.operatorInput, { color: c.text, borderColor: c.border, marginTop: 8 }]}
-                      placeholder="e.g. ABC123"
-                      placeholderTextColor={c.muted}
-                      value={idVerifyCode}
-                      onChangeText={t => setIdVerifyCode(t.toUpperCase())}
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                      maxLength={8}
-                      returnKeyType="go"
-                    />
-                    <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 }}
-                      onPress={() => setIdVerifyAttested(v => !v)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={{
-                        width: 18, height: 18, borderRadius: 4,
-                        borderWidth: 1.5, borderColor: idVerifyAttested ? c.text : c.border,
-                        backgroundColor: idVerifyAttested ? c.text : 'transparent',
-                        alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        {idVerifyAttested && <Text style={{ color: c.background, fontSize: 11, fontWeight: '700' }}>✓</Text>}
-                      </View>
-                      <Text style={[styles.demoText, { color: c.muted, flex: 1 }]}>
-                        I have physically examined this member's government-issued ID
-                      </Text>
-                    </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                      <TouchableOpacity
-                        style={[styles.operatorSubmit, { backgroundColor: c.text, flex: 1 }, (idVerifyLoading || !idVerifyAttested) && { opacity: 0.4 }]}
-                        disabled={idVerifyLoading || !idVerifyCode.trim() || !idVerifyAttested}
-                        onPress={async () => {
-                          if (!idVerifyCode.trim() || idVerifyLoading || !idVerifyAttested) return;
-                          setIdVerifyLoading(true);
-                          try {
-                            await startIdentityVerification(idVerifyCode.trim());
-                            Alert.alert('Sent', 'Member will be notified to complete their ID scan.');
-                            setIdVerifyCode('');
-                            setIdVerifyAttested(false);
-                            setShowIdVerify(false);
-                          } catch (e: any) {
-                            const msg = e.message === 'user_not_found' ? 'Member not found.'
-                              : e.message === 'user_must_be_nfc_verified_first' ? 'Member must have collected an order in person first.'
-                              : 'Could not start verification.';
-                            Alert.alert('Error', msg);
-                          } finally {
-                            setIdVerifyLoading(false);
-                          }
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.demoText, { color: c.ctaText }]}>
-                          {idVerifyLoading ? 'starting…' : 'start verification'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => { setShowIdVerify(false); setIdVerifyCode(''); setIdVerifyAttested(false); }}
-                        activeOpacity={0.6}
-                        style={[styles.operatorSubmit, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, flex: 0.4 }]}
-                      >
-                        <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.inboxBtn}
-                    onPress={() => setShowIdVerify(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.label, { color: c.muted }]}>ID VERIFY</Text>
-                    <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                  </TouchableOpacity>
-                )}
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('variety-management')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>VARIETIES</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('tournament-operator')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>TOURNAMENTS</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('ad-campaigns')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>AD CAMPAIGNS</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-              </View>
-            ) : (
             <>
-            {/* Identity block */}
-            {false && <View style={styles.identityBlock}>
-              {editingName ? (
-                <TextInput
-                  ref={nameInputRef}
-                  style={[styles.nameInput, { color: c.text }]}
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  onSubmitEditing={e => handleSaveName(e.nativeEvent.text)}
-                  onBlur={e => handleSaveName(e.nativeEvent.text)}
-                  returnKeyType="done"
-                  autoFocus
-                  placeholder="Your name"
-                  placeholderTextColor={c.muted}
-                />
-              ) : (
-                <TouchableOpacity onPress={() => setEditingName(true)} onLongPress={handleSignOut} delayLongPress={600} activeOpacity={0.7}>
-                  <Text style={[styles.name, { color: c.text }]}>{displayName || 'Add a name'}</Text>
-                </TouchableOpacity>
-              )}
-              {fraiseChatEmail ? (
-                <TouchableOpacity onPress={() => showPanel('conversations')} activeOpacity={0.7}>
-                  <Text style={[styles.chatEmail, { color: c.muted }]}>{fraiseChatEmail}</Text>
-                </TouchableOpacity>
-              ) : null}
-              {adBalanceCents > 0 && (
-                <Text style={[styles.chatEmail, { color: c.muted }]}>
-                  ad earnings: CA${(adBalanceCents / 100).toFixed(2)}
-                </Text>
-              )}
-            </View>}
 
             {/* ORDER section */}
             <View style={styles.orderBody}>
@@ -634,22 +494,6 @@ const nameInputRef = useRef<TextInput>(null);
                     ) : confirmedOrder.nfc_token ? (
                       <Text style={[styles.confirmedHint, { color: c.accent }]}>tap to collect at the shop</Text>
                     ) : null}
-                    {location?.shop_user_id && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setPanelData({
-                            userId: location.shop_user_id,
-                            displayName: location.name,
-                            isShop: true,
-                          });
-                          showPanel('messageThread');
-                        }}
-                        style={styles.openConvoBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.label, { color: c.text }]}>open conversation  →</Text>
-                      </TouchableOpacity>
-                    )}
                     <TouchableOpacity onPress={() => { resetInlineOrder(); }} style={styles.newOrderBtn} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.accent }]}>NEW ORDER</Text>
                     </TouchableOpacity>
@@ -825,105 +669,6 @@ const nameInputRef = useRef<TextInput>(null);
                 )}
               </View>
 
-            {reviewMode && (<>
-            {/* VENTURES */}
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('ventures')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>VENTURES</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('venture-earnings')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>VENTURE EARNINGS</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            {myVentures.length > 0 && myVentures.map((v: any) => (
-              <TouchableOpacity
-                key={v.id}
-                style={styles.myVentureRow}
-                onPress={() => showPanel('venture-detail', { ventureId: v.id })}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.myVentureName, { color: c.text }]} numberOfLines={1}>{v.name}</Text>
-                {v.ceo_type === 'dorotka' && (
-                  <Text style={[styles.myVentureTag, { color: c.accent, borderColor: c.accent }]}>D</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-
-            {/* MARKET section */}
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('market')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>MARKET</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            {marketOrders.length > 0 && marketOrders.slice(0, 3).map((mo: any) => (
-              <TouchableOpacity
-                key={mo.id}
-                style={[styles.marketOrderRow, { borderBottomColor: c.border }]}
-                onPress={async () => {
-                  if (mo.status !== 'paid') return;
-                  Alert.alert(
-                    'Confirm collection?',
-                    `${mo.product_name} from ${mo.vendor_name}`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Collected', onPress: async () => {
-                          try {
-                            await collectMarketOrder(mo.id);
-                            setMarketOrders(prev => prev.map(o => o.id === mo.id ? { ...o, status: 'collected' } : o));
-                          } catch { Alert.alert('Error', 'Could not confirm collection.'); }
-                        }
-                      },
-                    ]
-                  );
-                }}
-                activeOpacity={mo.status === 'paid' ? 0.7 : 1}
-              >
-                <View style={styles.marketOrderLeft}>
-                  <Text style={[styles.marketOrderName, { color: c.text }]} numberOfLines={1}>{mo.product_name}</Text>
-                  <Text style={[styles.marketOrderMeta, { color: c.muted }]}>{mo.vendor_name}  ·  {mo.market_name}</Text>
-                </View>
-                <Text style={[styles.marketOrderStatus, { color: mo.status === 'paid' ? c.accent : c.muted }]}>
-                  {mo.status === 'paid' ? 'collect →' : mo.status}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            {isVerified && (
-              <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('vendor-stall')} activeOpacity={0.7}>
-                <Text style={[styles.label, { color: c.muted }]}>MY STALL</Text>
-                <Text style={[styles.label, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('personal-toilet')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>MY TOILET</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('itinerary')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>ITINERARIES</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('health-profile')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>HEALTH PROFILE</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('portrait-tokens')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>PORTRAIT TOKENS</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('reservation-discovery')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>SPONSORED DINNERS</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('reservation-booking')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>MY BOOKINGS</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
             {isVerified && !isShop && nodeApplication !== undefined && (
               <>
                 <View style={[styles.divider, { backgroundColor: c.border }]} />
@@ -1011,29 +756,6 @@ const nameInputRef = useRef<TextInput>(null);
               </>
             )}
 
-            {isShop && (
-              <>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('business-menu')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>RESTAURANT MENU</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('reservation-offers')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>SPONSORED DINNERS ↑</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('portrait-licensing')} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>PORTRAIT LICENSING</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {isShop && (
-              <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('market-admin')} activeOpacity={0.7}>
-                <Text style={[styles.label, { color: c.muted }]}>MARKET ADMIN</Text>
-                <Text style={[styles.label, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
 
             {/* AD OFFERS */}
             {availableAds.length > 0 && (
@@ -1082,110 +804,74 @@ const nameInputRef = useRef<TextInput>(null);
               </>
             )}
 
-</>)}
-
             {/* ── Utility shortcuts ── */}
             <View style={[styles.divider, { backgroundColor: c.border }]} />
             <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('verifyNFC')} activeOpacity={0.7}>
               <Text style={[styles.label, { color: c.muted }]}>SCAN BOX</Text>
               <Text style={[styles.label, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
-            {isStaff && (
+            {isVerified && (
               <>
                 <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('nfc-write', { nfc_token: 'fraise-thankyou' })} activeOpacity={0.7}>
-                  <Text style={[styles.label, { color: c.muted }]}>WRITE GENERIC TAG</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-                {location?.allows_walkin && (
+                {workerAccess === 'approved' ? (
                   <>
+                    <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('nfc-write', { nfc_token: 'fraise-thankyou' })} activeOpacity={0.7}>
+                      <Text style={[styles.label, { color: c.muted }]}>WRITE GENERIC TAG</Text>
+                      <Text style={[styles.label, { color: c.accent }]}>→</Text>
+                    </TouchableOpacity>
+                    {location?.allows_walkin && (
+                      <>
+                        <View style={[styles.divider, { backgroundColor: c.border }]} />
+                        <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('walk-in-write')} activeOpacity={0.7}>
+                          <Text style={[styles.label, { color: c.muted }]}>WRITE WALK-IN TAGS</Text>
+                          <Text style={[styles.label, { color: c.accent }]}>→</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
                     <View style={[styles.divider, { backgroundColor: c.border }]} />
-                    <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('walk-in-write')} activeOpacity={0.7}>
-                      <Text style={[styles.label, { color: c.muted }]}>WRITE WALK-IN TAGS</Text>
+                    <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('staff-orders')} activeOpacity={0.7}>
+                      <Text style={[styles.label, { color: c.muted }]}>STAFF ORDERS</Text>
                       <Text style={[styles.label, { color: c.accent }]}>→</Text>
                     </TouchableOpacity>
                   </>
-                )}
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                {staffPinNeeded ? (
-                  <View style={styles.staffPinRow}>
-                    <TextInput
-                      style={[styles.staffPinInput, { color: c.text, borderColor: c.border, fontFamily: fonts.dmMono }]}
-                      value={staffPinInput}
-                      onChangeText={setStaffPinInput}
-                      placeholder="staff pin"
-                      placeholderTextColor={c.muted}
-                      secureTextEntry
-                      keyboardType="number-pad"
-                      returnKeyType="done"
-                      onSubmitEditing={async () => {
-                        const pin = staffPinInput.trim();
-                        if (!pin) return;
-                        const today = new Date().toISOString().slice(0, 10);
-                        try {
-                          const data = await fetchStaffOrders(pin, today);
-                          await AsyncStorage.setItem('staff_pin', pin);
-                          setStaffPin(pin);
-                          setStaffOrders(data);
-                          setStaffPinNeeded(false);
-                        } catch { Alert.alert('Incorrect PIN'); }
-                      }}
-                    />
-                  </View>
-                ) : staffOrders.filter(o => o.nfc_token && ['paid','preparing','ready'].includes(o.status)).length > 0 ? (
+                ) : workerAccess === 'pending' ? (
                   <>
-                    <Text style={[styles.label, { color: c.muted, paddingVertical: 10 }]}>TAG BOXES</Text>
-                    {staffOrders
-                      .filter(o => o.nfc_token && ['paid','preparing','ready'].includes(o.status))
-                      .map(o => (
-                        <TouchableOpacity
-                          key={o.id}
-                          style={[styles.staffOrderRow, { borderBottomColor: c.border }]}
-                          onPress={() => showPanel('nfc-write', {
-                            nfc_token: o.nfc_token,
-                            variety_name: o.variety_name,
-                            customer_email: o.customer_email,
-                          })}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.staffOrderName, { color: c.text, fontFamily: fonts.playfair }]}>{o.variety_name}</Text>
-                            <Text style={[styles.staffOrderMeta, { color: c.muted, fontFamily: fonts.dmMono }]}>{o.customer_email}</Text>
-                          </View>
-                          <Text style={[styles.label, { color: c.accent }]}>TAG →</Text>
-                        </TouchableOpacity>
-                      ))}
+                    <View style={[styles.workerRequestRow, { borderColor: c.border }]}>
+                      <Text style={[styles.label, { color: c.muted }]}>WORKER ACCESS</Text>
+                      <Text style={[styles.workerRequestStatus, { color: c.muted }]}>Request pending</Text>
+                    </View>
+                  </>
+                ) : workerAccess === 'denied' ? (
+                  <>
+                    <View style={[styles.workerRequestRow, { borderColor: c.border }]}>
+                      <Text style={[styles.label, { color: c.muted }]}>WORKER ACCESS</Text>
+                      <Text style={[styles.workerRequestStatus, { color: '#C0392B' }]}>Not approved</Text>
+                    </View>
+                  </>
+                ) : workerAccess === 'ineligible' ? (
+                  <>
+                    <View style={[styles.workerRequestRow, { borderColor: c.border }]}>
+                      <Text style={[styles.label, { color: c.muted }]}>WORKER ACCESS</Text>
+                      <Text style={[styles.workerRequestStatus, { color: c.muted }]}>Visit this location to be eligible</Text>
+                    </View>
+                  </>
+                ) : workerAccess === 'none' ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.workerRequestBtn, { borderColor: c.border }]}
+                      onPress={handleRequestWorkerAccess}
+                      disabled={requestingAccess}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.label, { color: c.muted }]}>REQUEST WORKER ACCESS</Text>
+                      <Text style={[styles.label, { color: c.accent }]}>{requestingAccess ? '…' : '→'}</Text>
+                    </TouchableOpacity>
                   </>
                 ) : null}
               </>
             )}
-            {reviewMode && (
-              <>
-                <View style={[styles.divider, { backgroundColor: c.border }]} />
-                <TouchableOpacity
-                  style={styles.inboxBtn}
-                  onPress={() => ARBoxModule.presentAR({
-                    variety_id: 1, variety_name: 'Albion', farm: 'Domaine Lacroix',
-                    harvest_date: '2026-04-05', quantity: 2, chocolate: 'dark', finish: 'floral',
-                    brix_score: 11.4, growing_method: 'organic', altitude_m: 320,
-                    soil_type: 'sandy loam', farm_photo_url: null,
-                    tasting_notes: ['bright', 'citrus', 'sweet'],
-                    variety_description: 'A classic Californian variety with bright acidity and rich sweetness.',
-                    carbon_footprint_kg: 0.12, sunlight_hours: 8,
-                    pairing_suggestions: ['dark chocolate', 'aged brie'],
-                    collectif_name: null, show_referral_bubble: false,
-                    tasting_word_cloud: [], batch_members: [], lot_companions: [],
-                  }).catch(() => {})}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.label, { color: c.muted }]}>TRY AR</Text>
-                  <Text style={[styles.label, { color: c.accent }]}>→</Text>
-                </TouchableOpacity>
-              </>
-            )}
 
 </>
-            )}
           </>
         ) : (
           <View style={styles.signInBlock}>
@@ -1212,6 +898,35 @@ const nameInputRef = useRef<TextInput>(null);
                     <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
                   </TouchableOpacity>
                 </>
+              ) : showReviewerLogin ? (
+                <>
+                  <TextInput
+                    style={[styles.operatorInput, { color: c.text, borderColor: c.border }]}
+                    placeholder="email"
+                    placeholderTextColor={c.muted}
+                    value={reviewerEmail}
+                    onChangeText={setReviewerEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                  />
+                  <TextInput
+                    style={[styles.operatorInput, { color: c.text, borderColor: c.border }]}
+                    placeholder="password"
+                    placeholderTextColor={c.muted}
+                    value={reviewerPassword}
+                    onChangeText={setReviewerPassword}
+                    secureTextEntry
+                    returnKeyType="go"
+                    onSubmitEditing={handleReviewerLogin}
+                  />
+                  <TouchableOpacity onPress={handleReviewerLogin} activeOpacity={0.7} style={[styles.operatorSubmit, { backgroundColor: c.accent }]}>
+                    <Text style={[styles.demoText, { color: c.ctaText }]}>sign in</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setShowReviewerLogin(false); setReviewerEmail(''); setReviewerPassword(''); }} activeOpacity={0.6}>
+                    <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
+                  </TouchableOpacity>
+                </>
               ) : (
                 <>
                   <AppleAuthentication.AppleAuthenticationButton
@@ -1221,8 +936,8 @@ const nameInputRef = useRef<TextInput>(null);
                     style={styles.appleBtn}
                     onPress={handleAppleSignIn}
                   />
-                  <TouchableOpacity onPress={handleDemoLogin} activeOpacity={0.6}>
-                    <Text style={[styles.demoText, { color: c.muted }]}>use demo account</Text>
+                  <TouchableOpacity onPress={() => setShowReviewerLogin(true)} activeOpacity={0.6}>
+                    <Text style={[styles.demoText, { color: c.muted }]}>use email</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setShowOperatorLogin(true)} activeOpacity={0.6}>
                     <Text style={[styles.demoText, { color: c.muted }]}>operator login</Text>
@@ -1287,7 +1002,6 @@ const styles = StyleSheet.create({
   confirmedTitle: { fontSize: 22, fontFamily: fonts.playfair },
   confirmedDetail: { fontSize: 12, fontFamily: fonts.dmMono },
   confirmedHint: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5, fontStyle: 'italic' },
-  openConvoBtn: { paddingTop: 12, paddingBottom: 4 },
   newOrderBtn: { paddingTop: 8 },
   orderVariety: { fontSize: 22, fontFamily: fonts.playfair },
   orderDetail: { fontSize: 12, fontFamily: fonts.dmMono },
@@ -1302,14 +1016,6 @@ const styles = StyleSheet.create({
   operatorBlock: { paddingTop: 4, paddingBottom: SPACING.md, gap: 6, alignItems: 'center' },
   operatorTag: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, textTransform: 'uppercase', paddingTop: 8 },
   inboxBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, width: '100%' },
-  myVentureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingLeft: 12 },
-  myVentureName: { fontSize: 13, fontFamily: fonts.dmSans, flex: 1 },
-  myVentureTag: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1, borderWidth: 1, borderRadius: 3, paddingHorizontal: 4, paddingVertical: 1 },
-  marketOrderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingLeft: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  marketOrderLeft: { flex: 1, gap: 2 },
-  marketOrderName: { fontSize: 13, fontFamily: fonts.dmSans },
-  marketOrderMeta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
-  marketOrderStatus: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   operatorInput: { width: '100%', height: 48, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 16, fontSize: 22, fontFamily: fonts.dmMono, textAlign: 'center', letterSpacing: 4 },
   operatorSubmit: { width: '100%', height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   adOfferCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, marginBottom: 8, gap: 10 },
@@ -1321,8 +1027,6 @@ const styles = StyleSheet.create({
   adOfferBtns: { flexDirection: 'row', gap: 8 },
   adOfferBtn: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
   adOfferBtnText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  staffPinRow: { paddingHorizontal: 16, paddingVertical: 10 },
-  staffPinInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, letterSpacing: 2 },
   staffOrderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   staffOrderName: { fontSize: 15 },
   staffOrderMeta: { fontSize: 10, opacity: 0.6, marginTop: 2 },
@@ -1338,4 +1042,18 @@ const styles = StyleSheet.create({
   nodeAppStatus: { marginHorizontal: 16, marginVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 16, gap: 4 },
   nodeAppStatusName: { fontSize: 16, fontFamily: fonts.playfair },
   nodeAppStatusBadge: { fontSize: 12, fontFamily: fonts.dmMono },
+  workerRequestRow: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  workerRequestStatus: { fontSize: 12, fontFamily: fonts.dmSans },
+  workerRequestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
 });
