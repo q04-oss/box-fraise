@@ -231,7 +231,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
         AND cc_other.status = 'captured'
       WHERE le.event_type = 'nfc_verified'
         AND le.created_at >= ${todayStart}
-    `);
+    `).catch(() => ({ rows: [] }));
     const collectifData = ((collectifRows as any).rows ?? collectifRows)[0];
     const collectifPickupsToday = (collectifData ?? {}).pickup_count ?? 0;
 
@@ -243,7 +243,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
       WHERE u.id = ${user_id}
         AND o.variety_id = ${order.variety_id}
         AND o.status = 'collected'
-    `);
+    `).catch(() => ({ rows: [] }));
     const orderCount = (((countRows as any).rows ?? countRows)[0]?.order_count) ?? 0;
 
     // Feature B: last variety (most recent previous collected order with different variety or older)
@@ -257,7 +257,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
         AND o.status = 'collected'
       ORDER BY o.created_at DESC
       LIMIT 1
-    `);
+    `).catch(() => ({ rows: [] }));
     const lastVarietyRow = ((lastVarietyRows as any).rows ?? lastVarietyRows)[0] ?? null;
     const lastVariety = lastVarietyRow ? {
       id: lastVarietyRow.variety_id,
@@ -303,7 +303,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
         AND cc_other.user_id = le.user_id AND cc_other.user_id != ${user_id} AND cc_other.status = 'captured'
       WHERE le.event_type = 'nfc_verified' AND le.created_at >= ${todayStart}
       LIMIT 3
-    `);
+    `).catch(() => ({ rows: [] }));
     const collectifMemberNames: string[] = ((collectifNameRows as any).rows ?? collectifNameRows)
       .map((r: any) => r.display_name)
       .filter((n: string | null) => !!n) as string[];
