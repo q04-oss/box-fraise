@@ -3293,21 +3293,16 @@ router.get('/find-user', requirePin, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/admin/grant-worker-access — directly approve worker access for a user by email + location_id
+// POST /api/admin/grant-worker-access — directly approve worker access by user_id + location_id
 router.post('/grant-worker-access', requirePin, async (req: Request, res: Response) => {
-  const { email, location_id } = req.body;
-  if (!email || !location_id) { res.status(400).json({ error: 'email and location_id required' }); return; }
+  const { user_id, location_id } = req.body;
+  if (!user_id || !location_id) { res.status(400).json({ error: 'user_id and location_id required' }); return; }
   try {
-    const [user] = await db.select({ id: users.id, email: users.email }).from(users).where(sql`lower(${users.email}) = lower(${email})`);
-    if (!user) { res.status(404).json({ error: `User not found for email: ${email}` }); return; }
-    const locId = parseInt(location_id, 10);
-    const [existing] = await db.select({ id: locationStaff.id }).from(locationStaff)
-      .where(and(eq(locationStaff.user_id, user.id), eq(locationStaff.location_id, locId)));
-    if (existing) {
-      await db.update(locationStaff).set({ status: 'approved', reviewed_at: new Date() }).where(eq(locationStaff.id, existing.id));
-    } else {
-      await db.insert(locationStaff).values({ user_id: user.id, location_id: locId, status: 'approved', requested_at: new Date(), reviewed_at: new Date() });
-    }
+    await db.execute(sql`
+      INSERT INTO location_staff (user_id, location_id, status, requested_at, reviewed_at)
+      VALUES (${parseInt(user_id, 10)}, ${parseInt(location_id, 10)}, 'approved', now(), now())
+      ON CONFLICT (user_id, location_id) DO UPDATE SET status = 'approved', reviewed_at = now()
+    `);
     res.json({ ok: true });
   } catch (err) {
     logger.error('grant-worker-access error: ' + String(err));
