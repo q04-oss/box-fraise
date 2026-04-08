@@ -817,10 +817,10 @@ const nameInputRef = useRef<TextInput>(null);
             )}
 
             {/* ── Utility shortcuts ── */}
-            {isVerified && (
+            {workerAccess === 'approved' && (
               <>
                 <View style={[styles.divider, { backgroundColor: c.border }]} />
-                {workerAccess === 'approved' ? (
+                {true ? (
                   <>
                     <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('nfc-write', { nfc_token: 'fraise-thankyou' })} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.muted }]}>WRITE GENERIC TAG</Text>
