@@ -9,6 +9,8 @@ import { randomUUID } from 'crypto';
 const router = Router();
 
 // Self-healing
+db.execute(sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS allows_walkin boolean NOT NULL DEFAULT false`).catch(() => {});
+db.execute(sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS approved_by_admin boolean NOT NULL DEFAULT false`).catch(() => {});
 db.execute(sql`
   CREATE TABLE IF NOT EXISTS node_applications (
     id serial PRIMARY KEY,

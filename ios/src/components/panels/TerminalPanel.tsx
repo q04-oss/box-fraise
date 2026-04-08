@@ -160,7 +160,16 @@ const nameInputRef = useRef<TextInput>(null);
         fetchAdBalance().then(r => setAdBalanceCents(r.ad_balance_cents)).catch(() => {});
         fetchAvailableAds().then(setAvailableAds).catch(() => {});
         if (verified === 'true') {
-          fetchMyNodeApplication().then(setNodeApplication).catch(() => setNodeApplication(null));
+          fetchMyNodeApplication()
+            .then(app => {
+              setNodeApplication(app);
+              // If admin approved since last login, flip shop flag without requiring sign-out
+              if (app?.status === 'approved' && shopFlag !== 'true') {
+                AsyncStorage.setItem('is_shop', 'true').catch(() => {});
+                setIsShop(true);
+              }
+            })
+            .catch(() => setNodeApplication(null));
         }
       }
     }).finally(() => setLoading(false));
@@ -989,7 +998,10 @@ const nameInputRef = useRef<TextInput>(null);
                     </Text>
                     <TouchableOpacity
                       style={[styles.nodeAppSubmitBtn, { backgroundColor: c.accent, marginTop: 8 }]}
-                      onPress={() => setNodeApplication(null)}
+                      onPress={() => {
+                        setNodeAppForm({ business_name: '', address: '', neighbourhood: '', description: '', instagram_handle: '' });
+                        setNodeApplication(null);
+                      }}
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.nodeAppSubmitText, { color: c.ctaText ?? '#fff' }]}>Apply again</Text>
