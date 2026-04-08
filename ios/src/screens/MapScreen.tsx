@@ -129,10 +129,6 @@ export default function MapScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [personalToilets, setPersonalToilets] = useState<any[]>([]);
 
-  // Strawberry FAB three-tier long-press refs
-  const strawberryHapticLevel = useRef<0 | 1 | 2>(0);
-  const strawberryTimer1 = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const strawberryTimer2 = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncVerifiedState = useCallback(() => {
     AsyncStorage.multiGet(['verified', 'portal_opted_in', 'user_db_id']).then(([v, p, u]) => {
@@ -379,36 +375,14 @@ export default function MapScreen() {
     );
   };
 
-  const strawberryPressIn = useCallback(() => {
-    strawberryHapticLevel.current = 0;
-    strawberryTimer1.current = setTimeout(() => {
-      strawberryHapticLevel.current = 1;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      if (isVerified && portalOptedIn) {
-        strawberryTimer2.current = setTimeout(() => {
-          strawberryHapticLevel.current = 2;
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 100);
-        }, 700);
-      }
-    }, 500);
-  }, [isVerified, portalOptedIn]);
+  const handleStrawberryPress = () => {
+    handleShowAll();
+  };
 
-  // strawberryPressOut is intentionally not memoized — handleShowAll captures validBusinesses
-  // which changes each render, so we just re-create this on every render.
-  const strawberryPressOut = () => {
-    if (strawberryTimer1.current) { clearTimeout(strawberryTimer1.current); strawberryTimer1.current = null; }
-    if (strawberryTimer2.current) { clearTimeout(strawberryTimer2.current); strawberryTimer2.current = null; }
-    const level = strawberryHapticLevel.current;
-    if (level === 0) {
-      handleShowAll();
-    } else if (level === 1) {
-      jumpToPanel('conversations');
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
-    } else {
-      showPanel('portal');
-      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 350);
-    }
+  const handleStrawberryLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    jumpToPanel('conversations');
+    setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
   };
 
   const isLive = (b: any): boolean => {
@@ -645,8 +619,9 @@ export default function MapScreen() {
         <View style={[styles.fabStack, { bottom: fabBottom }]} pointerEvents="box-none">
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: c.card }]}
-            onPressIn={strawberryPressIn}
-            onPressOut={strawberryPressOut}
+            onPress={handleStrawberryPress}
+            onLongPress={handleStrawberryLongPress}
+            delayLongPress={500}
             activeOpacity={0.8}
           >
             <Text style={styles.fabIcon}>🍓</Text>
