@@ -11,13 +11,18 @@ async function ensureStarted() {
 
 export async function readNfcToken(): Promise<string> {
   await ensureStarted();
+  await NfcManager.cancelTechnologyRequest().catch(() => {});
   await NfcManager.requestTechnology(NfcTech.Ndef);
-  const tag = await NfcManager.getTag();
-  const record = tag?.ndefMessage?.[0];
-  if (!record) throw new Error('No NDEF record found');
-  const payload = Ndef.text.decodePayload(new Uint8Array(record.payload));
-  if (!payload) throw new Error('Empty NFC payload');
-  return payload.trim();
+  try {
+    const tag = await NfcManager.getTag();
+    const record = tag?.ndefMessage?.[0];
+    if (!record) throw new Error('No NDEF record found');
+    const payload = Ndef.text.decodePayload(new Uint8Array(record.payload));
+    if (!payload) throw new Error('Empty NFC payload');
+    return payload.trim();
+  } finally {
+    await NfcManager.cancelTechnologyRequest().catch(() => {});
+  }
 }
 
 export async function writeNfcToken(token: string): Promise<void> {

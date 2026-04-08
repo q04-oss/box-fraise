@@ -53,7 +53,7 @@ function buildPoemPrompt(data: Record<string, any>): string {
     if (fp.tasting_notes) parts.push(`Notes: ${fp.tasting_notes}`);
   }
 
-  return `You are a lyric poet writing tasting notes as poetry for a premium strawberry subscription box called Maison Fraise.
+  return `You are a lyric poet writing tasting notes as poetry for a premium strawberry subscription box called Box Fraise.
 
 Write exactly 4 lines of poetry about this specific strawberry variety. The poem should be evocative, sensory, and intimate — like a sommelier's note but in verse. No title, no label, no explanation. Just the 4 lines.
 

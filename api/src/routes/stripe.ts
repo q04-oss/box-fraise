@@ -245,7 +245,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
               .then(([recipient]) => {
                 if (recipient?.push_token) {
                   sendPushNotification(recipient.push_token, {
-                    title: 'You have a gift order from Maison Fraise 🍓',
+                    title: 'You have a gift order from Box Fraise 🍓',
                     body: gift_note ?? 'Someone sent you a gift.',
                     data: { order_id: newOrder.id },
                   }).catch(() => {});
@@ -349,7 +349,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
         const [user] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, userId));
         if (user?.push_token) {
           sendPushNotification(user.push_token, {
-            title: 'Welcome to Maison Fraise',
+            title: 'Welcome to Box Fraise',
             body: `Your ${TIER_LABELS[tier] ?? tier} membership is now active.`,
             data: { screen: 'membership' },
           }).catch(() => {});
@@ -653,7 +653,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
             // Push operator
             db.select({ push_token: users.push_token })
               .from(users)
-              .where(eq(users.email, process.env.OPERATOR_EMAIL ?? 'operator@maison-fraise.com'))
+              .where(eq(users.email, process.env.OPERATOR_EMAIL ?? 'operator@box-fraise.com'))
               .limit(1)
               .then(([op]) => {
                 if (op?.push_token) {

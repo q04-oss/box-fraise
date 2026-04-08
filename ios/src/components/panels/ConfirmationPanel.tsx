@@ -32,7 +32,7 @@ export default function ConfirmationPanel() {
 
   const handleShareOrder = () => {
     if (!order.order_id) return;
-    Share.share({ message: `Maison Fraise — Order #${order.order_id}` });
+    Share.share({ message: `Box Fraise — Order #${order.order_id}` });
   };
 
   const isQueued = order.order_status === 'queued';
@@ -86,10 +86,10 @@ export default function ConfirmationPanel() {
         {!isQueued && isVerified && (
           <TouchableOpacity
             style={[styles.standingBtn, { backgroundColor: c.card, borderColor: c.border }]}
-            onPress={() => jumpToPanel('standingOrder')}
+            onPress={() => showPanel('batch-preference')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.standingBtnText, { color: c.accent }]}>Make this a standing order</Text>
+            <Text style={[styles.standingBtnText, { color: c.accent }]}>Set up batch preferences</Text>
           </TouchableOpacity>
         )}
       </View>

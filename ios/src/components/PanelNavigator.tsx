@@ -20,6 +20,7 @@ import WalkInPanel from './panels/WalkInPanel';
 import WalkInWritePanel from './panels/WalkInWritePanel';
 import WalkInInventoryPanel from './panels/WalkInInventoryPanel';
 import NfcWritePanel from './panels/NfcWritePanel';
+import NfcRevealPanel from './panels/NfcRevealPanel';
 import { TierGate, PANEL_TIER_REQUIREMENTS } from './TierGate';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
@@ -40,10 +41,11 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'walk-in-write': WalkInWritePanel,
   'walk-in-inventory': WalkInInventoryPanel,
   'nfc-write': NfcWritePanel,
+  'nfc-reveal': NfcRevealPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
-  'nfc-write', 'walk-in', 'walk-in-write', 'walk-in-inventory',
+  'nfc-write', 'nfc-reveal', 'walk-in', 'walk-in-write', 'walk-in-inventory',
   'verified', 'batch-preference', 'partner-detail', 'order-history',
   'search', 'receipt',
   'my-profile', 'notifications', 'staff-orders',

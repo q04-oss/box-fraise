@@ -1,433 +1,192 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
-import { useStripe } from '@stripe/stripe-react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
-import { useApp } from '../../../App';
-import { searchVerifiedUsers, generateGiftNote, createStandingOrder, placeStandingOrderFromFund } from '../../lib/api';
-import { getAverageWakeTimeMinutesAfterMidnight } from '../../lib/HealthKitService';
-import { useColors, fonts } from '../../theme';
-import { SPACING } from '../../theme';
+import { useColors, fonts, SPACING } from '../../theme';
+import { fetchBatchPreferences, saveBatchPreference, updateBatchPreference, deleteBatchPreference } from '../../lib/api';
 
-function fmtCents(cents: number): string {
-  return `CA$${(cents / 100).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-const FREQUENCIES = [
-  { key: 'weekly', label: 'Weekly', cycles: 52, desc: 'Every week' },
-  { key: 'biweekly', label: 'Biweekly', cycles: 26, desc: 'Every two weeks' },
-  { key: 'monthly', label: 'Monthly', cycles: 12, desc: 'Once a month' },
+const CHOC_OPTS = [
+  { value: 'guanaja_70', label: 'Guanaja 70%' },
+  { value: 'caraibe_66', label: 'Caraïbe 66%' },
+  { value: 'jivara_40', label: 'Jivara 40%' },
+  { value: 'ivoire_blanc', label: 'Ivoire Blanc' },
 ];
-const TIME_PREFS = ['9:00 – 11:00', '11:00 – 13:00', '13:00 – 15:00', '15:00 – 17:00'];
-const TONES = ['warm', 'funny', 'poetic', 'minimal'] as const;
+const FINISH_OPTS = [
+  { value: 'plain', label: 'Plain' },
+  { value: 'fleur_de_sel', label: 'Fleur de Sel' },
+  { value: 'or_fin', label: 'Or Fin' },
+];
+const QTY_OPTS = [1, 2, 4, 6];
 
-export default function StandingOrderPanel() {
-  const { goBack, goHome, order, varieties } = usePanel();
-  const { reviewMode } = useApp();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+export default function BatchPreferencePanel() {
+  const { goBack, activeLocation, varieties } = usePanel();
   const c = useColors();
-  const insets = useSafeAreaInsets();
-  const [userDbId, setUserDbId] = useState<number | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
-  const [type, setType] = useState<'personal' | 'gift'>('personal');
+
+  const [preferences, setPreferences] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [selectedVariety, setSelectedVariety] = useState<number | null>(null);
+  const [chocolate, setChocolate] = useState('guanaja_70');
+  const [finish, setFinish] = useState('plain');
+  const [quantity, setQuantity] = useState(2);
 
   useEffect(() => {
-    Promise.all([
-      AsyncStorage.getItem('user_db_id'),
-      AsyncStorage.getItem('verified'),
-    ]).then(([dbId, verified]) => {
-      if (dbId) setUserDbId(parseInt(dbId, 10));
-      setIsVerified(verified === 'true');
-    });
+    fetchBatchPreferences()
+      .then(setPreferences)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const [suggestedSlot, setSuggestedSlot] = useState<string | null>(null);
-
-  useEffect(() => {
-    // TIME_PREFS start hours in minutes after midnight: 9:00=540, 11:00=660, 13:00=780, 15:00=900
-    const slotStartMinutes = [540, 660, 780, 900];
-    getAverageWakeTimeMinutesAfterMidnight(14).then(wakeMinutes => {
-      if (wakeMinutes === null) return;
-      const targetMinutes = wakeMinutes + 60; // 1 hour after wake
-      let closestIndex = 0;
-      let closestDiff = Math.abs(targetMinutes - slotStartMinutes[0]);
-      for (let i = 1; i < slotStartMinutes.length; i++) {
-        const diff = Math.abs(targetMinutes - slotStartMinutes[i]);
-        if (diff < closestDiff) { closestDiff = diff; closestIndex = i; }
-      }
-      setSuggestedSlot(TIME_PREFS[closestIndex]);
-    }).catch(() => {});
-  }, []);
-  const [freq, setFreq] = useState('monthly');
-  const [timePref, setTimePref] = useState(TIME_PREFS[0]);
-  const [recipientQuery, setRecipientQuery] = useState('');
-  const [recipients, setRecipients] = useState<any[]>([]);
-  const [selectedRecipient, setSelectedRecipient] = useState<any>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [tone, setTone] = useState<'warm' | 'funny' | 'poetic' | 'minimal'>('warm');
-  const [notePreview, setNotePreview] = useState('');
-  const [noteLoading, setNoteLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [fundBalanceCents, setFundBalanceCents] = useState<number>(0);
-  const [fundNewBalance, setFundNewBalance] = useState<number | null>(null);
-  const [fundError, setFundError] = useState<string | null>(null);
-
-  const selectedFreq = FREQUENCIES.find(f => f.key === freq)!;
-  const priceCents = varieties.find(v => v.id === order.variety_id)?.price_cents ?? order.price_cents ?? null;
-  const totalCents = priceCents !== null ? priceCents * order.quantity * selectedFreq.cycles : null;
-
-  const handleSearch = useCallback(async (q: string) => {
-    setRecipientQuery(q);
-    setSelectedRecipient(null);
-    if (q.length < 3) { setRecipients([]); return; }
-    setSearchLoading(true);
-    try { setRecipients(await searchVerifiedUsers(q) ?? []); }
-    catch { setRecipients([]); }
-    finally { setSearchLoading(false); }
-  }, []);
-
-  const handlePreview = async () => {
-    setNoteLoading(true);
-    try { setNotePreview((await generateGiftNote(tone, order.variety_name ?? '', selectedRecipient?.user_id ?? '')).note); }
-    catch { Alert.alert('Could not generate note'); }
-    finally { setNoteLoading(false); }
-  };
-
-  const handleConfirm = async () => {
-    const senderId = userDbId;
-    if (!senderId || !isVerified) return;
-    if (!order.variety_id || !order.location_id || !order.chocolate || !order.finish) {
-      Alert.alert('Incomplete order', 'Return to the order flow and complete your selection first.');
-      return;
-    }
-    if (type === 'gift' && !selectedRecipient) {
-      Alert.alert('Recipient required', 'Search for and select a verified member.');
-      return;
-    }
-    if (totalCents === null) {
-      Alert.alert('Pricing unavailable', 'Return to the order flow and reselect your variety.');
-      return;
-    }
-    setSubmitting(true);
+  const handleSave = async () => {
+    if (!selectedVariety || !activeLocation?.id) return;
+    setSaving(true);
     try {
-      const today = new Date();
-      const next = new Date(today);
-      if (freq === 'weekly') next.setDate(today.getDate() + 7);
-      else if (freq === 'biweekly') next.setDate(today.getDate() + 14);
-      else { next.setDate(1); next.setMonth(today.getMonth() + 1); }
-
-      const { client_secret } = await createStandingOrder({
-        recipient_id: type === 'gift' ? selectedRecipient?.id : undefined,
-        variety_id: order.variety_id!,
-        chocolate: order.chocolate!,
-        finish: order.finish!,
-        quantity: order.quantity,
-        location_id: order.location_id!,
-        time_slot_preference: timePref,
-        frequency: freq,
-        next_order_date: next.toISOString().split('T')[0],
-        gift_tone: type === 'gift' ? tone : undefined,
+      const updated = await saveBatchPreference({
+        variety_id: selectedVariety,
+        chocolate,
+        finish,
+        quantity,
+        location_id: activeLocation.id,
       });
-
-      if (!reviewMode) {
-        const email = await AsyncStorage.getItem('user_email');
-        const { error: initErr } = await initPaymentSheet({
-          merchantDisplayName: 'Maison Fraise',
-          paymentIntentClientSecret: client_secret,
-          applePay: {
-            merchantCountryCode: 'CA',
-            merchantIdentifier: 'merchant.com.maisonfraise.app',
-          },
-          defaultBillingDetails: { email: email ?? undefined },
-          appearance: {
-            colors: {
-              primary: c.accent,
-              background: '#FFFFFF',
-              componentBackground: '#F7F5F2',
-              componentText: '#1C1C1E',
-              componentBorder: '#E5E1DA',
-              placeholderText: '#8E8E93',
-            },
-          },
-        });
-        if (initErr) throw new Error(initErr.message);
-        TrueSheet.present('main-sheet', 0);
-        const { error: presentErr } = await presentPaymentSheet();
-        if (presentErr) {
-          setTimeout(() => TrueSheet.present('main-sheet', 1), 150);
-          if (presentErr.code === 'Canceled') { setSubmitting(false); return; }
-          throw new Error(presentErr.message);
-        }
-        setTimeout(() => TrueSheet.present('main-sheet', 2), 150);
-      }
-
-      setSuccess(true);
-    } catch (err: unknown) {
-      Alert.alert('Could not set up standing order', err instanceof Error ? err.message : 'Try again.');
+      setPreferences(prev => {
+        const idx = prev.findIndex(p => p.id === updated.id);
+        if (idx >= 0) { const next = [...prev]; next[idx] = updated; return next; }
+        return [...prev, updated];
+      });
+      setSelectedVariety(null);
+    } catch {
+      Alert.alert('Could not save preference', 'Please try again.');
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const handleConfirmFromFund = async () => {
-    const senderId = userDbId;
-    if (!senderId || !isVerified) return;
-    if (!order.variety_id || !order.location_id || !order.time_slot_id || !order.chocolate || !order.finish) {
-      Alert.alert('Incomplete order', 'Return to the order flow and complete your selection first.');
-      return;
-    }
-    if (totalCents === null) {
-      Alert.alert('Pricing unavailable', 'Return to the order flow and reselect your variety.');
-      return;
-    }
-    setFundError(null);
-    if (fundBalanceCents < totalCents) {
-      setFundError(
-        `ERR: insufficient fund balance\n     ${fmtCents(fundBalanceCents)} available · ${fmtCents(totalCents)} required`,
-      );
-      return;
-    }
-    setSubmitting(true);
+  const handleToggle = async (pref: any) => {
+    const next = pref.status === 'active' ? 'paused' : 'active';
     try {
-      const result = await placeStandingOrderFromFund(order.variety_id!, order.quantity, order.location_id!, order.time_slot_id!, order.chocolate!, order.finish!);
-      setFundNewBalance(result.new_balance_cents);
-      setSuccess(true);
-    } catch (err: unknown) {
-      Alert.alert('Could not place order from fund', err instanceof Error ? err.message : 'Try again.');
-    } finally {
-      setSubmitting(false);
-    }
+      const updated = await updateBatchPreference(pref.id, next);
+      setPreferences(prev => prev.map(p => p.id === updated.id ? updated : p));
+    } catch { Alert.alert('Could not update preference.'); }
   };
 
-  if (success) {
-    return (
-      <View style={[styles.container, styles.successContainer, { backgroundColor: c.panelBg }]}>
-        <Text style={[styles.successCheck, { color: c.accent }]}>✓</Text>
-        {fundNewBalance !== null ? (
-          <>
-            <Text style={[styles.successTitle, { color: c.text }]}>{'OK: order placed from fund_'}</Text>
-            <Text style={[styles.successSub, { color: c.muted }]}>
-              {`new balance: ${fmtCents(fundNewBalance)}`}
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.successTitle, { color: c.text }]}>Standing order set.</Text>
-            <Text style={[styles.successSub, { color: c.muted }]}>
-              Your {freq} order starts {selectedFreq.desc.toLowerCase()}.
-            </Text>
-          </>
-        )}
-        <TouchableOpacity
-          style={[styles.confirmBtn, { backgroundColor: c.text, marginTop: SPACING.lg, paddingHorizontal: SPACING.xl }]}
-          onPress={goHome}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.confirmBtnText, { color: c.ctaText }]}>Done</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const handleDelete = async (pref: any) => {
+    Alert.alert('Remove preference?', `Stop auto-including you in ${pref.variety_name} batches?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        try {
+          await deleteBatchPreference(pref.id);
+          setPreferences(prev => prev.filter(p => p.id !== pref.id));
+        } catch { Alert.alert('Could not remove preference.'); }
+      }},
+    ]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
+          <Text style={[styles.backArrow, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>Standing Order</Text>
+        <Text style={[styles.title, { color: c.text }]}>Batch Preferences</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {/* Toggle */}
-        <View style={[styles.toggle, { backgroundColor: c.cardDark }]}>
-          {(['personal', 'gift'] as const).map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.toggleOpt, type === t && [styles.toggleOptActive, { backgroundColor: c.accent }]]}
-              onPress={() => setType(t)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.toggleText, { color: type === t ? '#fff' : c.muted }]}>
-                {t === 'personal' ? 'Myself' : 'A gift'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {type === 'gift' && (
-          <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.sectionLabel, { color: c.muted }]}>RECIPIENT</Text>
-            <TextInput
-              style={[styles.searchInput, { color: c.text, borderBottomColor: c.border }]}
-              placeholder="Search by member ID (MF-...)"
-              placeholderTextColor={c.muted}
-              value={recipientQuery}
-              onChangeText={handleSearch}
-              autoCapitalize="characters"
-            />
-            {searchLoading && <ActivityIndicator size="small" color={c.accent} style={{ marginTop: 8 }} />}
-            {recipients.map(r => (
-              <TouchableOpacity key={r.id} style={[styles.resultRow, { borderBottomColor: c.border }]} onPress={() => { setSelectedRecipient(r); setRecipientQuery(r.user_id); setRecipients([]); }}>
-                <Text style={[styles.resultText, { color: c.text }]}>{r.user_id}</Text>
-              </TouchableOpacity>
-            ))}
-            {selectedRecipient && (
-              <View style={[styles.selectedRow, { backgroundColor: c.cardDark }]}>
-                <Text style={[styles.selectedText, { color: c.accent }]}>{selectedRecipient.user_id}</Text>
-                <TouchableOpacity onPress={() => { setSelectedRecipient(null); setRecipientQuery(''); }}>
-                  <Text style={[styles.clearText, { color: c.muted }]}>✕</Text>
-                </TouchableOpacity>
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
+        ) : (
+          <>
+            {/* Existing preferences */}
+            {preferences.length > 0 && (
+              <View style={{ paddingHorizontal: SPACING.md, paddingTop: SPACING.md }}>
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>YOUR PREFERENCES</Text>
+                {preferences.map(pref => (
+                  <View key={pref.id} style={[styles.prefRow, { borderBottomColor: c.border }]}>
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={[styles.prefVariety, { color: c.text }]}>{pref.variety_name}</Text>
+                      <Text style={[styles.prefMeta, { color: c.muted }]}>
+                        {CHOC_OPTS.find(c => c.value === pref.chocolate)?.label} · {FINISH_OPTS.find(f => f.value === pref.finish)?.label} · ×{pref.quantity}
+                      </Text>
+                    </View>
+                    <View style={styles.prefActions}>
+                      <TouchableOpacity onPress={() => handleToggle(pref)} activeOpacity={0.7}
+                        style={[styles.prefToggle, { borderColor: c.border }]}>
+                        <Text style={[styles.prefToggleText, { color: pref.status === 'active' ? c.accent : c.muted }]}>
+                          {pref.status === 'active' ? 'Active' : 'Paused'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleDelete(pref)} activeOpacity={0.7}>
+                        <Text style={[styles.prefDelete, { color: c.muted }]}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
               </View>
             )}
-          </View>
-        )}
 
-        {/* Frequency */}
-        <Text style={[styles.sectionLabel, { color: c.muted }]}>FREQUENCY</Text>
-        {FREQUENCIES.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.freqCard, { backgroundColor: c.card, borderColor: freq === f.key ? c.accent : 'transparent' }]}
-            onPress={() => setFreq(f.key)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.freqLabel, { color: freq === f.key ? c.accent : c.text }]}>{f.label}</Text>
-            <Text style={[styles.freqDesc, { color: freq === f.key ? c.accent : c.muted }]}>{f.desc}</Text>
-          </TouchableOpacity>
-        ))}
+            {/* Add new preference */}
+            <View style={{ paddingHorizontal: SPACING.md, paddingTop: SPACING.md }}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>ADD PREFERENCE</Text>
 
-        {/* Time */}
-        <Text style={[styles.sectionLabel, { color: c.muted }]}>PREFERRED TIME</Text>
-        {suggestedSlot !== null && (
-          <View style={[styles.sleepSuggestion, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.sleepSuggestionLabel, { color: c.muted }]}>BASED ON YOUR SLEEP</Text>
-            <View style={styles.sleepSuggestionRow}>
-              <Text style={[styles.sleepSuggestionText, { color: c.text }]}>
-                {'Your usual wake time suggests the '}
-                <Text style={{ color: c.accent }}>{suggestedSlot}</Text>
-                {' slot.'}
-              </Text>
-              <TouchableOpacity onPress={() => setTimePref(suggestedSlot)} activeOpacity={0.7}>
-                <Text style={[styles.sleepSuggestionCta, { color: c.accent }]}>use this →</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-        <View style={styles.timeRow}>
-          {TIME_PREFS.map(t => (
-            <TouchableOpacity
-              key={t}
-              style={[styles.timeChip, { backgroundColor: c.card, borderColor: timePref === t ? c.accent : 'transparent' }]}
-              onPress={() => setTimePref(t)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.timeText, { color: timePref === t ? c.accent : c.text, fontWeight: timePref === t ? '600' : '400' }]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {type === 'gift' && (
-          <>
-            <Text style={[styles.sectionLabel, { color: c.muted }]}>NOTE TONE</Text>
-            <View style={styles.toneRow}>
-              {TONES.map(t => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.toneChip, { backgroundColor: c.card, borderColor: tone === t ? c.accent : 'transparent' }]}
-                  onPress={() => { setTone(t); setNotePreview(''); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.toneText, { color: tone === t ? c.accent : c.text, fontWeight: tone === t ? '600' : '400' }]}>{t}</Text>
+              <Text style={[styles.fieldLabel, { color: c.muted }]}>VARIETY</Text>
+              {varieties.map(v => (
+                <TouchableOpacity key={v.id} onPress={() => setSelectedVariety(v.id)}
+                  style={[styles.optRow, { borderColor: c.border }, selectedVariety === v.id && { borderColor: c.accent }]}
+                  activeOpacity={0.75}>
+                  <Text style={[styles.optText, { color: selectedVariety === v.id ? c.accent : c.text }]}>{v.name}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.previewBtn, { backgroundColor: c.card, borderColor: c.border }, (!selectedRecipient || noteLoading) && { opacity: 0.4 }]}
-              onPress={handlePreview}
-              disabled={!selectedRecipient || noteLoading}
-              activeOpacity={0.8}
-            >
-              {noteLoading
-                ? <ActivityIndicator size="small" color={c.accent} />
-                : <Text style={[styles.previewBtnText, { color: c.accent }]}>Preview note</Text>
-              }
-            </TouchableOpacity>
-            {notePreview !== '' && (
-              <View style={[styles.noteCard, { backgroundColor: c.card, borderColor: c.border }]}>
-                <Text style={[styles.noteLabel, { color: c.muted }]}>SAMPLE NOTE</Text>
-                <Text style={[styles.noteText, { color: c.text }]}>{notePreview}</Text>
+
+              <Text style={[styles.fieldLabel, { color: c.muted, marginTop: 14 }]}>CHOCOLATE</Text>
+              <View style={styles.pillRow}>
+                {CHOC_OPTS.map(o => (
+                  <TouchableOpacity key={o.value} onPress={() => setChocolate(o.value)}
+                    style={[styles.pill, { borderColor: c.border }, chocolate === o.value && { borderColor: c.accent }]}
+                    activeOpacity={0.75}>
+                    <Text style={[styles.pillText, { color: chocolate === o.value ? c.accent : c.muted }]}>{o.label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
+
+              <Text style={[styles.fieldLabel, { color: c.muted, marginTop: 14 }]}>FINISH</Text>
+              <View style={styles.pillRow}>
+                {FINISH_OPTS.map(o => (
+                  <TouchableOpacity key={o.value} onPress={() => setFinish(o.value)}
+                    style={[styles.pill, { borderColor: c.border }, finish === o.value && { borderColor: c.accent }]}
+                    activeOpacity={0.75}>
+                    <Text style={[styles.pillText, { color: finish === o.value ? c.accent : c.muted }]}>{o.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.fieldLabel, { color: c.muted, marginTop: 14 }]}>BOXES PER BATCH</Text>
+              <View style={styles.pillRow}>
+                {QTY_OPTS.map(q => (
+                  <TouchableOpacity key={q} onPress={() => setQuantity(q)}
+                    style={[styles.pill, { borderColor: c.border }, quantity === q && { borderColor: c.accent }]}
+                    activeOpacity={0.75}>
+                    <Text style={[styles.pillText, { color: quantity === q ? c.accent : c.muted }]}>{q}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: selectedVariety ? c.accent : c.border }, saving && { opacity: 0.5 }]}
+                onPress={handleSave}
+                disabled={!selectedVariety || saving}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.saveBtnText, { color: c.ctaText ?? '#fff' }]}>
+                  {saving ? 'Saving…' : 'Save Preference'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ height: 48 }} />
           </>
         )}
-
-        {/* Total */}
-        <View style={[styles.totalCard, { backgroundColor: c.card, borderColor: c.border }]}>
-          <View>
-            <Text style={[styles.totalLabel, { color: c.muted }]}>TOTAL PREPAYMENT</Text>
-            <Text style={[styles.totalSub, { color: c.muted }]}>
-              {priceCents !== null
-                ? `${selectedFreq.cycles} orders × CA${(priceCents * order.quantity / 100).toFixed(2)}`
-                : 'Pricing unavailable — return to order flow'}
-            </Text>
-          </View>
-          <Text style={[styles.totalAmount, { color: c.text }]}>
-            {totalCents !== null ? `CA$${(totalCents / 100).toFixed(2)}` : '—'}
-          </Text>
-        </View>
-        <View style={{ height: SPACING.xl }} />
       </ScrollView>
-
-      {!userDbId && (
-        <View style={[styles.notSignedInBanner, { backgroundColor: c.cardDark }]}>
-          <Text style={[styles.notSignedInText, { color: c.muted }]}>Sign in with Apple in your profile to set up standing orders.</Text>
-        </View>
-      )}
-      {userDbId && !isVerified && (
-        <View style={[styles.notSignedInBanner, { backgroundColor: c.cardDark }]}>
-          <Text style={[styles.notSignedInText, { color: c.muted }]}>Collect your first order and tap the NFC chip to unlock standing orders.</Text>
-        </View>
-      )}
-
-      <View style={[styles.footer, { borderTopColor: c.border, paddingBottom: insets.bottom || SPACING.md }]}>
-        {/* Payment section */}
-        <View style={[styles.paymentSection, { borderColor: c.border }]}>
-          <Text style={[styles.paymentHeader, { color: c.muted }]}>{'PAYMENT'}</Text>
-          <View style={styles.paymentSeparator} />
-
-          <TouchableOpacity
-            style={[styles.paymentOption, (!userDbId || !isVerified || submitting) && { opacity: 0.4 }]}
-            onPress={handleConfirm}
-            disabled={!userDbId || !isVerified || submitting}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.paymentOptionText, { color: c.text }]}>
-              {submitting ? 'Setting up...' : '> PAY WITH CARD_'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.paymentOption, (!userDbId || !isVerified || submitting) && { opacity: 0.4 }]}
-            onPress={handleConfirmFromFund}
-            disabled={!userDbId || !isVerified || submitting}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.paymentOptionText, { color: c.text }]}>{'> PAY FROM FUND_'}</Text>
-            <Text style={[styles.paymentOptionSub, { color: c.muted }]}>
-              {`  Fund balance: ${fmtCents(fundBalanceCents)}`}
-            </Text>
-          </TouchableOpacity>
-
-          {fundError && (
-            <Text style={[styles.fundError, { color: '#E53935' }]}>{fundError}</Text>
-          )}
-        </View>
-      </View>
     </View>
   );
 }
@@ -436,63 +195,24 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth },
   backBtn: { width: 40, paddingVertical: 4 },
-  backBtnText: { fontSize: 28, lineHeight: 34 },
-  headerSpacer: { width: 40 },
+  backArrow: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
-  body: { padding: SPACING.md, gap: SPACING.md },
-  sectionLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.8 },
-  toggle: { flexDirection: 'row', borderRadius: 12, padding: 4, gap: 4 },
-  toggleOpt: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  toggleOptActive: {},
-  toggleText: { fontSize: 14, fontFamily: fonts.dmSans, fontWeight: '600' },
-  card: { borderRadius: 14, padding: SPACING.md, gap: 8, borderWidth: StyleSheet.hairlineWidth },
-  searchInput: { fontSize: 14, fontFamily: fonts.dmSans, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 6 },
-  resultRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
-  resultText: { fontSize: 14, fontFamily: fonts.dmMono, letterSpacing: 1 },
-  selectedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
-  selectedText: { fontSize: 13, fontFamily: fonts.dmMono, fontWeight: '600' },
-  clearText: { fontSize: 14 },
-  freqCard: { borderRadius: 14, padding: SPACING.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
-  freqLabel: { fontSize: 16, fontFamily: fonts.playfair },
-  freqDesc: { fontSize: 13, fontFamily: fonts.dmSans },
-  timeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  timeChip: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9, borderWidth: StyleSheet.hairlineWidth },
-  timeText: { fontSize: 13, fontFamily: fonts.dmSans },
-  toneRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  toneChip: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth },
-  toneText: { fontSize: 13, fontFamily: fonts.dmSans },
-  previewBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
-  previewBtnText: { fontSize: 14, fontFamily: fonts.playfair },
-  noteCard: { borderRadius: 14, padding: SPACING.md, gap: 8, borderWidth: StyleSheet.hairlineWidth },
-  noteLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 2 },
-  noteText: { fontSize: 14, fontFamily: fonts.dmSans, lineHeight: 22, fontStyle: 'italic' },
-  totalCard: { borderRadius: 14, paddingHorizontal: SPACING.md, paddingVertical: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth },
-  totalLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.8, marginBottom: 3 },
-  totalSub: { fontSize: 12, fontFamily: fonts.dmSans },
-  totalAmount: { fontSize: 24, fontFamily: fonts.playfair },
-  footer: { padding: SPACING.md, borderTopWidth: StyleSheet.hairlineWidth },
-  confirmBtn: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
-  confirmBtnDisabled: { opacity: 0.5 },
-  confirmBtnText: { fontSize: 16, fontFamily: fonts.dmSans, fontWeight: '700' },
-  notSignedInBanner: { marginHorizontal: SPACING.md, marginBottom: 8, borderRadius: 12, padding: 12 },
-  notSignedInText: { fontSize: 13, fontFamily: fonts.dmSans, textAlign: 'center', lineHeight: 20 },
-  successContainer: { alignItems: 'center', justifyContent: 'center' },
-  successCheck: { fontSize: 48, marginBottom: SPACING.md },
-  successTitle: { fontSize: 32, fontFamily: fonts.playfair, marginBottom: SPACING.sm },
-  successSub: { fontSize: 14, fontFamily: fonts.dmSans, textAlign: 'center' },
-  paymentSection: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: SPACING.sm, gap: 8 },
-  paymentHeader: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.8 },
-  paymentSeparator: { height: StyleSheet.hairlineWidth },
-  paymentOption: { paddingVertical: 6 },
-  paymentOptionText: { fontSize: 13, fontFamily: fonts.dmMono },
-  paymentOptionSub: { fontSize: 12, fontFamily: fonts.dmMono, marginTop: 2 },
-  fundError: { fontSize: 12, fontFamily: fonts.dmMono, lineHeight: 18, marginTop: 4 },
-  sleepSuggestion: {
-    borderRadius: 12, borderWidth: StyleSheet.hairlineWidth,
-    padding: SPACING.sm, gap: 6,
-  },
-  sleepSuggestionLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.8 },
-  sleepSuggestionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  sleepSuggestionText: { flex: 1, fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20 },
-  sleepSuggestionCta: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1 },
+  headerSpacer: { width: 40 },
+  body: { flex: 1 },
+  sectionLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5, marginBottom: 12 },
+  fieldLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, marginBottom: 8 },
+  prefRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
+  prefVariety: { fontSize: 15, fontFamily: fonts.playfair },
+  prefMeta: { fontSize: 11, fontFamily: fonts.dmSans },
+  prefActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  prefToggle: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  prefToggleText: { fontSize: 11, fontFamily: fonts.dmMono },
+  prefDelete: { fontSize: 16, paddingHorizontal: 4 },
+  optRow: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
+  optText: { fontSize: 15, fontFamily: fonts.playfair },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  pillText: { fontSize: 12, fontFamily: fonts.dmSans },
+  saveBtn: { marginTop: 24, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  saveBtnText: { fontSize: 15, fontFamily: fonts.dmSans },
 });

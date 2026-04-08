@@ -386,7 +386,7 @@ router.post('/:id/nominations', requireUser, async (req: Request, res: Response)
     if (nominee?.push_token) {
       const name = nominee.display_name ?? nominee.email.split('@')[0];
       sendPushNotification(nominee.push_token, {
-        title: 'Maison Fraise',
+        title: 'Box Fraise',
         body: `You've been nominated at tonight's popup, ${name}.`,
         data: { screen: 'nomination-history', popup_id },
       }).catch(() => {});

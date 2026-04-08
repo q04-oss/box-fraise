@@ -10,7 +10,7 @@ const { width: W } = Dimensions.get('window');
 const STEPS = [
   {
     kanji: '旬',
-    title: 'Maison Fraise',
+    title: 'Box Fraise',
     subtitle: 'A seasonal strawberry atelier in Montréal.',
     body: 'We source directly from small farms and offer curated varieties by the box — chocolate-dipped, finished with fleur de sel or or fin.',
   },

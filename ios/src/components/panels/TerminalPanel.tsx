@@ -816,17 +816,6 @@ const nameInputRef = useRef<TextInput>(null);
               </>
             )}
 
-            {/* ── TEST: NFC write shortcut ── */}
-            <View style={[styles.divider, { backgroundColor: c.border }]} />
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('nfc-write', { nfc_token: '6bc7380a-1a55-466b-b7c7-4e3bbe6676d9', variety_name: 'Albion (test)' })} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>WRITE TEST TAG</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.inboxBtn} onPress={() => showPanel('staff-orders')} activeOpacity={0.7}>
-              <Text style={[styles.label, { color: c.muted }]}>STAFF ORDERS</Text>
-              <Text style={[styles.label, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-
             {/* ── Utility shortcuts ── */}
             {workerAccess === 'approved' && (
               <>

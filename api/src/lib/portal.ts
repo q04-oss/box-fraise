@@ -1,4 +1,4 @@
-export const PORTAL_CUT_PERCENT = 20; // Maison Fraise takes 20%
+export const PORTAL_CUT_PERCENT = 20; // Box Fraise takes 20%
 
 export const VERIFICATION_FEE_CENTS = 11100;   // CA$111 — one-time initiation fee
 export const VERIFICATION_RENEWAL_CENTS = 33300; // CA$333 — annual renewal fee

@@ -402,7 +402,7 @@ async function submitToLuma(videoUrl: string, videoId: number): Promise<string |
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        title: `maison-fraise-ar-${videoId}`,
+        title: `box-fraise-ar-${videoId}`,
         sourceVideoUrl: videoUrl,
         webhookUrl: `${process.env.API_BASE_URL}/api/ar-videos/${videoId}/luma-webhook`,
       }),

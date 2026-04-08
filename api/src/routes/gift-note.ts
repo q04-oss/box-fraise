@@ -22,7 +22,7 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 150,
-        system: 'You write short handwritten gift notes for Maison Fraise, a premium chocolate-covered strawberry brand. Notes are warm, restrained, and French-patisserie in tone. Never more than 2 sentences. Never mention the brand name in the note.',
+        system: 'You write short handwritten gift notes for Box Fraise, a premium chocolate-covered strawberry brand. Notes are warm, restrained, and French-patisserie in tone. Never more than 2 sentences. Never mention the brand name in the note.',
         messages: [{ role: 'user', content: `Write a ${tone} gift note. The strawberry is ${variety_name}. Context about the recipient: ${recipient_context}` }],
       }),
     });

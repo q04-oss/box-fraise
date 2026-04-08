@@ -11,7 +11,7 @@ import adminRouter from './routes/admin';
 import chocolatierRouter from './routes/chocolatier';
 import supplierRouter from './routes/supplier';
 import verifyRouter from './routes/verify';
-import standingOrdersRouter from './routes/standing-orders';
+import batchPreferencesRouter from './routes/batch-preferences';
 import usersRouter from './routes/users';
 import giftNoteRouter from './routes/gift-note';
 import campaignsRouter from './routes/campaigns';
@@ -57,9 +57,6 @@ import menuRecommendationRouter from './routes/menu-recommendation';
 import staffRouter from './routes/staff';
 import walkinRouter from './routes/walkin';
 import nodeApplicationsRouter from './routes/node-applications';
-import waitlistRouter from './routes/standing-order-waitlist';
-import transfersRouter from './routes/standing-order-transfers';
-import tiersRouter from './routes/standing-order-tiers';
 import dropsRouter from './routes/drops';
 import preordersRouter from './routes/preorders';
 import bundlesRouter from './routes/bundles';
@@ -132,7 +129,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/chocolatier', chocolatierRouter);
 app.use('/api/supplier', supplierRouter);
 app.use('/api/verify', verifyRouter);
-app.use('/api/standing-orders', standingOrdersRouter);
+app.use('/api/batch-preferences', batchPreferencesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/gift-note', giftNoteRouter);
 app.use('/api/campaigns', campaignsRouter);
@@ -209,9 +206,6 @@ app.get('/api/batches', async (req, res) => {
   }
 });
 
-app.use('/api/standing-order-waitlist', waitlistRouter);
-app.use('/api/standing-order-transfers', transfersRouter);
-app.use('/api/standing-order-tiers', tiersRouter);
 app.use('/api/drops', dropsRouter);
 app.use('/api/preorders', preordersRouter);
 app.use('/api/bundles', bundlesRouter);
@@ -268,26 +262,26 @@ app.get('/chocolatier', (_req, res) => {
 });
 
 app.get('/privacy', (_req, res) => {
-  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Privacy Policy — Maison Fraise</title>
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Privacy Policy — Box Fraise</title>
   <style>body{font-family:Georgia,serif;max-width:680px;margin:60px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}h1{font-size:24px}h2{font-size:18px;margin-top:32px}p{margin:12px 0}</style></head>
   <body><h1>Privacy Policy</h1><p>Last updated: ${new Date().toLocaleDateString('en-CA')}</p>
-  <p>Maison Fraise ("we", "our") operates the Maison Fraise mobile application. This policy describes how we collect, use, and protect your information.</p>
+  <p>Box Fraise ("we", "our") operates the Box Fraise mobile application. This policy describes how we collect, use, and protect your information.</p>
   <h2>Information We Collect</h2><p>We collect your name, email address, and Apple ID when you sign in with Apple. We collect order information including variety, quantity, pickup location, and payment details processed by Stripe.</p>
   <h2>How We Use Your Information</h2><p>We use your information to process orders, send order confirmations and status updates, and improve our service. We do not sell your personal information.</p>
   <h2>Data Retention</h2><p>We retain order records for accounting purposes. You may request deletion of your account by contacting us.</p>
-  <h2>Contact</h2><p>For privacy inquiries: privacy@maison-fraise.com</p>
+  <h2>Contact</h2><p>For privacy inquiries: privacy@box-fraise.com</p>
   </body></html>`);
 });
 
 app.get('/terms', (_req, res) => {
-  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Terms of Service — Maison Fraise</title>
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Terms of Service — Box Fraise</title>
   <style>body{font-family:Georgia,serif;max-width:680px;margin:60px auto;padding:0 24px;color:#1a1a1a;line-height:1.7}h1{font-size:24px}h2{font-size:18px;margin-top:32px}p{margin:12px 0}</style></head>
   <body><h1>Terms of Service</h1><p>Last updated: ${new Date().toLocaleDateString('en-CA')}</p>
-  <p>By using the Maison Fraise app, you agree to these terms.</p>
+  <p>By using the Box Fraise app, you agree to these terms.</p>
   <h2>Orders</h2><p>All orders are final. Refunds are issued at our discretion for quality issues. Orders not collected within 2 hours of the designated time slot may be forfeited.</p>
   <h2>Payments</h2><p>Payments are processed securely by Stripe. We do not store card details.</p>
   <h2>Accounts</h2><p>You are responsible for maintaining the security of your account. We may terminate accounts that violate these terms.</p>
-  <h2>Contact</h2><p>For support: hello@maison-fraise.com</p>
+  <h2>Contact</h2><p>For support: hello@box-fraise.com</p>
   </body></html>`);
 });
 
@@ -317,9 +311,9 @@ app.get('/editorial/:id', async (req, res) => {
     res.send(`<!DOCTYPE html><html lang="en"><head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>${piece.title} — Maison Fraise</title>
+      <title>${piece.title} — Box Fraise</title>
       <meta property="og:title" content="${piece.title}">
-      <meta property="og:site_name" content="Maison Fraise">
+      <meta property="og:site_name" content="Box Fraise">
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:Georgia,serif;background:#faf9f7;color:#1a1a1a;padding:0 24px}
@@ -333,10 +327,10 @@ app.get('/editorial/:id', async (req, res) => {
         @media(prefers-color-scheme:dark){body{background:#0e0e0e;color:#f0ede8}.brand,.meta{color:#555}.body p{color:#d4d0ca}.commission{color:#c5705d}}
       </style>
     </head><body><div class="wrap">
-      <div class="brand"><a href="/">Maison Fraise</a></div>
+      <div class="brand"><a href="/">Box Fraise</a></div>
       <h1>${piece.title}</h1>
       <div class="meta">
-        <span>${piece.author_name ?? 'Maison Fraise'}</span>
+        <span>${piece.author_name ?? 'Box Fraise'}</span>
         <span>${date}</span>
       </div>
       <div class="body"><p>${bodyHtml}</p></div>
@@ -383,7 +377,7 @@ app.get('/members/:username', async (req, res) => {
     res.send(`<!DOCTYPE html><html lang="en"><head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>${profile.display_name ?? username} — Maison Fraise</title>
+      <title>${profile.display_name ?? username} — Box Fraise</title>
       <style>
         *{box-sizing:border-box;margin:0;padding:0}
         body{font-family:Georgia,serif;background:#faf9f7;color:#1a1a1a;padding:0 24px}
@@ -401,7 +395,7 @@ app.get('/members/:username', async (req, res) => {
         @media(prefers-color-scheme:dark){body{background:#0e0e0e;color:#f0ede8}.brand,.tier,.date{color:#555}li{border-color:#222}li a{color:#f0ede8}}
       </style>
     </head><body><div class="wrap">
-      <div class="brand"><a href="/">Maison Fraise</a></div>
+      <div class="brand"><a href="/">Box Fraise</a></div>
       <h1>${profile.display_name ?? username}</h1>
       <div class="tier">${activeMembership ? `${tierLabel} member · Active` : 'No active membership'}</div>
       ${pieces.length > 0 ? `<h2>Published pieces</h2><ul>${pieceItems}</ul>` : '<p style="color:#888;font-size:14px">No published pieces yet.</p>'}

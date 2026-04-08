@@ -17,7 +17,7 @@ export async function resolveEmailAddress(appleEmail: string): Promise<string> {
   }
 }
 
-const FROM = 'Maison Fraise <orders@fraise.chat>';
+const FROM = 'Box Fraise <orders@fraise.chat>';
 const REPLY_TO = 'hello@fraise.chat';
 
 const CHOCOLATE_LABELS: Record<string, string> = {
@@ -56,7 +56,7 @@ function baseTemplate(content: string, heading: string): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Maison Fraise</title>
+  <title>Box Fraise</title>
 </head>
 <body style="margin:0;padding:0;background:#111113;font-family:Georgia,'Times New Roman',serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#111113;padding:48px 0;">
@@ -67,7 +67,7 @@ function baseTemplate(content: string, heading: string): string {
           <!-- Header -->
           <tr>
             <td style="background:#0C0C0E;padding:32px 36px 28px;border-radius:14px 14px 0 0;border-bottom:1px solid #2A2A2E;">
-              <p style="margin:0 0 8px;color:#C9973A;font-size:10px;letter-spacing:3px;text-transform:uppercase;font-family:'Courier New',Courier,monospace;">Maison Fraise</p>
+              <p style="margin:0 0 8px;color:#C9973A;font-size:10px;letter-spacing:3px;text-transform:uppercase;font-family:'Courier New',Courier,monospace;">Box Fraise</p>
               <p style="margin:0;color:#F2F2F7;font-size:26px;font-style:italic;line-height:1.3;font-family:Georgia,'Times New Roman',serif;">${heading}</p>
             </td>
           </tr>
@@ -77,7 +77,7 @@ function baseTemplate(content: string, heading: string): string {
             <td style="background:#1A1A1C;padding:32px 36px 36px;border-radius:0 0 14px 14px;">
               ${content}
               <p style="margin:28px 0 0;font-size:11px;color:#5A5A5E;letter-spacing:0.3px;border-top:1px solid #2A2A2E;padding-top:20px;font-family:'Courier New',Courier,monospace;">
-                Maison Fraise &nbsp;·&nbsp; Marché Atwater, Montréal &nbsp;·&nbsp; <a href="https://fraise.chat" style="color:#C9973A;text-decoration:none;">fraise.chat</a>
+                Box Fraise &nbsp;·&nbsp; Marché Atwater, Montréal &nbsp;·&nbsp; <a href="https://fraise.chat" style="color:#C9973A;text-decoration:none;">fraise.chat</a>
               </p>
             </td>
           </tr>
@@ -379,7 +379,7 @@ export async function sendNominationReceived(params: {
       <strong style="color:#F2F2F7;">${nominatorName}</strong> nominated you for <strong style="color:#F2F2F7;">${popupName}</strong>${popupDate ? ` on ${popupDate}` : ''}. Open the app to see the full nomination.
     </p>
     <p style="margin:0;font-size:13px;color:rgba(242,242,247,0.38);line-height:1.75;font-family:'Courier New',Courier,monospace;letter-spacing:0.2px;">
-      Nominations reflect the community's interest in having you at a Maison Fraise event.
+      Nominations reflect the community's interest in having you at a Box Fraise event.
     </p>
   `;
   await resend.emails.send({
@@ -434,7 +434,7 @@ export async function sendDailySummary(to: string, params: {
     </table>
 
     <p style="margin:0;font-size:13px;color:rgba(242,242,247,0.38);line-height:1.75;font-family:'Courier New',Courier,monospace;letter-spacing:0.2px;">
-      Generated automatically at 08:00 by Maison Fraise.
+      Generated automatically at 08:00 by Box Fraise.
     </p>
   `;
 
@@ -442,7 +442,7 @@ export async function sendDailySummary(to: string, params: {
     from: FROM,
     to,
     replyTo: REPLY_TO,
-    subject: 'Maison Fraise — Daily Summary',
+    subject: 'Box Fraise — Daily Summary',
     html: baseTemplate(content, 'Daily summary.'),
   });
 }
@@ -463,7 +463,7 @@ export async function sendTipReceived(params: {
       ${tipper_name ? row('From', tipper_name) : ''}
     </table>
     <p style="margin:0;font-size:13px;color:rgba(242,242,247,0.38);line-height:1.75;font-family:'Courier New',Courier,monospace;letter-spacing:0.2px;">
-      Thank you for your presence at Maison Fraise.
+      Thank you for your presence at Box Fraise.
     </p>
   `;
   await resend.emails.send({

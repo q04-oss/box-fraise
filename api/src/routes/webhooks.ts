@@ -75,7 +75,7 @@ router.post('/:id/test', requireUser, async (req: Request, res: Response) => {
     const sub = ((rows as any).rows ?? rows)[0];
     if (!sub) { res.status(404).json({ error: 'not_found' }); return; }
 
-    const body = JSON.stringify({ event: 'test', data: { message: 'Webhook test from Maison Fraise' }, fired_at: new Date().toISOString() });
+    const body = JSON.stringify({ event: 'test', data: { message: 'Webhook test from Box Fraise' }, fired_at: new Date().toISOString() });
     const sig = 'sha256=' + crypto.createHmac('sha256', sub.secret).update(body).digest('hex');
     const r = await fetch(sub.url, {
       method: 'POST',

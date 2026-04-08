@@ -106,11 +106,11 @@ router.get('/:id/share', async (req: Request, res: Response) => {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${esc(r.title)} — Maison Fraise</title>
+  <title>${esc(r.title)} — Box Fraise</title>
   <meta name="description" content="${esc(r.business_name)} · ${meta}" />
   <meta property="og:title" content="${esc(r.title)}" />
   <meta property="og:description" content="${esc(r.business_name)} · ${meta} · ${r.current_quantity}/${r.target_quantity} committed" />
-  <meta property="og:site_name" content="Maison Fraise" />
+  <meta property="og:site_name" content="Box Fraise" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { font-family: -apple-system, sans-serif; max-width: 480px; margin: 60px auto; padding: 0 24px; color: #111; }
@@ -128,7 +128,7 @@ router.get('/:id/share', async (req: Request, res: Response) => {
   <p class="meta">${meta}</p>
   <div class="track"><div class="fill"></div></div>
   <p class="label">${r.current_quantity} of ${r.target_quantity} committed</p>
-  <a href="https://fraise.chat" class="cta">Join on Maison Fraise →</a>
+  <a href="https://fraise.chat" class="cta">Join on Box Fraise →</a>
 </body>
 </html>`);
   } catch (err) {

@@ -54,7 +54,7 @@ export default function WalkInPanel() {
 
       const { error: initErr } = await initPaymentSheet({
         paymentIntentClientSecret: client_secret,
-        merchantDisplayName: 'Maison Fraise',
+        merchantDisplayName: 'Box Fraise',
         defaultBillingDetails: { email },
       });
       if (initErr) throw new Error(initErr.message);

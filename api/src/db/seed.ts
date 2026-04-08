@@ -57,8 +57,8 @@ export async function seed(): Promise<void> {
   const [seedUser] = await db
     .insert(users)
     .values({
-      email: 'demo@maison-fraise.com',
-      display_name: 'Maison Fraise',
+      email: 'demo@box-fraise.com',
+      display_name: 'Box Fraise',
       verified: true,
     })
     .returning();

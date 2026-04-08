@@ -152,7 +152,7 @@ cron.schedule('0 8 * * *', async () => {
       .from(varieties)
       .where(lte(varieties.stock_remaining, 3));
 
-    const operatorEmail = process.env.OPERATOR_EMAIL ?? 'operator@maison-fraise.com';
+    const operatorEmail = process.env.OPERATOR_EMAIL ?? 'operator@box-fraise.com';
     await sendDailySummary(operatorEmail, {
       orderCount: orderCountRow?.count ?? 0,
       rsvpCount: rsvpCountRow?.count ?? 0,
@@ -199,7 +199,7 @@ cron.schedule('0 9 * * *', async () => {
           const daysLeft = Math.ceil((new Date(m.renews_at).getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
           await sendPushNotification(user.push_token, {
             title: 'Membership renewing soon',
-            body: `Your Maison Fraise membership renews in ${daysLeft} days. Tap to review.`,
+            body: `Your Box Fraise membership renews in ${daysLeft} days. Tap to review.`,
             data: { screen: 'membership' },
           });
         }
@@ -232,7 +232,7 @@ async function main(): Promise<void> {
   }
 
   app.listen(PORT, () => {
-    logger.info(`Maison Fraise API running on port ${PORT}`);
+    logger.info(`Box Fraise API running on port ${PORT}`);
   });
 }
 

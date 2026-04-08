@@ -4,13 +4,12 @@ import {
   StyleSheet, ActivityIndicator, Linking, Platform, Alert,
 } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
-import { fetchBusinessPortraits, fetchBusinessVisitCount, createTip, fetchNearbyJobs, JobPosting, fetchToiletReviews, fetchBusinessSocial, fetchMenuRecommendation } from '../../lib/api';
-import { getTodayHealthContext } from '../../lib/HealthKitService';
+import { fetchBusinessPortraits, fetchBusinessVisitCount, createTip } from '../../lib/api';
 import { useStripe } from '@stripe/stripe-react-native';
 import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
 
-function formatContact(contact: string): { label: string; url: string } {
+function formatContact(contact: string): { label: string; url: string } | null {
   const trimmed = contact.trim();
   if (trimmed.includes('@') && !trimmed.startsWith('@')) {
     return { label: trimmed, url: `mailto:${trimmed}` };
@@ -18,13 +17,11 @@ function formatContact(contact: string): { label: string; url: string } {
   if (/^\+?[\d\s\-()]{7,}$/.test(trimmed)) {
     return { label: trimmed, url: `tel:${trimmed.replace(/\s/g, '')}` };
   }
-  // Instagram handle or URL
-  const handle = trimmed.replace('@', '');
-  return { label: `@${handle}`, url: `https://instagram.com/${handle}` };
+  return null;
 }
 
 export default function PartnerDetailPanel() {
-  const { goBack, activeLocation, showPanel, setPanelData } = usePanel();
+  const { goBack, activeLocation } = usePanel();
   const c = useColors();
   const [portraits, setPortraits] = useState<{ id: number; url: string; season: string; subject_name?: string }[]>([]);
   const [visitCount, setVisitCount] = useState<number | null>(null);
@@ -32,42 +29,17 @@ export default function PartnerDetailPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [tipping, setTipping] = useState(false);
   const [tipAmount, setTipAmount] = useState<number | null>(null);
-  const [jobs, setJobs] = useState<JobPosting[]>([]);
-  const [toiletReviews, setToiletReviews] = useState<{ avg_rating: number | null; review_count: number; reviews: any[] } | null>(null);
-  const [social, setSocial] = useState<{ evening_count: number; portrait_license_count: number; has_menu: boolean; recent_evening_at: string | null } | null>(null);
-  const [recommendation, setRecommendation] = useState<{ id: number; name: string; description: string | null; category: string; price_cents: number | null; tags: string[]; score: number; reason: string } | null>(null);
 
   const biz = activeLocation;
 
   const loadData = (isRefresh = false) => {
     if (!biz) { setLoading(false); return; }
-    const toiletPromise = biz.has_toilet ? fetchToiletReviews(biz.id).catch(() => null) : Promise.resolve(null);
-
-    // Fetch HealthKit context and recommendation in parallel, fail silently
-    const recommendationPromise = (async () => {
-      try {
-        const healthContext = await getTodayHealthContext();
-        const recs = await fetchMenuRecommendation(biz.id, healthContext);
-        return recs.length > 0 ? recs[0] : null;
-      } catch {
-        return null;
-      }
-    })();
-
     Promise.all([
       fetchBusinessPortraits(biz.id).catch(() => []),
       fetchBusinessVisitCount(biz.id).catch(() => null),
-      fetchNearbyJobs(biz.id).catch(() => []),
-      toiletPromise,
-      fetchBusinessSocial(biz.id).catch(() => null),
-      recommendationPromise,
-    ]).then(([p, v, j, t, s, rec]) => {
+    ]).then(([p, v]) => {
       setPortraits(p as any[]);
       setVisitCount(v ? (v as any).visit_count : null);
-      setJobs((j as JobPosting[]).filter(job => job.active));
-      if (t) setToiletReviews(t as any);
-      setSocial(s as any);
-      setRecommendation(rec as any);
     }).finally(() => { setLoading(false); if (isRefresh) setRefreshing(false); });
   };
 
@@ -76,10 +48,6 @@ export default function PartnerDetailPanel() {
   const onRefresh = () => {
     setRefreshing(true);
     loadData(true);
-  };
-
-  const handleInstagram = (handle: string) => {
-    Linking.openURL(`https://instagram.com/${handle.replace('@', '')}`);
   };
 
   const handleOpenMaps = () => {
@@ -91,30 +59,17 @@ export default function PartnerDetailPanel() {
 
   const handleContactPress = () => {
     if (!biz?.contact) return;
-    const { url } = formatContact(biz.contact);
-    Linking.openURL(url);
+    const contact = formatContact(biz.contact);
+    if (!contact) return;
+    Linking.openURL(contact.url);
   };
 
   const handleCommission = () => {
-    if (biz?.instagram_handle) {
-      Alert.alert(
-        'Commission a campaign here',
-        `Reach out to Maison Fraise via Instagram to book a portrait campaign at ${biz?.name}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Instagram', onPress: () => Linking.openURL('https://instagram.com/maisonfraise') },
-        ]
-      );
-    } else {
-      Alert.alert(
-        'Commission a campaign here',
-        'Reach out to Maison Fraise on Instagram to book a portrait campaign at this location.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Instagram', onPress: () => Linking.openURL('https://instagram.com/maisonfraise') },
-        ]
-      );
-    }
+    Alert.alert(
+      'Commission a campaign here',
+      `Reach out to Box Fraise to book a portrait campaign at ${biz?.name ?? 'this location'}.`,
+      [{ text: 'OK' }]
+    );
   };
 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -127,7 +82,7 @@ export default function PartnerDetailPanel() {
       const { client_secret } = await createTip(biz.id, cents);
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: client_secret,
-        merchantDisplayName: 'Maison Fraise',
+        merchantDisplayName: 'Box Fraise',
       });
       if (initError) throw new Error(initError.message);
       const { error: presentError } = await presentPaymentSheet();
@@ -176,34 +131,6 @@ export default function PartnerDetailPanel() {
           </View>
         )}
 
-        {/* Social stats */}
-        {(social && (social.evening_count > 0 || social.portrait_license_count > 0 || social.has_menu)) && (
-          <View style={[styles.socialRow, { borderBottomColor: c.border }]}>
-            {social.evening_count > 0 && (
-              <View style={styles.socialStat}>
-                <Text style={[styles.socialStatNum, { color: c.text }]}>{social.evening_count}</Text>
-                <Text style={[styles.socialStatLabel, { color: c.muted }]}>
-                  {social.evening_count === 1 ? 'EVENING' : 'EVENINGS'}
-                </Text>
-              </View>
-            )}
-            {social.portrait_license_count > 0 && (
-              <View style={styles.socialStat}>
-                <Text style={[styles.socialStatNum, { color: c.text }]}>{social.portrait_license_count}</Text>
-                <Text style={[styles.socialStatLabel, { color: c.muted }]}>
-                  {social.portrait_license_count === 1 ? 'PORTRAIT' : 'PORTRAITS'}
-                </Text>
-              </View>
-            )}
-            {social.has_menu && (
-              <View style={styles.socialStat}>
-                <Text style={[styles.socialStatNum, { color: c.accent }]}>✓</Text>
-                <Text style={[styles.socialStatLabel, { color: c.muted }]}>MENU</Text>
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Business info */}
         <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
           {!!biz.description && (
@@ -248,153 +175,7 @@ export default function PartnerDetailPanel() {
             </TouchableOpacity>
           </View>
 
-          {/* Instagram handle */}
-          {!!biz.instagram_handle && (
-            <TouchableOpacity
-              onPress={() => Linking.openURL(`https://www.instagram.com/${biz.instagram_handle!.replace('@', '')}`)}
-              activeOpacity={0.7}
-              style={styles.instagramRow}
-            >
-              <Text style={[styles.fieldLabel, { color: c.muted }]}>INSTAGRAM</Text>
-              <Text style={[styles.instagramHandle, { color: c.accent }]}>
-                @{biz.instagram_handle.replace('@', '')}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Links */}
-          <View style={styles.linksRow}>
-            {!!biz.instagram_handle && (
-              <TouchableOpacity
-                style={[styles.linkBtn, { borderColor: c.border }]}
-                onPress={() => handleInstagram(biz.instagram_handle!)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.linkBtnText, { color: c.text }]}>
-                  @{biz.instagram_handle.replace('@', '')}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
         </View>
-
-        {/* Jobs */}
-        {jobs.length > 0 && (
-          <View style={[styles.jobsSection, { borderBottomColor: c.border }]}>
-            <Text style={[styles.sectionLabel, { color: c.muted }]}>OPEN POSITIONS</Text>
-            {jobs.map(job => (
-              <TouchableOpacity
-                key={job.id}
-                style={[styles.jobRow, { borderBottomColor: c.border }]}
-                onPress={() => { setPanelData({ job, businessName: biz!.name }); showPanel('jobDetail'); }}
-                activeOpacity={0.75}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.jobTitle, { color: c.text }]}>{job.title}</Text>
-                  <Text style={[styles.jobPay, { color: c.muted }]}>
-                    {job.pay_type === 'hourly'
-                      ? `$${(job.pay_cents / 100).toFixed(0)} / hr`
-                      : `$${(job.pay_cents / 100).toLocaleString()} / yr`}
-                  </Text>
-                </View>
-                <Text style={[styles.jobArrow, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* Toilet section */}
-        {biz.has_toilet && (
-          <View style={[styles.toiletSection, { borderBottomColor: c.border }]}>
-            <View style={styles.toiletHeader}>
-              <View>
-                <Text style={[styles.sectionLabel, { color: c.muted }]}>TOILET</Text>
-                {toiletReviews && toiletReviews.review_count > 0 ? (
-                  <View style={styles.toiletRatingRow}>
-                    <Text style={[styles.toiletRating, { color: c.text }]}>
-                      {'★'.repeat(Math.round(toiletReviews.avg_rating ?? 0))}{'☆'.repeat(5 - Math.round(toiletReviews.avg_rating ?? 0))}
-                    </Text>
-                    <Text style={[styles.toiletRatingCount, { color: c.muted }]}>
-                      {toiletReviews.avg_rating?.toFixed(1)}  ·  {toiletReviews.review_count} {toiletReviews.review_count === 1 ? 'visit' : 'visits'}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={[styles.toiletNoReviews, { color: c.muted }]}>no reviews yet</Text>
-                )}
-              </View>
-              <TouchableOpacity
-                style={[styles.toiletBtn, { backgroundColor: c.accent }]}
-                onPress={() => showPanel('toilet')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.toiletBtnText, { color: c.ctaText ?? '#fff' }]}>
-                  CA${((biz.toilet_fee_cents ?? 150) / 100).toFixed(2)}  →
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {toiletReviews && toiletReviews.reviews.length > 0 && (
-              <View style={styles.toiletReviews}>
-                {toiletReviews.reviews.map((r: any) => (
-                  <View key={r.id} style={[styles.toiletReviewRow, { borderTopColor: c.border }]}>
-                    <Text style={[styles.toiletReviewStars, { color: c.accent }]}>{'★'.repeat(r.rating)}</Text>
-                    {!!r.review_note && (
-                      <Text style={[styles.toiletReviewNote, { color: c.muted }]} numberOfLines={2}>{r.review_note}</Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* For You Today — beacon + HealthKit personalised recommendation */}
-        {recommendation !== null && (
-          <View style={[styles.forYouCard, { borderColor: c.accent }]}>
-            <Text style={[styles.forYouLabel, { color: c.accent }]}>FOR YOU TODAY</Text>
-            <View style={styles.forYouRow}>
-              <Text style={[styles.forYouName, { color: c.text }]}>{recommendation.name}</Text>
-              {recommendation.price_cents != null && (
-                <Text style={[styles.forYouPrice, { color: c.text }]}>
-                  CA${(recommendation.price_cents / 100).toFixed(2)}
-                </Text>
-              )}
-            </View>
-            <Text style={[styles.forYouReason, { color: c.muted }]}>{recommendation.reason}</Text>
-            <View style={styles.forYouPillRow}>
-              <Text style={[styles.forYouPill, { color: c.accent, borderColor: c.accent }]}>
-                {recommendation.category}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Tonight's picks — restaurant menu recommendations from real menu items */}
-        {biz.type !== 'popup' && (
-          <TouchableOpacity
-            style={[styles.menuCard, { borderColor: c.border }]}
-            onPress={() => showPanel('reservation-discovery')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.menuCardLabel, { color: c.muted }]}>SPONSORED DINNERS</Text>
-            <Text style={[styles.menuCardText, { color: c.text }]}>
-              See if this restaurant has a hosted dinner available →
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Personalized menu — restaurant/spa properties */}
-        {biz.type !== 'popup' && (
-          <TouchableOpacity
-            style={[styles.menuCard, { borderColor: c.accent }]}
-            onPress={() => showPanel('personalized-menu', { businessId: biz.id, businessName: biz.name })}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.menuCardLabel, { color: c.accent }]}>DOROTKA MENU</Text>
-            <Text style={[styles.menuCardText, { color: c.text }]}>
-              Build a tasting menu calibrated to your biometrics →
-            </Text>
-          </TouchableOpacity>
-        )}
 
         {/* Commission a campaign CTA */}
         <TouchableOpacity
@@ -405,7 +186,7 @@ export default function PartnerDetailPanel() {
           <View style={styles.commissionInfo}>
             <Text style={[styles.commissionTitle, { color: c.text }]}>Commission a campaign here</Text>
             <Text style={[styles.commissionSub, { color: c.muted }]}>
-              Portrait shoot · Book via Instagram
+              Portrait shoot · Get in touch
             </Text>
           </View>
           <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
@@ -496,17 +277,6 @@ const styles = StyleSheet.create({
   placedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#C9973A' },
   placedText: { fontSize: 13, fontFamily: fonts.dmSans },
 
-  socialRow: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: SPACING.lg,
-  },
-  socialStat: { alignItems: 'center', minWidth: 48 },
-  socialStatNum: { fontSize: 22, fontFamily: fonts.playfair },
-  socialStatLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, marginTop: 2 },
-
   infoBlock: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
@@ -531,9 +301,6 @@ const styles = StyleSheet.create({
   addressText: { fontSize: 12, fontFamily: fonts.dmSans },
   mapsLink: { fontSize: 12, fontFamily: fonts.dmMono },
 
-  instagramRow: { gap: 3 },
-  instagramHandle: { fontSize: 13, fontFamily: fonts.dmMono },
-
   linksRow: { flexDirection: 'row', gap: 10 },
   linkBtn: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -543,68 +310,6 @@ const styles = StyleSheet.create({
   linkBtnText: { fontSize: 12, fontFamily: fonts.dmMono },
 
   sectionLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-
-  jobsSection: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 4,
-  },
-  jobRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-  },
-  jobTitle: { fontSize: 15, fontFamily: fonts.playfair },
-  jobPay: { fontSize: 11, fontFamily: fonts.dmMono, marginTop: 2 },
-  jobArrow: { fontSize: 16 },
-
-  toiletSection: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-  },
-  toiletHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  toiletRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  toiletRating: { fontSize: 14, letterSpacing: 1 },
-  toiletRatingCount: { fontSize: 10, fontFamily: fonts.dmMono },
-  toiletNoReviews: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic', marginTop: 4 },
-  toiletBtn: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  toiletBtnText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  toiletReviews: { gap: 0 },
-  toiletReviewRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, gap: 3 },
-  toiletReviewStars: { fontSize: 12, letterSpacing: 1 },
-  toiletReviewNote: { fontSize: 12, fontFamily: fonts.dmSans },
-
-  forYouCard: {
-    marginHorizontal: SPACING.md, marginTop: SPACING.md,
-    borderRadius: 10, borderWidth: 1,
-    padding: SPACING.md, gap: 6,
-  },
-  forYouLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 2 },
-  forYouRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  forYouName: { fontSize: 16, fontFamily: fonts.playfair, flex: 1 },
-  forYouPrice: { fontSize: 13, fontFamily: fonts.dmMono, marginLeft: 8 },
-  forYouReason: { fontSize: 12, fontFamily: fonts.dmSans, lineHeight: 18 },
-  forYouPillRow: { flexDirection: 'row' },
-  forYouPill: {
-    fontSize: 10, fontFamily: fonts.dmMono,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 3,
-  },
-
-  menuCard: {
-    marginHorizontal: SPACING.md, marginTop: SPACING.md,
-    borderRadius: 10, borderWidth: 1,
-    padding: SPACING.md, gap: 6,
-  },
-  menuCardLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 2 },
-  menuCardText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20 },
 
   commissionCard: {
     marginHorizontal: SPACING.md,

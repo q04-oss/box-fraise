@@ -33,24 +33,7 @@ export const orderStatusEnum = pgEnum('order_status', [
   'cancelled',
 ]);
 
-export const standingOrderFrequencyEnum = pgEnum('standing_order_frequency', [
-  'weekly',
-  'biweekly',
-  'monthly',
-]);
-
-export const standingOrderStatusEnum = pgEnum('standing_order_status', [
-  'active',
-  'paused',
-  'cancelled',
-]);
-
-export const giftToneEnum = pgEnum('gift_tone', [
-  'warm',
-  'funny',
-  'poetic',
-  'minimal',
-]);
+export const batchPreferenceStatusEnum = pgEnum('batch_preference_status', ['active', 'paused']);
 
 export const campaignStatusEnum = pgEnum('campaign_status', [
   'upcoming',
@@ -96,6 +79,8 @@ export const locations = pgTable('locations', {
   active: boolean('active').notNull().default(true),
   staff_pin: text('staff_pin'),
   allows_walkin: boolean('allows_walkin').notNull().default(false),
+  beacon_uuid: text('beacon_uuid').unique(),
+  business_id: integer('business_id'), // links to businesses table for visit eligibility checks
 });
 
 export const timeSlots = pgTable('time_slots', {
@@ -449,30 +434,19 @@ export const campaignSignups = pgTable('campaign_signups', {
   uniq_campaign_user: unique().on(t.campaign_id, t.user_id),
 }));
 
-export const standingOrders = pgTable('standing_orders', {
+export const batchPreferences = pgTable('batch_preferences', {
   id: serial('id').primaryKey(),
-  sender_id: integer('sender_id')
-    .notNull()
-    .references(() => users.id),
-  recipient_id: integer('recipient_id')
-    .references(() => users.id),
-  variety_id: integer('variety_id')
-    .notNull()
-    .references(() => varieties.id),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  variety_id: integer('variety_id').notNull().references(() => varieties.id),
   chocolate: chocolateEnum('chocolate').notNull(),
   finish: finishEnum('finish').notNull(),
   quantity: integer('quantity').notNull(),
-  location_id: integer('location_id')
-    .notNull()
-    .references(() => locations.id),
-  time_slot_preference: text('time_slot_preference').notNull(),
-  frequency: standingOrderFrequencyEnum('frequency').notNull(),
-  next_order_date: timestamp('next_order_date').notNull(),
-  stripe_subscription_id: text('stripe_subscription_id'),
-  gift_tone: giftToneEnum('gift_tone'),
-  status: standingOrderStatusEnum('status').notNull().default('active'),
+  location_id: integer('location_id').notNull().references(() => locations.id),
+  status: batchPreferenceStatusEnum('status').notNull().default('active'),
   created_at: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  uniq: unique().on(table.user_id, table.variety_id, table.location_id),
+}));
 
 export const legitimacyEvents = pgTable('legitimacy_events', {
   id: serial('id').primaryKey(),
@@ -1491,3 +1465,16 @@ export const walkInTokens = pgTable('walk_in_tokens', {
   claimed_order_id: integer('claimed_order_id'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
+
+export const locationStaffStatusEnum = pgEnum('location_staff_status', ['pending', 'approved', 'denied']);
+
+export const locationStaff = pgTable('location_staff', {
+  id: serial('id').primaryKey(),
+  user_id: integer('user_id').notNull().references(() => users.id),
+  location_id: integer('location_id').notNull().references(() => locations.id),
+  status: locationStaffStatusEnum('status').notNull().default('pending'),
+  requested_at: timestamp('requested_at').notNull().defaultNow(),
+  reviewed_at: timestamp('reviewed_at'),
+}, (table) => ({
+  uniq: unique().on(table.user_id, table.location_id),
+}));

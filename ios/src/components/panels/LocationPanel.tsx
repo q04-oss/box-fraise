@@ -5,7 +5,7 @@ import { useColors, fonts } from '../../theme';
 import { SPACING } from '../../theme';
 
 export default function LocationPanel() {
-  const { goBack, showPanel, setOrder, setActiveLocation, activeLocation, varieties, businesses, order, setPanelData } = usePanel();
+  const { goBack, showPanel, setOrder, setActiveLocation, activeLocation, varieties, businesses, order } = usePanel();
   const c = useColors();
 
   const doLocationSwitch = (biz: any) => {
@@ -44,29 +44,6 @@ export default function LocationPanel() {
           {isPopup && <Text style={[styles.headerBadge, { color: '#C0392B' }]}>POPUP</Text>}
           <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{activeLocation?.name ?? '—'}</Text>
           {popupDate && <Text style={[styles.headerDate, { color: c.muted }]}>{popupDate}</Text>}
-          {activeLocation?.shop_user_id && (
-            <TouchableOpacity
-              onPress={() => {
-                setPanelData({
-                  userId: activeLocation.shop_user_id,
-                  displayName: activeLocation.name,
-                  isShop: true,
-                });
-                showPanel('messageThread');
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chatLabel, { color: c.accent }]}>strawberry chat</Text>
-            </TouchableOpacity>
-          )}
-          {activeLocation?.venture_id && (
-            <TouchableOpacity
-              onPress={() => showPanel('venture-detail', { ventureId: activeLocation.venture_id })}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.chatLabel, { color: c.accent }]}>venture →</Text>
-            </TouchableOpacity>
-          )}
         </View>
         <View style={styles.headerSpacer} />
       </View>

@@ -4,39 +4,21 @@ import {
 } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { fetchMyStats, updateDisplayName, fetchBoxWall, fetchMyArtContributions } from '../../lib/api';
-import { useSocialAccess } from '../SocialGate';
-import { getAverageVitaminCMgPerDay } from '../../lib/HealthKitService';
-import ARBoxModule from '../../lib/NativeARBoxModule';
-
+import { fetchMyStats, updateDisplayName } from '../../lib/api';
 
 export default function MyProfilePanel() {
   const { goBack, showPanel } = usePanel();
   const c = useColors();
-  const { active: socialActive, tier: socialTier, bankDays, lifetimeDays } = useSocialAccess();
   const [stats, setStats] = useState<any>(null);
-  const [fundBalance, setFundBalance] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [boxWallCount, setBoxWallCount] = useState<number | null>(null);
-  const [vitaminCNudge, setVitaminCNudge] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
-  const [artContributions, setArtContributions] = useState<{ painted: any[]; collected: any[] }>({ painted: [], collected: [] });
 
   useEffect(() => {
     fetchMyStats().catch(() => null).then(s => {
       setStats(s);
-      if (s?.id) {
-        fetchBoxWall(s.id).then(wall => setBoxWallCount(Array.isArray(wall) ? wall.length : 0)).catch(() => {});
-      }
     }).finally(() => setLoading(false));
-
-    fetchMyArtContributions().then(setArtContributions).catch(() => {});
-
-    getAverageVitaminCMgPerDay(7).then(avg => {
-      if (avg < 50) setVitaminCNudge(true);
-    }).catch(() => {});
   }, []);
 
   const handleSaveName = async () => {
@@ -52,9 +34,6 @@ export default function MyProfilePanel() {
       setSavingName(false);
     }
   };
-
-  const accessExpiringSoon = socialActive && bankDays <= 7;
-  const TIER_LABELS: Record<string, string> = { standard: 'Standard', reserve: 'Reserve', estate: 'Estate' };
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
@@ -105,52 +84,6 @@ export default function MyProfilePanel() {
             {stats.user_code && stats.display_name && (
               <Text style={[styles.code, { color: c.muted }]}>{stats.user_code}</Text>
             )}
-            {socialActive && socialTier && (
-              <Text style={[styles.tier, { color: c.accent }]}>
-                {TIER_LABELS[socialTier] ?? socialTier}
-              </Text>
-            )}
-          </View>
-
-          {/* Stats row */}
-          <View style={[styles.statsRow, { borderBottomColor: c.border }]}>
-            <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: c.text }]}>{stats.evening_count}</Text>
-              <Text style={[styles.statLabel, { color: c.muted }]}>EVENINGS</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: c.text }]}>{stats.portrait_count}</Text>
-              <Text style={[styles.statLabel, { color: c.muted }]}>PORTRAITS</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={[styles.statNum, { color: c.text }]}>{stats.nfc_connection_count}</Text>
-              <Text style={[styles.statLabel, { color: c.muted }]}>CONNECTIONS</Text>
-            </View>
-          </View>
-
-          {/* Social access + fund */}
-          <View style={[styles.section, { borderBottomColor: c.border }]}>
-            <View style={styles.sectionRow}>
-              <Text style={[styles.sectionLabel, { color: c.muted }]}>FUND BALANCE</Text>
-            </View>
-            <Text style={[styles.balance, { color: c.text }]}>
-              CA${(fundBalance / 100).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
-            {socialActive && (
-              <Text style={[styles.renewalLine, { color: accessExpiringSoon ? c.accent : c.muted }]}>
-                {accessExpiringSoon
-                  ? `${bankDays}d remaining — tap a new box soon`
-                  : `${bankDays} days remaining`}
-              </Text>
-            )}
-            {socialActive && lifetimeDays > 0 && (
-              <Text style={[styles.renewalLine, { color: c.muted }]}>
-                {lifetimeDays} lifetime days accumulated
-              </Text>
-            )}
-            {!socialActive && (
-              <Text style={[styles.renewalLine, { color: c.muted }]}>No active access — tap a box to unlock</Text>
-            )}
           </View>
 
           {/* Streak */}
@@ -166,178 +99,26 @@ export default function MyProfilePanel() {
             </View>
           )}
 
-          {/* Art contributions */}
-          {(artContributions.painted.length > 0 || artContributions.collected.length > 0) && (
-            <View style={[styles.section, { borderBottomColor: c.border }]}>
-              {artContributions.painted.length > 0 && (
-                <>
-                  <Text style={[styles.sectionLabel, { color: c.muted }]}>ARTIST</Text>
-                  {artContributions.painted.map((p: any) => (
-                    <Text key={String(p.artwork_id)} style={[styles.artItem, { color: c.text }]} numberOfLines={1}>
-                      {p.title}
-                    </Text>
-                  ))}
-                </>
-              )}
-              {artContributions.collected.length > 0 && (
-                <>
-                  <Text style={[styles.sectionLabel, { color: c.muted, marginTop: artContributions.painted.length > 0 ? 8 : 0 }]}>COLLECTOR</Text>
-                  {artContributions.collected.map((b: any) => (
-                    <View key={String(b.artwork_id)} style={styles.artCollectedRow}>
-                      <Text style={[styles.artItem, { color: c.text, flex: 1 }]} numberOfLines={1}>
-                        {b.title}
-                      </Text>
-                      <Text style={[styles.artAmount, { color: c.muted }]}>
-                        CA${((b.amount_cents ?? 0) / 100).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </Text>
-                    </View>
-                  ))}
-                </>
-              )}
-            </View>
-          )}
-
-          {/* Vitamin C nudge */}
-          {vitaminCNudge && (
-            <View style={[styles.nudgeCard, { borderColor: c.accent, backgroundColor: c.card }]}>
-              <Text style={[styles.nudgeTitle, { color: c.text }]}>YOUR VITAMIN C HAS BEEN LOW THIS WEEK</Text>
-              <Text style={[styles.nudgeSub, { color: c.muted }]}>Plain strawberries are one of the richest sources.</Text>
-              <TouchableOpacity onPress={() => showPanel('standingOrder')} activeOpacity={0.7}>
-                <Text style={[styles.nudgeCta, { color: c.accent }]}>order plain strawberries →</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Quick nav */}
+          {/* Nav */}
           <View style={styles.navList}>
-            {boxWallCount != null && boxWallCount > 0 && (
-              <TouchableOpacity
-                style={[styles.navRow, { borderBottomColor: c.border }]}
-                onPress={() => showPanel('user-profile', { userId: stats.id })}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.navLabel, { color: c.text }]}>Box Wall  ·  {boxWallCount}</Text>
-                <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
               style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('tasting-feed')}
+              onPress={() => showPanel('order-history')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.navLabel, { color: c.text }]}>Tasting Feed</Text>
-              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            {stats.evening_count > 0 && (
-              <TouchableOpacity
-                style={[styles.navRow, { borderBottomColor: c.border }]}
-                onPress={() => showPanel('evening-tokens')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.navLabel, { color: c.text }]}>Evenings</Text>
-                <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
-            {stats.portrait_count > 0 && (
-              <TouchableOpacity
-                style={[styles.navRow, { borderBottomColor: c.border }]}
-                onPress={() => showPanel('portrait-tokens')}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.navLabel, { color: c.text }]}>Portrait Tokens</Text>
-                <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('tasting-journal')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navLabel, { color: c.text }]}>Tasting Journal</Text>
+              <Text style={[styles.navLabel, { color: c.text }]}>Order History</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('proposals')}
+              onPress={() => showPanel('batch-preference')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.navLabel, { color: c.text }]}>Proposals</Text>
-              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('nomination-history')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navLabel, { color: c.text }]}>Nomination History</Text>
-              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('portrait-feed')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navLabel, { color: c.text }]}>Portrait Feed</Text>
-              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('discovery')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navLabel, { color: c.text }]}>Discover</Text>
-              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('art-auctions')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.navLabel, { color: c.text }]}>Art Auctions</Text>
+              <Text style={[styles.navLabel, { color: c.text }]}>Batch Preferences</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
           </View>
 
-          {__DEV__ && (
-            <TouchableOpacity
-              style={[styles.devArBtn, { borderColor: c.accent }]}
-              activeOpacity={0.7}
-              onPress={() => {
-                ARBoxModule.presentAR({
-                  variety_id: 1,
-                  variety_name: 'Albion',
-                  farm: 'Domaine Lacroix',
-                  harvest_date: '2026-04-05',
-                  quantity: 2,
-                  chocolate: 'dark',
-                  finish: 'floral',
-                  brix_score: 11.4,
-                  growing_method: 'organic',
-                  lineage_parents: ['Seascape', 'Pajaro'],
-                  altitude_m: 320,
-                  soil_type: 'sandy loam',
-                  optimal_eating_window_days: 3,
-                  weather_at_harvest: 'Sunny, 18°C',
-                  farm_photo_url: null,
-                  tasting_notes: ['bright', 'citrus', 'sweet'],
-                  variety_description: 'A classic Californian variety with bright acidity and rich sweetness.',
-                  price_history: [],
-                  carbon_footprint_kg: 0.12,
-                  sunlight_hours: 8,
-                  pairing_suggestions: ['dark chocolate', 'aged brie'],
-                  collectif_name: null,
-                  show_referral_bubble: false,
-                  tasting_word_cloud: [],
-                  batch_members: [],
-                  lot_companions: [],
-                }).catch((e: any) => Alert.alert('AR Error', String(e?.message ?? e)));
-              }}
-            >
-              <Text style={[styles.devArBtnText, { color: c.accent, fontFamily: fonts.dmMono }]}>
-                DEV · TEST AR EXPERIENCE
-              </Text>
-            </TouchableOpacity>
-          )}
         </ScrollView>
       )}
     </View>
@@ -360,23 +141,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth, gap: 4,
   },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   nameInput: { flex: 1, fontSize: 24, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 4 },
   saveBtn: { fontSize: 11, letterSpacing: 1 },
   name: { fontFamily: fonts.playfair, fontSize: 28 },
   code: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1 },
-  tier: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1.5, marginTop: 4 },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  stat: { flex: 1, alignItems: 'center' },
-  statNum: { fontFamily: fonts.playfair, fontSize: 28 },
-  statLabel: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 1.5, marginTop: 2 },
   sectionLabel: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 1.5 },
-  chevron: { fontSize: 14 },
   balance: { fontFamily: fonts.playfair, fontSize: 32, marginTop: 4 },
   renewalLine: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
   navList: {},
@@ -387,19 +157,4 @@ const styles = StyleSheet.create({
   },
   navLabel: { fontFamily: fonts.dmSans, fontSize: 15 },
   navChevron: { fontSize: 18 },
-  nudgeCard: {
-    marginHorizontal: SPACING.md, marginVertical: SPACING.sm,
-    borderRadius: 12, borderWidth: 1, padding: SPACING.md, gap: 6,
-  },
-  nudgeTitle: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1.5 },
-  nudgeSub: { fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20 },
-  nudgeCta: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1, marginTop: 4 },
-  devArBtn: {
-    margin: SPACING.md, borderRadius: 12, borderWidth: 1,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  devArBtnText: { fontSize: 11, letterSpacing: 1.5 },
-  artItem: { fontFamily: fonts.dmSans, fontSize: 14, lineHeight: 20 },
-  artCollectedRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  artAmount: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
 });

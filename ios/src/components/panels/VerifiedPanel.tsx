@@ -50,7 +50,7 @@ export default function VerifiedPanel() {
           <Text style={[styles.check, { color: c.accent }]}>✓</Text>
         </View>
         <Text style={[styles.title, { color: c.text }]}>You're in.</Text>
-        <Text style={[styles.subtitle, { color: c.muted }]}>Your account is now verified. Standing orders and campaigns will unlock when they're ready.</Text>
+        <Text style={[styles.subtitle, { color: c.muted }]}>Your account is now verified. Batch preferences and campaigns will unlock when they're ready.</Text>
 
         {fraiseChatEmail && (
           <TouchableOpacity
@@ -69,8 +69,8 @@ export default function VerifiedPanel() {
           <View style={styles.unlockedRow}>
             <Text style={[styles.unlockedIcon, { color: c.accent }]}>↻</Text>
             <View style={styles.unlockedText}>
-              <Text style={[styles.unlockedTitle, { color: c.text }]}>Standing orders</Text>
-              <Text style={[styles.unlockedDesc, { color: c.muted }]}>Set up weekly, biweekly, or monthly orders.</Text>
+              <Text style={[styles.unlockedTitle, { color: c.text }]}>Batch preferences</Text>
+              <Text style={[styles.unlockedDesc, { color: c.muted }]}>Auto-include yourself in future batches for your favourite varieties.</Text>
             </View>
           </View>
           <View style={[styles.divider, { backgroundColor: c.border }]} />
@@ -85,10 +85,10 @@ export default function VerifiedPanel() {
 
         <TouchableOpacity
           style={[styles.standingBtn, { backgroundColor: c.card, borderColor: c.border }]}
-          onPress={() => showPanel('standingOrder')}
+          onPress={() => showPanel('batch-preference')}
           activeOpacity={0.85}
         >
-          <Text style={[styles.standingBtnText, { color: c.accent }]}>Set up a standing order →</Text>
+          <Text style={[styles.standingBtnText, { color: c.accent }]}>Set up batch preferences →</Text>
         </TouchableOpacity>
       </View>
 

@@ -47,7 +47,7 @@ router.post('/:id/accept', requireUser, async (req: Request, res: Response) => {
     for (const follower of followerUsers) {
       if (follower?.push_token) {
         sendPushNotification(follower.push_token, {
-          title: 'Maison Fraise',
+          title: 'Box Fraise',
           body: `${userName} is now at ${bizName}.`,
           data: { screen: 'home' },
         }).catch(() => {});
