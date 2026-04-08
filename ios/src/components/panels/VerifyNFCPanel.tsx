@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { readNfcToken, cancelNfc } from '../../lib/nfc';
@@ -28,7 +27,7 @@ export default function VerifyNFCPanel() {
       // Walk-in purchase tag
       if (token.startsWith('fraise-walkin-')) {
         const data = await fetchWalkInToken(token).catch(() => null);
-        if (!data) { setErrorMsg('Tag not recognised.'); setState('error'); TrueSheet.present('main-sheet', 0); return; }
+        if (!data) { setErrorMsg('Tag not recognised.'); setState('error'); return; }
 
         // Location is a pre-order pickup node — redirect to ordering flow
         if (data.allows_walkin === false) {
@@ -364,13 +363,12 @@ export default function VerifyNFCPanel() {
     } catch (err: any) {
       setErrorMsg(err?.message ?? 'Scan failed. Try again.');
       setState('error');
-      TrueSheet.present('main-sheet', 0);
     }
   };
 
   useEffect(() => {
-    scan();
-    return () => { cancelNfc(); };
+    const t = setTimeout(() => scan(), 350);
+    return () => { clearTimeout(t); cancelNfc(); };
   }, []);
 
   return (
