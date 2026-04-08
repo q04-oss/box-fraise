@@ -915,10 +915,10 @@ const nameInputRef = useRef<TextInput>(null);
         <View style={{ height: 48 }} />
       </ScrollView>
       {orderStep === 'review' && (
-        <View style={[styles.reviewBar, { backgroundColor: paying ? c.cardDark : c.accent }]}>
+        <View style={[styles.reviewBar, { paddingBottom: Math.max(insets.bottom, SPACING.md), backgroundColor: c.panelBg }]}>
           {userDbId && adBalanceCents >= totalCents && (
             <TouchableOpacity
-              style={[styles.reviewBarBtn, styles.reviewBarBtnBalance, paying && { opacity: 0.5 }]}
+              style={[styles.reviewBarBtn, { backgroundColor: c.accent }, paying && { opacity: 0.5 }]}
               onPress={handlePayWithBalance}
               disabled={paying}
               activeOpacity={0.8}
@@ -929,7 +929,7 @@ const nameInputRef = useRef<TextInput>(null);
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.reviewBarBtn, { paddingBottom: Math.max(insets.bottom, SPACING.md) }, paying && { opacity: 0.55 }]}
+            style={[styles.reviewBarBtn, { backgroundColor: paying ? c.cardDark : c.accent }, paying && { opacity: 0.55 }]}
             onPress={handlePay}
             disabled={paying}
             activeOpacity={0.85}
@@ -1056,8 +1056,8 @@ const styles = StyleSheet.create({
   },
   workerAccessLink: { alignItems: 'center', paddingVertical: 16 },
   workerAccessLinkText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1 },
-  reviewBar: {},
-  reviewBarBtn: { paddingTop: 20, alignItems: 'center' },
-  reviewBarBtnBalance: { paddingTop: 16, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.25)', width: '100%' },
+  reviewBar: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, gap: SPACING.sm },
+  reviewBarBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
+  reviewBarBtnBalance: {},
   reviewBarBtnText: { fontSize: 17, fontFamily: fonts.dmSans, fontWeight: '700', color: '#FFFFFF' },
 });
