@@ -64,7 +64,7 @@ export default function ReviewPanel() {
       return;
     }
     if (isQuantityOverStock) {
-      Alert.alert('Not enough stock', `Only ${liveVariety.stock_remaining} left — go back and reduce your quantity.`, [
+      Alert.alert('Not enough stock', `Only ${liveVariety.stock_remaining} boxes left — go back and reduce your order.`, [
         { text: 'Go back', onPress: goBack },
       ]);
       return;
@@ -165,7 +165,7 @@ export default function ReviewPanel() {
           <Text style={[styles.variety, { color: c.text }]}>{order.variety_name ?? '—'}</Text>
           <Text style={[styles.spec, { color: c.muted }]}>{spec}</Text>
           {isSoldOut && <Text style={styles.stockAlert}>Sold out</Text>}
-          {isQuantityOverStock && <Text style={styles.stockAlert}>Only {liveVariety?.stock_remaining} left — reduce quantity</Text>}
+          {isQuantityOverStock && <Text style={styles.stockAlert}>Only {liveVariety?.stock_remaining} boxes left — reduce your order</Text>}
         </View>
 
         <View style={styles.section}>

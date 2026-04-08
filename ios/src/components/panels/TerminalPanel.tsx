@@ -607,7 +607,7 @@ const nameInputRef = useRef<TextInput>(null);
                           </TouchableOpacity>
                         ) : (
                           <>
-                            <Text style={[styles.stepLabel, { color: c.muted }]}>quantity</Text>
+                            <Text style={[styles.stepLabel, { color: c.muted }]}>boxes</Text>
                             <View style={styles.qtyRow}>
                               <TouchableOpacity onPress={() => setInlineOrder(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))} activeOpacity={0.7} style={styles.qtyBtn}>
                                 <Text style={[styles.qtyBtnText, { color: c.accent }]}>−</Text>

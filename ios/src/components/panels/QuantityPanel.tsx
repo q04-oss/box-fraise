@@ -18,12 +18,12 @@ export default function QuantityPanel() {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>Quantity</Text>
+        <Text style={[styles.title, { color: c.text }]}>Boxes</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.body}>
-        <Text style={[styles.sectionLabel, { color: c.muted }]}>QUANTITY</Text>
+        <Text style={[styles.sectionLabel, { color: c.muted }]}>BOXES</Text>
         <View style={[styles.card, { backgroundColor: c.card }]}>
           {QUANTITIES.map((q, i) => {
             const isSelected = selected === q;
@@ -36,7 +36,7 @@ export default function QuantityPanel() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.qNum, { color: c.text }]}>{q}</Text>
-                  <Text style={[styles.qLabel, { color: c.muted }]}>{q === 1 ? 'strawberry' : 'strawberries'}</Text>
+                  <Text style={[styles.qLabel, { color: c.muted }]}>{q === 1 ? 'box' : 'boxes'}</Text>
                   <View style={[styles.radio, { borderColor: isSelected ? c.accent : c.border }]}>
                     {isSelected && <View style={[styles.radioDot, { backgroundColor: c.accent }]} />}
                   </View>
