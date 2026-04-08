@@ -377,19 +377,17 @@ export default function VerifyNFCPanel() {
         <TouchableOpacity onPress={() => { cancelNfc(); goHome(); }} activeOpacity={0.7} style={styles.headerLeft}>
           <Text style={[styles.headerBackText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: c.text }]}>
-          {state === 'error' ? "Didn’t catch it." : 'box fraise'}
-        </Text>
         <TouchableOpacity
-          onPress={state === 'error' ? scan : undefined}
-          disabled={state !== 'error'}
-          activeOpacity={0.7}
-          style={styles.headerRight}
+          onPress={state === ‘error’ ? scan : undefined}
+          disabled={state !== ‘error’}
+          activeOpacity={0.6}
+          style={styles.headerTitleBtn}
         >
-          {state === 'error' && (
-            <Text style={[styles.retryText, { color: c.accent }]}>Try again</Text>
-          )}
+          <Text style={[styles.headerTitle, { color: c.text }]}>
+            {state === ‘error’ ? "Didn’t catch it." : ‘box fraise’}
+          </Text>
         </TouchableOpacity>
+        <View style={styles.headerRight} />
       </View>
     </View>
   );
@@ -402,6 +400,6 @@ const styles = StyleSheet.create({
   headerLeft: { width: 72 },
   headerRight: { width: 72, alignItems: 'flex-end' },
   headerBackText: { fontSize: 28, lineHeight: 34 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontFamily: fonts.playfair },
-  retryText: { fontSize: 13, fontFamily: fonts.dmSans },
+  headerTitleBtn: { flex: 1 },
+  headerTitle: { textAlign: 'center', fontSize: 18, fontFamily: fonts.playfair },
 });
