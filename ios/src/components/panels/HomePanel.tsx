@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel, Variety } from '../../context/PanelContext';
-import { fetchVarieties, fetchTodayStats } from '../../lib/api';
+import { fetchVarieties, fetchTodayStats, fetchBatchStatus } from '../../lib/api';
 import { useColors, fonts, SPACING } from '../../theme';
 import { STRAWBERRIES } from '../../data/seed';
 
@@ -96,7 +96,21 @@ export default function HomePanel() {
     setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 350);
   };
 
-  const bizVarieties = activeLocation
+  const [batchStatus, setBatchStatus] = useState<Record<number, { queued_boxes: number; min_quantity: number }>>({});
+
+  useEffect(() => {
+    if (!activeLocation?.id) { setBatchStatus({}); return; }
+    let cancelled = false;
+    fetchBatchStatus(activeLocation.id).then(rows => {
+      if (cancelled) return;
+      const map: Record<number, { queued_boxes: number; min_quantity: number }> = {};
+      rows.forEach(r => { map[r.variety_id] = { queued_boxes: r.queued_boxes, min_quantity: r.min_quantity }; });
+      setBatchStatus(map);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeLocation?.id]);
+
+    const bizVarieties = activeLocation
     ? varieties.filter((v: any) => (v.variety_type ?? 'strawberry') === 'strawberry')
     : [];
 
@@ -261,6 +275,14 @@ export default function HomePanel() {
                               <Image source={{ uri: v.image_url }} style={[styles.thumb, { backgroundColor: c.border }]} />
                             )}
                           </View>
+                          <View style={styles.batchBarWrap}>
+                            <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
+                              <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, ((batchStatus[v.id]?.queued_boxes ?? 0) / (batchStatus[v.id]?.min_quantity ?? 4)) * 100)}%` }]} />
+                            </View>
+                            <Text style={[styles.batchBarLabel, { color: c.muted }]}>
+                              {batchStatus[v.id]?.queued_boxes ?? 0} of {batchStatus[v.id]?.min_quantity ?? 4} boxes queued
+                            </Text>
+                          </View>
                         </TouchableOpacity>
                       </React.Fragment>
                     );
@@ -327,4 +349,8 @@ const styles = StyleSheet.create({
   nothingText: { fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic', paddingVertical: 8 },
   viewEventRow: { paddingHorizontal: SPACING.md, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   viewEventText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  batchBarWrap: { gap: 4, marginTop: 6 },
+  batchBarTrack: { height: 2, borderRadius: 1, overflow: 'hidden' },
+  batchBarFill: { height: 2, borderRadius: 1 },
+  batchBarLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
