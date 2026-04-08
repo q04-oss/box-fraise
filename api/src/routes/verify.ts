@@ -178,12 +178,14 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
     const [order] = await db.select().from(orders).where(eq(orders.nfc_token, nfc_token));
 
     if (!order || !order.nfc_token_used) {
+      logger.warn(`verify/reorder: token not found or not used — token=${nfc_token} user=${user_id}`);
       res.status(403).json({ error: 'This token is invalid or has already been used.' });
       return;
     }
 
     const [user] = await db.select().from(users).where(eq(users.id, user_id));
     if (!user || !user.verified) {
+      logger.warn(`verify/reorder: user not verified — user=${user_id}`);
       res.status(403).json({ error: 'This token is invalid or has already been used.' });
       return;
     }
@@ -194,6 +196,7 @@ router.post('/reorder', requireUser, async (req: Request, res: Response) => {
       .where(and(eq(legitimacyEvents.user_id, user_id), eq(legitimacyEvents.event_type, 'nfc_verified')));
 
     if (!claimEvent) {
+      logger.warn(`verify/reorder: no nfc_verified event — user=${user_id}`);
       res.status(403).json({ error: 'This token is invalid or has already been used.' });
       return;
     }
