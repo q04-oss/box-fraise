@@ -9,7 +9,7 @@ import { sendOrderConfirmation, sendOrderQueued } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
 import { logger } from '../lib/logger';
 import { requireUser } from '../lib/auth';
-import { checkAndTriggerBatch } from '../lib/batchTrigger';
+import { checkAndTriggerBatch, MIN_QUANTITY } from '../lib/batchTrigger';
 
 const router = Router();
 
@@ -159,7 +159,12 @@ router.post('/:id/confirm', async (req: Request, res: Response) => {
 
     // Fetch final state of this order (may now be 'paid' if batch just triggered)
     const [updated] = await db.select().from(orders).where(eq(orders.id, id));
-    res.json({ ...updated, delivery_date: deliveryDate ?? null, user_db_id: dbUserId });
+    let queued_boxes: number | null = null;
+    if (!triggered) {
+      const queuedRows = await db.select({ qty: orders.quantity }).from(orders).where(and(eq(orders.variety_id, order.variety_id), eq(orders.location_id, order.location_id), eq(orders.status, 'queued')));
+      queued_boxes = queuedRows.reduce((s, r) => s + r.qty, 0);
+    }
+    res.json({ ...updated, delivery_date: deliveryDate ?? null, user_db_id: dbUserId, queued_boxes, min_quantity: MIN_QUANTITY });
   } catch (err) {
     logger.error('Order confirm error', err);
     res.status(500).json({ error: 'Internal server error' });

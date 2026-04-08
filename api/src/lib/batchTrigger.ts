@@ -7,7 +7,7 @@ import { sendBatchTriggered, sendOrderCancelled } from './resend';
 import { sendPushNotification } from './push';
 import { logger } from './logger';
 
-const MIN_QUANTITY = 4;
+export const MIN_QUANTITY = 4;
 const LEAD_DAYS = 3;
 const CUTOFF_DAYS = 7;
 

@@ -499,7 +499,22 @@ const nameInputRef = useRef<TextInput>(null);
                     </Text>
                     <Text style={[styles.confirmedDetail, { color: c.muted }]}>{location?.name}</Text>
                     {confirmedOrder.status === 'queued' && (
-                      <Text style={[styles.confirmedHint, { color: c.muted }]}>your card is held but not charged yet. when enough orders come in we make the batch — usually within a few days. you'll get a notification when it's confirmed.</Text>
+                      <>
+                        {confirmedOrder.queued_boxes != null && (
+                          <View style={styles.batchBarWrap}>
+                            <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
+                              <View style={[styles.batchBarFill, { backgroundColor: c.accent, width: `${Math.min(100, (confirmedOrder.queued_boxes / confirmedOrder.min_quantity) * 100)}%` }]} />
+                            </View>
+                            <Text style={[styles.batchBarLabel, { color: c.muted }]}>
+                              {confirmedOrder.queued_boxes} of {confirmedOrder.min_quantity} boxes
+                              {confirmedOrder.queued_boxes < confirmedOrder.min_quantity
+                                ? ` · ${confirmedOrder.min_quantity - confirmedOrder.queued_boxes} more to fill`
+                                : ' · batch filling now'}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={[styles.confirmedHint, { color: c.muted }]}>your card is held but not charged yet. we'll notify you when the batch fills.</Text>
+                      </>
                     )}
                     <TouchableOpacity onPress={() => { resetInlineOrder(); }} style={styles.newOrderBtn} activeOpacity={0.7}>
                       <Text style={[styles.label, { color: c.accent }]}>NEW ORDER</Text>
@@ -999,6 +1014,10 @@ const styles = StyleSheet.create({
   confirmedTitle: { fontSize: 22, fontFamily: fonts.playfair },
   confirmedDetail: { fontSize: 12, fontFamily: fonts.dmMono },
   confirmedHint: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5, fontStyle: 'italic' },
+  batchBarWrap: { gap: 6, paddingTop: 4 },
+  batchBarTrack: { height: 3, borderRadius: 2, overflow: 'hidden' },
+  batchBarFill: { height: 3, borderRadius: 2 },
+  batchBarLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   newOrderBtn: { paddingTop: 8 },
   orderVariety: { fontSize: 22, fontFamily: fonts.playfair },
   orderDetail: { fontSize: 12, fontFamily: fonts.dmMono },

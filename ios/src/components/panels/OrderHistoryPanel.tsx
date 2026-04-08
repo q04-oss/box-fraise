@@ -103,6 +103,17 @@ export default function OrderHistoryPanel() {
           <Text style={[styles.status, { color: statusColor }]}>{o.status}</Text>
         </View>
 
+        {o.status === 'queued' && o.queued_boxes != null && (
+          <View style={styles.batchWrap}>
+            <View style={[styles.batchTrack, { backgroundColor: c.border }]}>
+              <View style={[styles.batchFill, { backgroundColor: c.accent, width: `${Math.min(100, (o.queued_boxes / o.min_quantity) * 100)}%` }]} />
+            </View>
+            <Text style={[styles.batchLabel, { color: c.muted }]}>
+              {o.queued_boxes} of {o.min_quantity} boxes{o.queued_boxes < o.min_quantity ? ` · ${o.min_quantity - o.queued_boxes} more to fill` : ' · filling now'}
+            </Text>
+          </View>
+        )}
+
         {isCollected && (
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map(star => {
@@ -189,4 +200,8 @@ const styles = StyleSheet.create({
   status: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   starsRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
   star: { fontSize: 14, fontFamily: fonts.dmMono },
+  batchWrap: { gap: 5, marginTop: 4 },
+  batchTrack: { height: 2, borderRadius: 1, overflow: 'hidden' },
+  batchFill: { height: 2, borderRadius: 1 },
+  batchLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });

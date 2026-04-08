@@ -7,6 +7,7 @@ import {
   referralCodes, memberships,
 } from '../db/schema';
 import { requireUser } from '../lib/auth';
+import { MIN_QUANTITY } from '../lib/batchTrigger';
 import { stripe } from '../lib/stripe';
 import { currentBankSeconds, tierFromBalance, effectiveTier } from '../lib/socialTier';
 
@@ -518,6 +519,8 @@ router.get('/me/orders', requireUser, async (req: Request, res: Response) => {
     const rows = await db
       .select({
         id: orders.id,
+        variety_id: orders.variety_id,
+        location_id: orders.location_id,
         variety_name: varieties.name,
         chocolate: orders.chocolate,
         finish: orders.finish,
@@ -536,7 +539,15 @@ router.get('/me/orders', requireUser, async (req: Request, res: Response) => {
       .limit(parseInt(req.query.limit as string) || 20)
       .offset(parseInt(req.query.offset as string) || 0);
 
-    res.json(rows);
+    // Enrich queued orders with batch progress
+    const enriched = await Promise.all(rows.map(async row => {
+      if (row.status !== 'queued' || !row.variety_id || !row.location_id) return row;
+      const queuedRows = await db.select({ qty: orders.quantity }).from(orders).where(and(eq(orders.variety_id, row.variety_id), eq(orders.location_id, row.location_id), eq(orders.status, 'queued')));
+      const queued_boxes = queuedRows.reduce((s, r) => s + r.qty, 0);
+      return { ...row, queued_boxes, min_quantity: MIN_QUANTITY };
+    }));
+
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
