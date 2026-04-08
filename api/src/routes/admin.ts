@@ -3296,8 +3296,9 @@ router.post('/grant-worker-access', requirePin, async (req: Request, res: Respon
       await db.insert(locationStaff).values({ user_id: user.id, location_id: locId, status: 'approved', requested_at: new Date(), reviewed_at: new Date() });
     }
     res.json({ ok: true });
-  } catch {
-    res.status(500).json({ error: 'internal' });
+  } catch (err) {
+    logger.error('grant-worker-access error: ' + String(err));
+    res.status(500).json({ error: String(err) });
   }
 });
 
