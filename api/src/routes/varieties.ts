@@ -5,6 +5,11 @@ import { varieties } from '../db/schema';
 import { logger } from '../lib/logger';
 import { requireUser } from '../lib/auth';
 
+// Self-healing: ensure social_tier enum exists (added after initial migration)
+db.execute(sql`DO $$ BEGIN CREATE TYPE social_tier AS ENUM('standard', 'reserve', 'estate'); EXCEPTION WHEN duplicate_object THEN NULL; END $$`).catch(() => {});
+db.execute(sql`ALTER TABLE varieties ADD COLUMN IF NOT EXISTS social_tier social_tier`).catch(() => {});
+db.execute(sql`ALTER TABLE varieties ADD COLUMN IF NOT EXISTS time_credits_days integer NOT NULL DEFAULT 30`).catch(() => {});
+
 const router = Router();
 
 // GET /api/varieties/passport — literal before parameterized

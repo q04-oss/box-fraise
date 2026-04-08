@@ -100,7 +100,7 @@ export default function HomePanel() {
     ? varieties.filter((v: any) => (v.variety_type ?? 'strawberry') === 'strawberry')
     : [];
 
-  const stripLabel = activeLocation ? activeLocation.name.toLowerCase() : 'maison fraise';
+  const stripLabel = activeLocation ? activeLocation.name.toLowerCase() : 'box fraise';
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
@@ -117,7 +117,7 @@ export default function HomePanel() {
         }}
       >
         <Text style={[styles.stripBrand, { color: c.text }]}>
-          {activeLocation ? `maison fraise × ${activeLocation.name.toLowerCase()}` : 'maison fraise'}
+          {activeLocation ? `box fraise × ${activeLocation.name.toLowerCase()}` : 'box fraise'}
         </Text>
       </TouchableOpacity>
 
@@ -131,7 +131,7 @@ export default function HomePanel() {
 
             /* ── No location selected ── */
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: c.text }]}>Maison Fraise</Text>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>Box Fraise</Text>
               <Text style={[styles.emptyDate, { color: c.muted }]}>{todayLabel}</Text>
               <Text style={[styles.emptySeason, { color: c.muted }]}>{season}</Text>
               {todayStats && todayStats.pickups_today > 0 && (
@@ -162,26 +162,11 @@ export default function HomePanel() {
                 )}
               </View>
 
-              {/* ── Popup event CTA ── */}
-              {activeLocation.type === 'popup' && (
-                <TouchableOpacity
-                  style={[styles.viewEventRow, { borderBottomColor: c.border }]}
-                  onPress={() => showPanel('popup-detail')}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.viewEventText, { color: c.accent }]}>View event, RSVP →</Text>
-                </TouchableOpacity>
-              )}
 
               {/* ── Shop identity ── */}
-              {(activeLocation.description || activeLocation.instagram_handle) && (
+              {!!activeLocation.description && (
                 <View style={styles.identityBlock}>
-                  {activeLocation.description && (
-                    <Text style={[styles.description, { color: c.muted }]}>{activeLocation.description}</Text>
-                  )}
-                  {activeLocation.instagram_handle && (
-                    <Text style={[styles.instagram, { color: c.muted }]}>@{activeLocation.instagram_handle}</Text>
-                  )}
+                  <Text style={[styles.description, { color: c.muted }]}>{activeLocation.description}</Text>
                 </View>
               )}
 
@@ -313,8 +298,6 @@ const styles = StyleSheet.create({
   // Shop identity
   identityBlock: { paddingHorizontal: SPACING.md, paddingTop: 6, paddingBottom: SPACING.md, gap: 6 },
   description: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20, fontStyle: 'italic' },
-  instagram: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
-
   // Location switcher
   switcherRow: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: 8, flexDirection: 'row' },
   switcherChip: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },

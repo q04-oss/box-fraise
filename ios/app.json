@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Maison Fraise",
+    "name": "Box Fraise",
     "slug": "maison-fraise",
-    "scheme": "fraise",
+    "scheme": "boxfraise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.maisonfraise.app",
+      "bundleIdentifier": "com.boxfraise.app",
       "entitlements": {
         "com.apple.developer.in-app-payments": [
-          "merchant.maison.fraise"
+          "merchant.com.boxfraise.app"
         ],
         "com.apple.developer.applesignin": [
           "Default"
@@ -31,13 +31,13 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Used to display augmented reality information about your Maison Fraise order.",
+        "NSCameraUsageDescription": "Used to display augmented reality information about your Box Fraise order.",
         "NSUserNotificationUsageDescription": "We'll notify you when your order is ready for collection.",
         "NSLocationWhenInUseUsageDescription": "We use your location to show collection points near you.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "We use your location in the background to notify you when you're near a collection point so you can tap your box.",
         "NFCReaderUsageDescription": "Used to verify your identity at collection points.",
-        "NSBluetoothAlwaysUsageDescription": "Used to detect nearby Maison Fraise collection points and notify you of available strawberries.",
-        "NSBluetoothPeripheralUsageDescription": "Used to detect nearby Maison Fraise collection points.",
+        "NSBluetoothAlwaysUsageDescription": "Used to detect nearby Box Fraise collection points and notify you of available strawberries.",
+        "NSBluetoothPeripheralUsageDescription": "Used to detect nearby Box Fraise collection points.",
         "NSLocationAlwaysUsageDescription": "We use your location in the background to detect nearby collection points via Bluetooth.",
         "NSHealthShareUsageDescription": "Used to recommend menu items based on your nutrition and activity today.",
         "NSHealthUpdateUsageDescription": "Used to log nutrition from your orders."
