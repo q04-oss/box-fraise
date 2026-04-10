@@ -349,3 +349,5 @@ const styles = StyleSheet.create({
   },
   tipBtnText: { fontSize: 15, fontFamily: fonts.dmMono },
 });
+
+// @audit

@@ -122,3 +122,5 @@ const styles = StyleSheet.create({
   tierLabel: { fontSize: 11, letterSpacing: 1.5 },
   bankDays: { fontSize: 11, letterSpacing: 0.5 },
 });
+
+// @audit

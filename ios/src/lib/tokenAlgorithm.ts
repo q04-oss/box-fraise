@@ -104,3 +104,5 @@ function interpolateColor(t: number): string {
   const b = Math.round(lower.b + local * (upper.b - lower.b));
   return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
 }
+
+// @audit

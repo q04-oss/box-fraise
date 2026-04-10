@@ -165,3 +165,5 @@ async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 }
+
+// @audit

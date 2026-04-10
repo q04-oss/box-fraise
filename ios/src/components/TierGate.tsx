@@ -72,3 +72,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, marginBottom: SPACING.sm, textAlign: 'center' },
   body: { fontSize: 14, lineHeight: 22, textAlign: 'center', opacity: 0.7 },
 });
+
+// @audit

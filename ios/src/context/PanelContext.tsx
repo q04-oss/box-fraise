@@ -246,3 +246,5 @@ export function usePanel() {
   if (!ctx) throw new Error('usePanel must be used within PanelProvider');
   return ctx;
 }
+
+// @audit

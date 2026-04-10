@@ -34,3 +34,5 @@ export async function fireWebhook(userId: number, event: string, payload: object
     logger.error('fireWebhook error', err);
   }
 }
+
+// @audit

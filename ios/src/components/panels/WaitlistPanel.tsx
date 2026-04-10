@@ -126,3 +126,5 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 13, letterSpacing: 1.5 },
   bigNum: { fontSize: 72, lineHeight: 80 },
 });
+
+// @audit

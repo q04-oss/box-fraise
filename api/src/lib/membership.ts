@@ -21,3 +21,5 @@ export const TIER_LABELS: Record<string, string> = {
 // Stripe max is ~$999,999 per charge for card payments
 // Tiers above 'atelier' require manual/invoice payment
 export const STRIPE_PAYABLE_TIERS = ['maison', 'reserve', 'atelier'];
+
+// @audit

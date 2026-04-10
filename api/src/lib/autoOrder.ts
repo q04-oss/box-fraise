@@ -232,3 +232,5 @@ export async function checkAndTriggerAutoOrder(userId: number, db: DB): Promise<
     if (!err?.expected) logger.error('checkAndTriggerAutoOrder error', err);
   }
 }
+
+// @audit

@@ -205,3 +205,5 @@ const styles = StyleSheet.create({
   batchFill: { height: 2, borderRadius: 1 },
   batchLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
+
+// @audit

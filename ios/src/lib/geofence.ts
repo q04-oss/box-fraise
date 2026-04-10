@@ -46,3 +46,5 @@ export async function registerGeofences(locations: GeofenceLocation[]): Promise<
 
   await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
 }
+
+// @audit

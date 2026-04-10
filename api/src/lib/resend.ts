@@ -502,3 +502,5 @@ export async function sendRsvpConfirmed(params: {
     html: baseTemplate(content, 'RSVP confirmed.'),
   });
 }
+
+// @audit

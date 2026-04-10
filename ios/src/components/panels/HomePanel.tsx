@@ -343,3 +343,5 @@ const styles = StyleSheet.create({
   batchBarFill: { height: 2, borderRadius: 1 },
   batchBarLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 });
+
+// @audit
