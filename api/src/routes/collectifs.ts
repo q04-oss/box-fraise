@@ -136,28 +136,6 @@ router.get('/:id/share', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/collectifs/:id
-router.get('/:id', async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
-  try {
-    const [row] = await db.execute(sql`
-      SELECT
-        c.*,
-        u.display_name AS creator_display_name,
-        (SELECT COUNT(*) FROM collectif_commitments cc WHERE cc.collectif_id = c.id AND cc.status = 'captured') AS commitment_count
-      FROM collectifs c
-      LEFT JOIN users u ON u.id = c.created_by
-      WHERE c.id = ${id}
-    `);
-    if (!row) { res.status(404).json({ error: 'not_found' }); return; }
-    res.json(row);
-  } catch (err) {
-    logger.error('fetchCollectif', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // ─── Authenticated: create collectif ─────────────────────────────────────────
 
 // POST /api/collectifs
@@ -246,13 +224,13 @@ router.post('/:id/commit', requireUser, async (req: any, res: Response) => {
   if (collectif.status !== 'open') { res.status(409).json({ error: 'collectif_not_open' }); return; }
   if (new Date(collectif.deadline) <= new Date()) { res.status(409).json({ error: 'collectif_expired' }); return; }
 
-  // Check for existing active commitment
+  // Check for existing pending or captured commitment to block duplicates
   const [existing] = await db.select({ id: collectifCommitments.id })
     .from(collectifCommitments)
     .where(and(
       eq(collectifCommitments.collectif_id, collectifId),
       eq(collectifCommitments.user_id, userId),
-      eq(collectifCommitments.status, 'captured'),
+      sql`${collectifCommitments.status} IN ('pending', 'captured')`,
     )).limit(1);
   if (existing) { res.status(409).json({ error: 'already_committed' }); return; }
 
@@ -270,7 +248,7 @@ router.post('/:id/commit', requireUser, async (req: any, res: Response) => {
         quantity: String(quantity),
         user_email: creator.email ?? '',
       },
-    });
+    }, { idempotencyKey: `collectif-${collectifId}-${userId}-${quantity}` });
 
     // Insert pending commitment
     await db.insert(collectifCommitments).values({
@@ -461,6 +439,28 @@ router.get('/variety-streak-leaders', requireUser, async (req: Request, res: Res
     res.json({ leaders, my_rank: myRank });
   } catch (err) {
     res.status(500).json({ error: 'internal' });
+  }
+});
+
+// GET /api/collectifs/:id — must be registered after all fixed-path GET routes
+router.get('/:id', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
+  try {
+    const [row] = await db.execute(sql`
+      SELECT
+        c.*,
+        u.display_name AS creator_display_name,
+        (SELECT COUNT(*) FROM collectif_commitments cc WHERE cc.collectif_id = c.id AND cc.status = 'captured') AS commitment_count
+      FROM collectifs c
+      LEFT JOIN users u ON u.id = c.created_by
+      WHERE c.id = ${id}
+    `);
+    if (!row) { res.status(404).json({ error: 'not_found' }); return; }
+    res.json(row);
+  } catch (err) {
+    logger.error('fetchCollectif', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

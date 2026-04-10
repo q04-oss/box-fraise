@@ -135,14 +135,15 @@ router.post('/dinner-invite/:messageId/accept', requireUser, async (req: Request
     let bookingId: number | null = null;
     try {
       await db.transaction(async (tx) => {
-        // Create confirmed booking: initiator = other user, guest = current user
+        // Create confirmed booking atomically, guard against duplicate accepts
         const [created] = await tx.insert(reservationBookings).values({
           offer_id: offerId,
           initiator_user_id: otherUserId,
           guest_user_id: userId,
           status: 'confirmed',
           confirmed_at: new Date(),
-        }).returning();
+        }).onConflictDoNothing().returning();
+        if (!created) throw Object.assign(new Error('already_confirmed'), { status: 409 });
         bookingId = created.id;
 
         await tx.update(reservationOffers)
@@ -353,12 +354,26 @@ router.post('/gift/:messageId/confirm', requireUser, async (req: Request, res: R
     const nfc_token = randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
 
     await db.transaction(async (tx) => {
+      // Atomically transition status to prevent duplicate confirmations
+      const [locked] = await tx.update(messages)
+        .set({ metadata: { ...meta, status: 'confirmed' } })
+        .where(and(eq(messages.id, messageId), sql`(${messages.metadata}->>'status') = 'pending_payment'`))
+        .returning({ id: messages.id });
+      if (!locked) throw Object.assign(new Error('already confirmed'), { status: 409 });
+
       // Decrement stock
       const [stockResult] = await tx.update(varieties)
         .set({ stock_remaining: sql`${varieties.stock_remaining} - ${meta.quantity}` })
         .where(and(eq(varieties.id, meta.variety_id), sql`${varieties.stock_remaining} >= ${meta.quantity}`))
         .returning({ stock_remaining: varieties.stock_remaining });
       if (!stockResult) throw Object.assign(new Error('sold_out'), { status: 409 });
+
+      // Increment time slot booking count
+      if (meta.time_slot_id) {
+        await tx.update(timeSlots)
+          .set({ booked: sql`${timeSlots.booked} + 1` })
+          .where(eq(timeSlots.id, meta.time_slot_id));
+      }
 
       // Create order
       const [order] = await tx.insert(orders).values({
@@ -376,7 +391,7 @@ router.post('/gift/:messageId/confirm', requireUser, async (req: Request, res: R
         nfc_token,
       }).returning();
 
-      // Update message to confirmed
+      // Update message with nfc_token and order_id (status already set to confirmed above)
       await tx.update(messages).set({
         metadata: { ...meta, status: 'confirmed', nfc_token, order_id: order.id },
         order_id: order.id,

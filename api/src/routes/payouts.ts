@@ -158,33 +158,52 @@ router.post('/payout', requireUser, async (req: any, res: Response) => {
       return;
     }
 
-    const [balanceRow] = await db
-      .select({
-        available: sql<number>`COALESCE(SUM(CASE WHEN type = 'credit' THEN amount_cents ELSE -amount_cents END), 0)::integer`,
-      })
-      .from(earningsLedger)
-      .where(eq(earningsLedger.user_id, req.userId));
+    // Atomically read balance and reserve it with a debit entry to prevent double payouts
+    let available = 0;
+    let ledgerEntryId: number | null = null;
+    try {
+      await db.transaction(async (tx) => {
+        const rows = await tx.execute<{ available: number }>(sql`
+          SELECT COALESCE(SUM(CASE WHEN type = 'credit' THEN amount_cents ELSE -amount_cents END), 0)::integer AS available
+          FROM earnings_ledger WHERE user_id = ${req.userId}
+          FOR UPDATE
+        `);
+        available = Number(((rows as any).rows ?? rows)[0]?.available ?? 0);
+        if (available <= 0) throw Object.assign(new Error('no_balance'), { status: 400 });
 
-    const available = balanceRow?.available ?? 0;
-    if (available <= 0) {
-      res.status(400).json({ error: 'no_balance' });
-      return;
+        const [entry] = await tx.insert(earningsLedger).values({
+          user_id: req.userId,
+          amount_cents: available,
+          type: 'debit',
+          description: 'Payout to bank account',
+        }).returning({ id: earningsLedger.id });
+        ledgerEntryId = entry.id;
+      });
+    } catch (err: any) {
+      if (err?.status === 400) { res.status(400).json({ error: 'no_balance' }); return; }
+      throw err;
     }
 
-    const transfer = await stripe.transfers.create({
-      amount: available,
-      currency: 'cad',
-      destination: user.stripe_connect_account_id,
-      description: `Venture earnings payout — user ${req.userId}`,
-    });
+    // Execute Stripe transfer outside the transaction
+    let transfer;
+    try {
+      transfer = await stripe.transfers.create({
+        amount: available,
+        currency: 'cad',
+        destination: user.stripe_connect_account_id,
+        description: `Venture earnings payout — user ${req.userId}`,
+      }, { idempotencyKey: `payout-${req.userId}-${ledgerEntryId}` });
 
-    await db.insert(earningsLedger).values({
-      user_id: req.userId,
-      amount_cents: available,
-      type: 'debit',
-      description: 'Payout to bank account',
-      stripe_transfer_id: transfer.id,
-    });
+      await db.update(earningsLedger)
+        .set({ stripe_transfer_id: transfer.id })
+        .where(eq(earningsLedger.id, ledgerEntryId!));
+    } catch (stripeErr) {
+      // Reverse the reserved debit if Stripe fails
+      if (ledgerEntryId !== null) {
+        await db.delete(earningsLedger).where(eq(earningsLedger.id, ledgerEntryId)).catch(() => {});
+      }
+      throw stripeErr;
+    }
 
     res.json({ ok: true, transferred_cents: available, transfer_id: transfer.id });
   } catch {

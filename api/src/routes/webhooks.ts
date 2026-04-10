@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db } from '../db';
 import { requireUser } from '../lib/auth';
+import { isSafeWebhookUrl } from '../lib/webhooks';
 
 const router = Router();
 
@@ -38,6 +39,9 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
   const { url, events } = req.body;
   if (!url || !Array.isArray(events) || events.length === 0) {
     res.status(400).json({ error: 'url and events[] required' }); return;
+  }
+  if (!isSafeWebhookUrl(url)) {
+    res.status(400).json({ error: 'url must be a public HTTPS endpoint' }); return;
   }
   try {
     const secret = crypto.randomBytes(24).toString('hex');

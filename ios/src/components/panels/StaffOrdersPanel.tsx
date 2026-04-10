@@ -81,23 +81,23 @@ export default function StaffOrdersPanel() {
   };
 
   const markPrepare = async (id: number) => {
-    const prev = orders.find(o => o.id === id)?.status;
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'preparing' } : o));
+    const prevStatus = orders.find(o => o.id === id)?.status;
+    setOrders(cur => cur.map(o => o.id === id ? { ...o, status: 'preparing' } : o));
     try {
       await staffMarkPrepare(pin, id);
     } catch {
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: prev } : o));
+      setOrders(cur => cur.map(o => o.id === id ? { ...o, status: prevStatus } : o));
       Alert.alert('Failed to update order');
     }
   };
 
   const markReady = async (id: number) => {
-    const prev = orders.find(o => o.id === id)?.status;
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'ready' } : o));
+    const prevStatus = orders.find(o => o.id === id)?.status;
+    setOrders(cur => cur.map(o => o.id === id ? { ...o, status: 'ready' } : o));
     try {
       await staffMarkReady(pin, id);
     } catch {
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: prev } : o));
+      setOrders(cur => cur.map(o => o.id === id ? { ...o, status: prevStatus } : o));
       Alert.alert('Failed to update order');
     }
   };

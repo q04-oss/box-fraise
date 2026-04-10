@@ -294,10 +294,12 @@ router.post('/offer/:offerId/accept', requireUser, async (req: any, res: Respons
         .returning({ id: tokenTradeOffers.id });
       if (updated.length === 0) throw Object.assign(new Error('Offer already accepted or declined'), { status: 409 });
 
-      await tx
+      const [transferred] = await tx
         .update(tokens)
         .set({ current_owner_id: userId })
-        .where(eq(tokens.id, offer.token_id));
+        .where(and(eq(tokens.id, offer.token_id), eq(tokens.current_owner_id, offer.from_user_id)))
+        .returning({ id: tokens.id });
+      if (!transferred) throw Object.assign(new Error('Token no longer owned by sender'), { status: 409 });
 
       await tx.insert(tokenTrades).values({
         token_id: offer.token_id,

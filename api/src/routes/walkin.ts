@@ -129,6 +129,18 @@ router.post('/:token/order', async (req: Request, res: Response) => {
       metadata: { walk_in_token: token, variety_id: String(row.variety_id) },
     }, { idempotencyKey: `walkin-${token}-${customer_email}` });
 
+    // Atomically claim the token — if already claimed, cancel the PaymentIntent and reject
+    const [claimResult] = await db
+      .update(walkInTokens)
+      .set({ claimed: true })
+      .where(and(eq(walkInTokens.id, row.id), eq(walkInTokens.claimed, false)))
+      .returning({ id: walkInTokens.id });
+
+    if (!claimResult) {
+      await stripe.paymentIntents.cancel(paymentIntent.id).catch(() => {});
+      res.status(410).json({ error: 'already_claimed' }); return;
+    }
+
     const [order] = await db
       .insert(orders)
       .values({
@@ -148,10 +160,9 @@ router.post('/:token/order', async (req: Request, res: Response) => {
       })
       .returning();
 
-    // Mark token as claimed
     await db
       .update(walkInTokens)
-      .set({ claimed: true, claimed_order_id: order.id })
+      .set({ claimed_order_id: order.id })
       .where(eq(walkInTokens.id, row.id));
 
     res.status(201).json({ order, client_secret: paymentIntent.client_secret });
