@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { eq, and, isNull, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { greenhouses, provenanceTokens, users, greenhouseFunding } from '../db/schema';
 import { requireUser } from '../lib/auth';
@@ -92,7 +92,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         ? {
             id: provenanceToken.id,
             minted_at: provenanceToken.minted_at,
-            provenance_ledger: JSON.parse(provenanceToken.provenance_ledger),
+            provenance_ledger: (() => { try { return JSON.parse(provenanceToken.provenance_ledger); } catch { return []; } })(),
           }
         : null,
     });
@@ -134,25 +134,39 @@ router.post('/:id/fund', requireUser, async (req: any, res: Response) => {
       return;
     }
 
-    if (greenhouse.founding_patron_id !== null) {
+    // Atomically reserve the greenhouse slot — prevents double-funding under concurrent requests
+    const [reserved] = await db
+      .update(greenhouses)
+      .set({ founding_patron_id: userId })
+      .where(and(eq(greenhouses.id, id), isNull(greenhouses.founding_patron_id)))
+      .returning({ id: greenhouses.id });
+
+    if (!reserved) {
       res.status(409).json({ error: 'greenhouse_already_funded' });
       return;
     }
 
     const amount_cents = greenhouse.funding_goal_cents;
 
-    const pi = await stripe.paymentIntents.create({
-      amount: amount_cents,
-      currency: 'cad',
-      metadata: {
-        type: 'greenhouse_fund',
-        greenhouse_id: String(id),
-        user_id: String(userId),
-        years: String(years),
-        greenhouse_name: greenhouse.name,
-        greenhouse_location: greenhouse.location,
-      },
-    });
+    let pi;
+    try {
+      pi = await stripe.paymentIntents.create({
+        amount: amount_cents,
+        currency: 'cad',
+        metadata: {
+          type: 'greenhouse_fund',
+          greenhouse_id: String(id),
+          user_id: String(userId),
+          years: String(years),
+          greenhouse_name: greenhouse.name,
+          greenhouse_location: greenhouse.location,
+        },
+      });
+    } catch (piErr) {
+      // Revert reservation if PI creation fails
+      await db.update(greenhouses).set({ founding_patron_id: null }).where(eq(greenhouses.id, id));
+      throw piErr;
+    }
 
     await db.insert(greenhouseFunding).values({
       greenhouse_id: id,

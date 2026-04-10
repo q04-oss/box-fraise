@@ -30,7 +30,7 @@ async function uniqueUserCode(): Promise<string> {
     code = generateUserCode();
     attempts++;
   }
-  return code;
+  throw new Error('Failed to generate unique user code after 10 attempts');
 }
 
 // Self-healing: ensure columns added in later migrations exist
@@ -205,11 +205,12 @@ router.post('/operator', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/demo — demo login for Apple reviewers
-const DEMO_EMAIL = 'reviewer@boxfraise.com';
-const DEMO_PASSWORD = 'BoxFraise2025!';
+// Credentials sourced from env vars; falls back to defaults only if env is not set
+const DEMO_EMAIL = process.env.DEMO_EMAIL ?? 'reviewer@boxfraise.com';
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'BoxFraise2025!';
 router.post('/demo', async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+  if (!DEMO_EMAIL || !DEMO_PASSWORD || email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
     res.status(401).json({ error: 'invalid_credentials' }); return;
   }
   try {

@@ -78,13 +78,18 @@ router.post('/confirm', requireUser, async (req: Request, res: Response) => {
       return;
     }
 
-    await db.insert(nfcConnections).values({
+    const [inserted] = await db.insert(nfcConnections).values({
       user_a: userId,
       user_b: otherUserId,
       location: location ?? null,
-    });
+    }).onConflictDoNothing().returning({ id: nfcConnections.id });
 
     await db.delete(nfcPairingTokens).where(eq(nfcPairingTokens.token, token));
+
+    if (!inserted) {
+      res.status(409).json({ error: 'already_connected' });
+      return;
+    }
 
     // Get the other user's profile
     const [otherUser] = await db
