@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import appleSignin from 'apple-signin-auth';
 import { eq, sql } from 'drizzle-orm';
-import { randomInt } from 'crypto';
 import { db } from '../db';
 import { users } from '../db/schema';
 import { logger } from '../lib/logger';
@@ -18,7 +17,7 @@ db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_tap_week text`).c
 function generateUserCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
-  for (let i = 0; i < 6; i++) code += chars[randomInt(chars.length)];
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
@@ -144,7 +143,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
         return;
       }
 
-      // 3. Brand new user — atomic upsert guards against concurrent sign-in race
+      // 3. Brand new user — create account
       const userCode = await uniqueUserCode();
       const [created] = await db
         .insert(users)
@@ -153,10 +152,6 @@ async function handleAppleSignIn(req: Request, res: Response) {
           apple_user_id: appleId,
           user_code: userCode,
           ...(displayName ? { display_name: displayName } : {}),
-        })
-        .onConflictDoUpdate({
-          target: users.email,
-          set: { apple_user_id: appleId },
         })
         .returning();
       const token = signToken(created.id);
@@ -210,10 +205,9 @@ router.post('/operator', async (req: Request, res: Response) => {
 });
 
 // POST /api/auth/demo — demo login for Apple reviewers
-const DEMO_EMAIL = process.env.DEMO_EMAIL ?? 'reviewer@boxfraise.com';
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+const DEMO_EMAIL = 'reviewer@boxfraise.com';
+const DEMO_PASSWORD = 'BoxFraise2025!';
 router.post('/demo', async (req: Request, res: Response) => {
-  if (!DEMO_PASSWORD) { res.status(503).json({ error: 'Demo login not configured' }); return; }
   const { email, password } = req.body;
   if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
     res.status(401).json({ error: 'invalid_credentials' }); return;
