@@ -83,7 +83,7 @@ router.post('/confirm', requireUser, async (req: Request, res: Response) => {
             eq(nfcPairingTokens.token, token),
             sql`${nfcPairingTokens.expires_at} >= NOW()`,
           ))
-          .returning({ id: nfcPairingTokens.id, user_id: nfcPairingTokens.user_id });
+          .returning({ user_id: nfcPairingTokens.user_id });
         if (deleted.length === 0) throw Object.assign(new Error('already_connected'), { status: 409 });
 
         // Canonicalize pair order (min, max) so the unique index covers both directions
@@ -199,3 +199,5 @@ contactsRouter.get('/', requireUser, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'internal_error' });
   }
 });
+
+// @final-audit
