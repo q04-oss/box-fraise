@@ -136,7 +136,8 @@ export const orders = pgTable('orders', {
   idx_customer_email: index('orders_customer_email_idx').on(t.customer_email),
 }));
 
-export const users = pgTable('users', {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const users: any = pgTable('users', {
   id: serial('id').primaryKey(),
   apple_user_id: text('apple_user_id').unique(),
   email: text('email').notNull().unique(),
@@ -1468,6 +1469,19 @@ export const walkInTokens = pgTable('walk_in_tokens', {
 
 export const locationStaffStatusEnum = pgEnum('location_staff_status', ['pending', 'approved', 'denied']);
 
+export const standingOrders = pgTable('standing_orders', {
+  id: serial('id').primaryKey(),
+  sender_id: integer('sender_id').notNull().references(() => users.id),
+  recipient_id: integer('recipient_id').references(() => users.id),
+  variety_id: integer('variety_id').notNull().references(() => varieties.id),
+  location_id: integer('location_id').notNull().references(() => locations.id),
+  quantity: integer('quantity').notNull().default(1),
+  chocolate: chocolateEnum('chocolate').notNull(),
+  finish: finishEnum('finish').notNull(),
+  status: text('status').notNull().default('active'), // 'active' | 'paused' | 'cancelled'
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const locationStaff = pgTable('location_staff', {
   id: serial('id').primaryKey(),
   user_id: integer('user_id').notNull().references(() => users.id),
@@ -1478,3 +1492,5 @@ export const locationStaff = pgTable('location_staff', {
 }, (table) => ({
   uniq: unique().on(table.user_id, table.location_id),
 }));
+
+// @final-audit

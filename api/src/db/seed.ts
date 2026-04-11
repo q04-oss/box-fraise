@@ -184,3 +184,5 @@ export async function seed(): Promise<void> {
 
   logger.info('Seed complete — varieties, location, time slots, popup business, and 2 collectifs inserted.');
 }
+
+// @final-audit

@@ -123,7 +123,9 @@ router.patch('/orders/:id/status', async (req: Request, res: Response) => {
     // Send push notification + email when order becomes ready
     if (status === 'ready') {
       const [variety] = await db.select({ name: varieties.name }).from(varieties).where(eq(varieties.id, updated.variety_id));
-      const [slot] = await db.select({ time: timeSlots.time }).from(timeSlots).where(eq(timeSlots.id, updated.time_slot_id));
+      const [slot] = updated.time_slot_id != null
+        ? await db.select({ time: timeSlots.time }).from(timeSlots).where(eq(timeSlots.id, updated.time_slot_id))
+        : [];
       const varietyName = variety?.name ?? 'your order';
 
       // Try push token from order first; fall back to user's push token
@@ -3217,6 +3219,7 @@ router.post('/node-applications/:id/approve', async (req: Request, res: Response
       latitude: latitude ?? null,
       longitude: longitude ?? null,
       checkin_token: randomUUID(),
+      launched_at: new Date(),
       approved_by_admin: true,
       founding_patron_id: app.applicant_user_id,
       allows_walkin: false,
@@ -3427,3 +3430,5 @@ router.get('/batch-preferences', requirePin, async (_req: Request, res: Response
 });
 
 export default router;
+
+// @final-audit
