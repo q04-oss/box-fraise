@@ -42,3 +42,5 @@ export function initBeaconRecommendations(): void {
     }
   });
 }
+
+// @final-audit

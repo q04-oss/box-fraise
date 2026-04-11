@@ -42,3 +42,5 @@ export async function cancelNfc() {
     await NfcManager.cancelTechnologyRequest();
   } catch {}
 }
+
+// @final-audit

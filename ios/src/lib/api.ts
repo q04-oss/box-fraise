@@ -3900,3 +3900,5 @@ export async function fetchMyWorkerAccess(locationId: number): Promise<{ status:
   if (!r.ok) throw new Error('fetch_failed');
   return r.json();
 }
+
+// @final-audit

@@ -19,3 +19,5 @@ export function isIdentityActive(user: {
   if (user.verification_renewal_due_at && now > new Date(user.verification_renewal_due_at)) return false;
   return true;
 }
+
+// @final-audit

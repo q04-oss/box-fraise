@@ -1478,3 +1478,5 @@ export const locationStaff = pgTable('location_staff', {
 }, (table) => ({
   uniq: unique().on(table.user_id, table.location_id),
 }));
+
+// @final-audit

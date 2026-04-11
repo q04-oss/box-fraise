@@ -183,3 +183,5 @@ const styles = StyleSheet.create({
   statementLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.2, textTransform: 'uppercase' },
   statementText: { fontSize: 13, fontFamily: fonts.dmSans, lineHeight: 20 },
 });
+
+// @final-audit

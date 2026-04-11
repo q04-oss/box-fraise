@@ -132,3 +132,5 @@ const styles = StyleSheet.create({
   varietyStock: { fontSize: 11, fontFamily: fonts.dmSans },
   chatLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1 },
 });
+
+// @final-audit

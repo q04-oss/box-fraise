@@ -66,3 +66,5 @@ export async function requireVerifiedUser(req: any, res: any, next: any) {
     return res.status(500).json({ error: 'internal_error' });
   }
 }
+
+// @final-audit

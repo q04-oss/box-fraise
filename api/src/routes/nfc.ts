@@ -199,3 +199,5 @@ contactsRouter.get('/', requireUser, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'internal_error' });
   }
 });
+
+// @final-audit
