@@ -8,7 +8,7 @@ import { stripe } from '../lib/stripe';
 import { sendOrderConfirmation, sendOrderQueued } from '../lib/resend';
 import { sendPushNotification } from '../lib/push';
 import { logger } from '../lib/logger';
-import { requireUser } from '../lib/auth';
+import { requireUser, requireDevice } from '../lib/auth';
 import { checkAndTriggerBatch, MIN_QUANTITY } from '../lib/batchTrigger';
 
 const router = Router();
@@ -488,6 +488,96 @@ router.get('/:id/receipt', requireUser, async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Device collect endpoint ───────────────────────────────────────────────────
+
+// POST /api/orders/:nfc_token/collect
+// Called by employee/chocolatier Cardputer after scanning a customer's NFC tag.
+// Auth: Fraise <address>:<signature>  (device auth)
+router.post('/:nfc_token/collect', requireDevice, async (req: Request, res: Response) => {
+  const { nfc_token } = req.params;
+  const deviceRole: string = (req as any).deviceRole;
+
+  // Only operational devices may mark orders as collected
+  if (deviceRole !== 'employee' && deviceRole !== 'chocolatier') {
+    res.status(403).json({ ok: false, error: 'forbidden' });
+    return;
+  }
+
+  if (!nfc_token || !/^[0-9a-fA-F]{64}$/.test(nfc_token)) {
+    res.status(400).json({ ok: false, error: 'invalid_token' });
+    return;
+  }
+
+  try {
+    // First fetch order details (read-only — for name, variety, push token)
+    const [order] = await db
+      .select({
+        id: orders.id,
+        quantity: orders.quantity,
+        customer_name: users.display_name,
+        variety_name: varieties.name,
+        push_token: orders.push_token,
+      })
+      .from(orders)
+      .leftJoin(users, eq(orders.apple_id, users.apple_user_id))
+      .leftJoin(varieties, eq(orders.variety_id, varieties.id))
+      .where(eq(orders.nfc_token, nfc_token))
+      .limit(1);
+
+    if (!order) {
+      res.status(404).json({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    // Atomic conditional update — guards status and nfc_token_used in WHERE
+    // so concurrent requests cannot both succeed (only one will get rowCount > 0)
+    const updated = await db
+      .update(orders)
+      .set({
+        status: 'collected',
+        nfc_token_used: true,
+        nfc_verified_at: new Date(),
+      })
+      .where(
+        and(
+          eq(orders.id, order.id),
+          eq(orders.nfc_token_used, false),
+          sql`${orders.status} IN ('paid', 'ready')`,
+        )
+      )
+      .returning({ id: orders.id });
+
+    if (updated.length === 0) {
+      // Either already claimed or not in a collectable state
+      const [current] = await db
+        .select({ status: orders.status, nfc_token_used: orders.nfc_token_used })
+        .from(orders)
+        .where(eq(orders.id, order.id))
+        .limit(1);
+      const error = current?.nfc_token_used ? 'already_claimed' : 'not_ready';
+      res.status(409).json({ ok: false, error });
+      return;
+    }
+
+    // Notify customer
+    if (order.push_token) {
+      sendPushNotification(order.push_token, { title: '🍓 Collected', body: 'Your order has been picked up. Enjoy!' }).catch(() => {});
+    }
+
+    logger.info(`order ${order.id} collected by device ${(req as any).deviceAddress}`);
+
+    res.json({
+      ok: true,
+      customer_name: order.customer_name ?? 'Customer',
+      variety_name:  order.variety_name ?? 'Order',
+      quantity:      order.quantity,
+    });
+  } catch (err) {
+    logger.error('collect error', err);
+    res.status(500).json({ ok: false, error: 'internal' });
   }
 });
 
