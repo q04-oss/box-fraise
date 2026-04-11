@@ -47,3 +47,5 @@ export const TIER_COMMISSION_RATE: Record<string, number> = {
 export function tierCommissionRate(tier: SocialTier): number {
   return TIER_COMMISSION_RATE[tier ?? ''] ?? 0.70;
 }
+
+// @final-audit

@@ -306,7 +306,7 @@ app.get('/editorial/:id', async (req, res) => {
     if (!piece) { res.status(404).send('<h1>Not found</h1>'); return; }
 
     const date = piece.published_at ? new Date(piece.published_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
-    const bodyHtml = piece.body.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+    const bodyHtml = (piece.body ?? '').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
 
     res.send(`<!DOCTYPE html><html lang="en"><head>
       <meta charset="utf-8">
@@ -407,3 +407,5 @@ app.get('/members/:username', async (req, res) => {
 app.use(Sentry.expressErrorHandler());
 
 export default app;
+
+// @final-audit
