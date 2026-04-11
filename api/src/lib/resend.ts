@@ -98,13 +98,13 @@ export async function sendOrderConfirmation(params: {
   quantity: number;
   isGift: boolean;
   totalCents: number;
-  slotDate: string;
-  slotTime: string;
+  slotDate?: string;
+  slotTime?: string;
 }) {
   const { to, varietyName, chocolate, finish, quantity, isGift, totalCents, slotDate, slotTime } = params;
   const resolvedTo = await resolveEmailAddress(to);
   const total = (totalCents / 100).toFixed(2);
-  const slot = formatSlot(slotDate, slotTime);
+  const slot = slotDate && slotTime ? formatSlot(slotDate, slotTime) : null;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
@@ -113,7 +113,7 @@ export async function sendOrderConfirmation(params: {
       ${row('Finish', FINISH_LABELS[finish] ?? finish)}
       ${row('Quantity', String(quantity))}
       ${isGift ? row('Gift', 'Handwritten note included') : ''}
-      ${row('Collection', slot)}
+      ${slot ? row('Collection', slot) : ''}
     </table>
 
     <!-- Total card — amber on dark -->

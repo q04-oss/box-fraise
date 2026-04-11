@@ -231,9 +231,9 @@ router.post('/webhook', async (req: Request, res: Response) => {
           db.select().from(varieties).where(eq(varieties.id, variety_id)),
           time_slot_id !== null
             ? db.select().from(timeSlots).where(eq(timeSlots.id, time_slot_id))
-            : Promise.resolve([]),
+            : Promise.resolve([undefined]),
         ]).then(([[variety], [slot]]) => {
-          if (variety && slot) {
+          if (variety) {
             sendOrderConfirmation({
               to: customer_email,
               varietyName: variety.name,
@@ -242,8 +242,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
               quantity,
               isGift: is_gift,
               totalCents: pi.amount,
-              slotDate: slot.date,
-              slotTime: slot.time,
+              ...(slot ? { slotDate: slot.date, slotTime: slot.time } : {}),
             }).catch(() => {});
           }
         }).catch(() => {});

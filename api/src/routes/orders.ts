@@ -512,18 +512,17 @@ router.post('/:nfc_token/collect', requireDevice, async (req: Request, res: Resp
   }
 
   try {
+    // First fetch order details (read-only — for name, variety, push token)
     const [order] = await db
       .select({
         id: orders.id,
-        status: orders.status,
-        nfc_token_used: orders.nfc_token_used,
         quantity: orders.quantity,
         customer_name: users.display_name,
         variety_name: varieties.name,
         push_token: orders.push_token,
       })
       .from(orders)
-      .leftJoin(users, eq(orders.apple_id, users.apple_id))
+      .leftJoin(users, eq(orders.apple_id, users.apple_user_id))
       .leftJoin(varieties, eq(orders.variety_id, varieties.id))
       .where(eq(orders.nfc_token, nfc_token))
       .limit(1);
@@ -533,24 +532,35 @@ router.post('/:nfc_token/collect', requireDevice, async (req: Request, res: Resp
       return;
     }
 
-    if (order.nfc_token_used) {
-      res.status(409).json({ ok: false, error: 'already_claimed' });
-      return;
-    }
-
-    if (order.status !== 'paid' && order.status !== 'ready') {
-      res.status(409).json({ ok: false, error: 'not_ready' });
-      return;
-    }
-
-    await db
+    // Atomic conditional update — guards status and nfc_token_used in WHERE
+    // so concurrent requests cannot both succeed (only one will get rowCount > 0)
+    const updated = await db
       .update(orders)
       .set({
         status: 'collected',
         nfc_token_used: true,
         nfc_verified_at: new Date(),
       })
-      .where(eq(orders.id, order.id));
+      .where(
+        and(
+          eq(orders.id, order.id),
+          eq(orders.nfc_token_used, false),
+          sql`${orders.status} IN ('paid', 'ready')`,
+        )
+      )
+      .returning({ id: orders.id });
+
+    if (updated.length === 0) {
+      // Either already claimed or not in a collectable state
+      const [current] = await db
+        .select({ status: orders.status, nfc_token_used: orders.nfc_token_used })
+        .from(orders)
+        .where(eq(orders.id, order.id))
+        .limit(1);
+      const error = current?.nfc_token_used ? 'already_claimed' : 'not_ready';
+      res.status(409).json({ ok: false, error });
+      return;
+    }
 
     // Notify customer
     if (order.push_token) {

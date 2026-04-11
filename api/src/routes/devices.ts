@@ -17,18 +17,23 @@ router.post('/pair-token', requireUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
   const now = new Date();
 
-  // Clean up expired tokens for this user
-  await db.delete(devicePairingTokens).where(lt(devicePairingTokens.expires_at, now));
+  try {
+    // Clean up expired tokens
+    await db.delete(devicePairingTokens).where(lt(devicePairingTokens.expires_at, now));
 
-  // 8-char alphanumeric code — avoids ambiguous chars (0/O, 1/I/l)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = randomBytes(8);
-  const token = Array.from(bytes).map(b => chars[b % chars.length]).join('');
+    // 8-char alphanumeric code — avoids ambiguous chars (0/O, 1/I/l)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = randomBytes(8);
+    const token = Array.from(bytes).map(b => chars[b % chars.length]).join('');
 
-  const expiresAt = new Date(now.getTime() + 5 * 60_000); // 5 minutes
-  await db.insert(devicePairingTokens).values({ token, user_id: userId, expires_at: expiresAt });
+    const expiresAt = new Date(now.getTime() + 5 * 60_000); // 5 minutes
+    await db.insert(devicePairingTokens).values({ token, user_id: userId, expires_at: expiresAt });
 
-  res.json({ token, expires_at: expiresAt.toISOString() });
+    res.json({ token, expires_at: expiresAt.toISOString() });
+  } catch (err) {
+    logger.error('pair-token error', err);
+    res.status(500).json({ error: 'internal' });
+  }
 });
 
 // ── Device registration (device side, device-signed) ─────────────────────────
@@ -88,51 +93,50 @@ router.post('/register', async (req: Request, res: Response) => {
 
   try {
     const now = new Date();
-    const [tokenRow] = await db
-      .select()
-      .from(devicePairingTokens)
-      .where(eq(devicePairingTokens.token, user_token.toUpperCase()))
-      .limit(1);
-
-    if (!tokenRow) {
-      res.status(404).json({ ok: false, error: 'invalid_token' });
-      return;
-    }
-
-    if (tokenRow.expires_at < now) {
-      await db.delete(devicePairingTokens).where(eq(devicePairingTokens.id, tokenRow.id));
-      res.status(410).json({ ok: false, error: 'token_expired' });
-      return;
-    }
-
     const normalizedAddress = device_address.toLowerCase();
 
-    // Upsert — allow re-pairing an already-registered device
-    const existing = await db
-      .select({ id: devices.id })
-      .from(devices)
-      .where(eq(devices.device_address, normalizedAddress))
-      .limit(1);
+    // Atomically consume the token and upsert the device in one transaction.
+    // Using delete-returning ensures exactly one request wins even under concurrency.
+    await db.transaction(async (tx) => {
+      const [tokenRow] = await tx
+        .delete(devicePairingTokens)
+        .where(eq(devicePairingTokens.token, user_token.toUpperCase()))
+        .returning();
 
-    if (existing.length > 0) {
-      await db
-        .update(devices)
-        .set({ user_id: tokenRow.user_id })
-        .where(eq(devices.device_address, normalizedAddress));
-    } else {
-      await db.insert(devices).values({
-        device_address: normalizedAddress,
-        user_id: tokenRow.user_id,
-        role: 'user',
-      });
-    }
+      if (!tokenRow) {
+        throw Object.assign(new Error('invalid_token'), { status: 404 });
+      }
 
-    // Consume the token
-    await db.delete(devicePairingTokens).where(eq(devicePairingTokens.id, tokenRow.id));
+      if (tokenRow.expires_at < now) {
+        throw Object.assign(new Error('token_expired'), { status: 410 });
+      }
 
-    logger.info(`device registered: ${normalizedAddress} for user ${tokenRow.user_id}`);
+      const [existing] = await tx
+        .select({ id: devices.id })
+        .from(devices)
+        .where(eq(devices.device_address, normalizedAddress))
+        .limit(1);
+
+      if (existing) {
+        await tx
+          .update(devices)
+          .set({ user_id: tokenRow.user_id })
+          .where(eq(devices.device_address, normalizedAddress));
+      } else {
+        await tx.insert(devices).values({
+          device_address: normalizedAddress,
+          user_id: tokenRow.user_id,
+          role: 'user',
+        });
+      }
+
+      logger.info(`device registered: ${normalizedAddress} for user ${tokenRow.user_id}`);
+    });
+
     res.json({ ok: true });
-  } catch (err) {
+  } catch (err: any) {
+    if (err.status === 404) { res.status(404).json({ ok: false, error: 'invalid_token' }); return; }
+    if (err.status === 410) { res.status(410).json({ ok: false, error: 'token_expired' }); return; }
     logger.error('device register error', err);
     res.status(500).json({ ok: false, error: 'internal' });
   }
@@ -150,7 +154,8 @@ router.get('/me', requireDevice, async (req: Request, res: Response) => {
 // ── Device role assignment (app side, user-authenticated) ────────────────────
 
 // PATCH /api/devices/:address/role
-// Chocolatier or admin promotes a device to employee/chocolatier role.
+// Owning user may set a device to 'user'. Only admins (users.is_admin) may
+// assign 'employee' or 'chocolatier' to prevent self-elevation of privilege.
 router.patch('/:address/role', requireUser, async (req: Request, res: Response) => {
   const userId: number = (req as any).userId;
   const { address } = req.params;
@@ -167,7 +172,6 @@ router.patch('/:address/role', requireUser, async (req: Request, res: Response) 
   }
 
   try {
-    // Only the device's owning user (or an admin) may change its role
     const [device] = await db
       .select({ id: devices.id, user_id: devices.user_id })
       .from(devices)
@@ -182,6 +186,20 @@ router.patch('/:address/role', requireUser, async (req: Request, res: Response) 
     if (device.user_id !== userId) {
       res.status(403).json({ error: 'forbidden' });
       return;
+    }
+
+    // Elevated roles require admin rights — prevents self-promotion
+    if (role === 'employee' || role === 'chocolatier') {
+      const [user] = await db
+        .select({ is_dorotka: users.is_dorotka })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user?.is_dorotka) {
+        res.status(403).json({ error: 'admin_required' });
+        return;
+      }
     }
 
     await db
