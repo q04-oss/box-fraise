@@ -2599,6 +2599,17 @@ export async function fetchGreenhouseDetail(id: number): Promise<any> {
   return r.json();
 }
 
+export async function linkWallet(eth_address: string): Promise<{ eth_address: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/users/me/wallet`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ eth_address }),
+  });
+  if (!r.ok) throw new Error('Failed to link wallet');
+  return r.json();
+}
+
 
 export async function sendGift(recipientId: number, params: {
   variety_id: number; chocolate: string; finish: string; quantity: number;

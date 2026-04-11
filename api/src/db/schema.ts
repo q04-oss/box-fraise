@@ -181,6 +181,7 @@ export const users: any = pgTable('users', {
   current_streak_weeks: integer('current_streak_weeks').notNull().default(0),
   longest_streak_weeks: integer('longest_streak_weeks').notNull().default(0),
   last_tap_week: text('last_tap_week'), // ISO week string e.g. "2026-W14"
+  eth_address: text('eth_address').unique(), // Linked Optimism wallet for FRS balance display
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 

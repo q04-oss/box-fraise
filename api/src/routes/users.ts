@@ -102,6 +102,7 @@ router.get('/me/stats', requireUser, async (req: Request, res: Response) => {
       verified: users.verified,
       current_streak_weeks: users.current_streak_weeks,
       longest_streak_weeks: users.longest_streak_weeks,
+      eth_address: users.eth_address,
     }).from(users).where(eq(users.id, userId));
     if (!user) { res.status(404).json({ error: 'not_found' }); return; }
 
@@ -137,8 +138,25 @@ router.get('/me/stats', requireUser, async (req: Request, res: Response) => {
       portrait_count: parseInt((portraitRow as any).count ?? '0', 10),
       nfc_connection_count: parseInt((nfcRow as any).count ?? '0', 10),
       membership_tier: membershipRow?.tier ?? null,
+      eth_address: user.eth_address ?? null,
     });
   } catch (err) {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// PATCH /api/users/me/wallet — link an Optimism wallet address for FRS balance display
+router.patch('/me/wallet', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const { eth_address } = req.body ?? {};
+  if (typeof eth_address !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(eth_address)) {
+    res.status(400).json({ error: 'invalid_address' });
+    return;
+  }
+  try {
+    await db.update(users).set({ eth_address: eth_address.toLowerCase() }).where(eq(users.id, userId));
+    res.json({ eth_address: eth_address.toLowerCase() });
+  } catch {
     res.status(500).json({ error: 'internal' });
   }
 });

@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { fetchMyStats, updateDisplayName } from '../../lib/api';
+import { fetchMyStats, updateDisplayName, linkWallet } from '../../lib/api';
+import { fetchFrsBalance } from '../../lib/fraise';
 
 export default function MyProfilePanel() {
   const { goBack, showPanel } = usePanel();
@@ -14,12 +15,38 @@ export default function MyProfilePanel() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [frsBalance, setFrsBalance] = useState<string | null>(null);
+  const [linkingWallet, setLinkingWallet] = useState(false);
+  const [walletInput, setWalletInput] = useState('');
+  const [editingWallet, setEditingWallet] = useState(false);
 
   useEffect(() => {
     fetchMyStats().catch(() => null).then(s => {
       setStats(s);
+      if (s?.eth_address) {
+        fetchFrsBalance(s.eth_address).then(bal => setFrsBalance(bal));
+      }
     }).finally(() => setLoading(false));
   }, []);
+
+  const handleLinkWallet = async () => {
+    const addr = walletInput.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+      Alert.alert('Invalid address', 'Enter a valid 0x Ethereum address.');
+      return;
+    }
+    setLinkingWallet(true);
+    try {
+      const result = await linkWallet(addr);
+      setStats((prev: any) => ({ ...prev, eth_address: result.eth_address }));
+      setEditingWallet(false);
+      fetchFrsBalance(result.eth_address).then(bal => setFrsBalance(bal));
+    } catch {
+      Alert.alert('Error', 'Could not link wallet.');
+    } finally {
+      setLinkingWallet(false);
+    }
+  };
 
   const handleSaveName = async () => {
     if (!nameInput.trim()) return;
@@ -99,6 +126,44 @@ export default function MyProfilePanel() {
             </View>
           )}
 
+          {/* FRS balance */}
+          {stats?.eth_address ? (
+            <View style={[styles.section, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>FRAISE BALANCE</Text>
+              <Text style={[styles.balance, { color: c.text }]}>
+                {frsBalance ?? '—'}
+              </Text>
+              <Text style={[styles.renewalLine, { color: c.muted }]}>
+                {stats.eth_address.slice(0, 6)}…{stats.eth_address.slice(-4)} · Optimism
+              </Text>
+            </View>
+          ) : editingWallet ? (
+            <View style={[styles.section, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>LINK WALLET</Text>
+              <View style={styles.nameEditRow}>
+                <TextInput
+                  style={[styles.nameInput, { color: c.text, borderBottomColor: c.border, fontFamily: fonts.dmMono, fontSize: 13 }]}
+                  value={walletInput}
+                  onChangeText={setWalletInput}
+                  placeholder="0x…"
+                  placeholderTextColor={c.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={handleLinkWallet}
+                />
+                <TouchableOpacity onPress={handleLinkWallet} disabled={linkingWallet} activeOpacity={0.7}>
+                  <Text style={[styles.saveBtn, { color: c.accent, fontFamily: fonts.dmMono }]}>
+                    {linkingWallet ? '…' : 'SAVE'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setEditingWallet(false)} activeOpacity={0.7}>
+                  <Text style={[styles.saveBtn, { color: c.muted, fontFamily: fonts.dmMono }]}>CANCEL</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
+
           {/* Nav */}
           <View style={styles.navList}>
             <TouchableOpacity
@@ -117,6 +182,16 @@ export default function MyProfilePanel() {
               <Text style={[styles.navLabel, { color: c.text }]}>Batch Preferences</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
+            {!stats?.eth_address && (
+              <TouchableOpacity
+                style={[styles.navRow, { borderBottomColor: c.border }]}
+                onPress={() => { setWalletInput(''); setEditingWallet(true); }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.navLabel, { color: c.text }]}>Link Wallet</Text>
+                <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
         </ScrollView>
