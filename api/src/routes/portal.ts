@@ -638,6 +638,7 @@ async function mintContentToken(postId: number, creatorUserId: number): Promise<
   // Atomic token_number: use a transaction with a count query inside it so no
   // two concurrent mints for the same creator can claim the same number.
   let tokenNumber = 0;
+  let mechanic!: ReturnType<typeof computeContentTokenMechanic>;
   await db.transaction(async (tx) => {
     const rows = await tx
       .select({ id: contentTokens.id })
@@ -646,7 +647,7 @@ async function mintContentToken(postId: number, creatorUserId: number): Promise<
       .for('update'); // row-level lock on all existing rows for this creator
     tokenNumber = rows.length + 1;
 
-    const mechanic = computeContentTokenMechanic(postId, tokenNumber);
+    mechanic = computeContentTokenMechanic(postId, tokenNumber);
     const excessCents = contentTokenExcessForRarity(mechanic.rarity);
     const visuals = computeTokenVisuals(postId, excessCents);
 
@@ -684,3 +685,5 @@ async function mintContentToken(postId: number, creatorUserId: number): Promise<
 }
 
 export default router;
+
+// @final-audit
