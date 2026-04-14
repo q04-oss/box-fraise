@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
 import MapView, { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -312,6 +312,18 @@ export default function MapScreen() {
     );
   };
 
+  const handleDirections = (biz: any) => {
+    const url = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to Google Maps web
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`);
+      }
+    });
+  };
+
   const handleStrawberryPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -404,7 +416,7 @@ export default function MapScreen() {
             <View style={[styles.pinCollection, { backgroundColor: c.markerBg }]}>
               <View style={styles.pinCollectionDot} />
             </View>
-            <Callout tooltip>
+            <Callout tooltip onPress={() => handleDirections(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
                 {!!b.address && (
@@ -413,6 +425,7 @@ export default function MapScreen() {
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
                 )}
+                <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
             </Callout>
           </Marker>
@@ -466,7 +479,7 @@ export default function MapScreen() {
                 <View style={styles.pinPlacedDot} />
               )}
             </View>
-            <Callout tooltip>
+            <Callout tooltip onPress={() => handleDirections(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
                 {!!b.address && (
@@ -475,6 +488,7 @@ export default function MapScreen() {
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
                 )}
+                <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
             </Callout>
           </Marker>
@@ -674,4 +688,5 @@ const styles = StyleSheet.create({
   calloutName: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   calloutAddress: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   calloutHours: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutDirections: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, marginTop: 6 },
 });
