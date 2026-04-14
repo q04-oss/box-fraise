@@ -129,10 +129,12 @@ interface PanelContextValue {
   varieties: Variety[];
   businesses: Business[];
   activeLocation: Business | null;
+  userCoords: { latitude: number; longitude: number } | null;
   setOrder: (partial: Partial<OrderState>) => void;
   setVarieties: (v: Variety[]) => void;
   setBusinesses: (b: Business[]) => void;
   setActiveLocation: (b: Business | null) => void;
+  setUserCoords: (coords: { latitude: number; longitude: number } | null) => void;
   panelData: Record<string, any> | null;
   setPanelData: (data: Record<string, any> | null) => void;
   showPanel: (id: PanelId, data?: Record<string, any>) => void;
@@ -154,6 +156,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   const [varieties, setVarieties] = useState<Variety[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeLocation, setActiveLocation] = useState<Business | null>(null);
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [panelData, setPanelData] = useState<Record<string, any> | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -230,8 +233,8 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   return (
     <PanelContext.Provider value={{
       stack, currentPanel, slideAnim, isAnimating,
-      order, varieties, businesses, activeLocation,
-      setOrder, setVarieties, setBusinesses, setActiveLocation,
+      order, varieties, businesses, activeLocation, userCoords,
+      setOrder, setVarieties, setBusinesses, setActiveLocation, setUserCoords,
       panelData, setPanelData,
       showPanel, jumpToPanel, goBack, goHome, lastNavType,
       sheetHeight, setSheetHeight,

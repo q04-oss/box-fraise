@@ -117,7 +117,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
-  const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties } = usePanel();
+  const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -426,6 +426,7 @@ export default function MapScreen() {
           if (coord) {
             userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
             setUserLocation({ latitude: coord.latitude, longitude: coord.longitude });
+            setUserCoords({ latitude: coord.latitude, longitude: coord.longitude });
           }
         }}
       >
@@ -567,17 +568,7 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        style={[styles.profileBtn, { backgroundColor: c.card, top: insets.top + 12 }]}
-        onPress={() => { setPanelData({ resetOrder: true }); jumpToPanel('terminal'); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
-        onLongPress={handleSignOut}
-        delayLongPress={600}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabIcon}>❋</Text>
-      </TouchableOpacity>
-
-      {fabsVisible && (
+{fabsVisible && (
         <View style={[styles.fabPill, { bottom: fabBottom, backgroundColor: c.card }]} pointerEvents="box-none">
           <TouchableOpacity
             style={styles.fabPillBtn}
@@ -604,22 +595,7 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  profileBtn: {
-    position: 'absolute',
-    left: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
-    zIndex: 10,
-  },
-  fabPill: {
+fabPill: {
     position: 'absolute',
     right: 16,
     borderRadius: 22,
