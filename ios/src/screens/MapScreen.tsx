@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
-import MapView, { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
+import ClusteredMapView from 'react-native-map-clustering';
+import { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -122,8 +123,9 @@ export default function MapScreen() {
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
   const [bizError, setBizError] = useState(false);
   const [bizLoading, setBizLoading] = useState(true);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const userCoords = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -380,6 +382,19 @@ export default function MapScreen() {
   const auditionPopups = allPopups.filter(b => b.is_audition);
   const partners = validBusinesses.filter(b => b.type !== 'collection' && b.type !== 'popup');
 
+  const formatDistance = (lat: number, lng: number): string | null => {
+    if (!userLocation) return null;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat - userLocation.latitude);
+    const dLng = toRad(lng - userLocation.longitude);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(userLocation.latitude)) * Math.cos(toRad(lat)) * Math.sin(dLng / 2) ** 2;
+    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  };
+
   const fabBottom = sheetHeight + 16;
   const fabsVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
@@ -387,7 +402,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <OfflineBanner />
       <BeaconNudge />
-      <MapView
+      <ClusteredMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={{
@@ -402,9 +417,16 @@ export default function MapScreen() {
         showsScale={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        clusterColor="#c94f6d"
+        clusterTextColor="#fff"
+        clusterFontFamily="DMSans_400Regular"
+        radius={48}
         onUserLocationChange={(e: UserLocationChangeEvent) => {
           const coord = e.nativeEvent.coordinate;
-          if (coord) userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
+          if (coord) {
+            userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
+            setUserLocation({ latitude: coord.latitude, longitude: coord.longitude });
+          }
         }}
       >
         {collectionPoints.map(b => (
@@ -424,6 +446,9 @@ export default function MapScreen() {
                 )}
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
+                )}
+                {!!formatDistance(b.lat, b.lng) && (
+                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
                 )}
                 <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
@@ -488,13 +513,16 @@ export default function MapScreen() {
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
                 )}
+                {!!formatDistance(b.lat, b.lng) && (
+                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
+                )}
                 <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
             </Callout>
           </Marker>
         ))}
 
-      </MapView>
+      </ClusteredMapView>
 
       <TrueSheet
         name={SHEET_NAME}
@@ -688,5 +716,6 @@ const styles = StyleSheet.create({
   calloutName: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   calloutAddress: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   calloutHours: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutDistance: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
   calloutDirections: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, marginTop: 6 },
 });
