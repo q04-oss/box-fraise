@@ -9,6 +9,7 @@ import { usePanel, Variety, Business } from '../../context/PanelContext';
 import { fetchVarieties, fetchTodayStats, fetchBatchStatus } from '../../lib/api';
 import { useColors, fonts, SPACING } from '../../theme';
 import { STRAWBERRIES } from '../../data/seed';
+import { haversineKm, formatDistanceKm } from '../../lib/geo';
 
 const SHEET_NAME = 'main-sheet';
 
@@ -26,14 +27,6 @@ function getGreeting(): string {
   return 'good night';
 }
 
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 export default function HomePanel() {
   const {
@@ -104,8 +97,7 @@ export default function HomePanel() {
 
   const formatDist = (b: Business): string | null => {
     if (!userCoords) return null;
-    const km = haversineKm(userCoords.latitude, userCoords.longitude, b.lat, b.lng);
-    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+    return formatDistanceKm(haversineKm(userCoords.latitude, userCoords.longitude, b.lat, b.lng));
   };
 
   const handleLocationSelect = (b: Business) => {
