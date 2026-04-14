@@ -313,7 +313,35 @@ export default function MapScreen() {
   };
 
   const handleStrawberryPress = () => {
-    handleShowAll();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const coords = userCoords.current;
+    const candidates = validBusinesses.filter(b => b.lat !== 0 && b.lng !== 0);
+
+    if (!coords || candidates.length === 0) {
+      // No user location or no valid businesses — fall back to showing all
+      handleShowAll();
+      return;
+    }
+
+    // Find the nearest business using Haversine distance
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const nearest = candidates.reduce((best, b) => {
+      const d = distanceKm(coords.latitude, coords.longitude, b.lat, b.lng);
+      return d < best.dist ? { biz: b, dist: d } : best;
+    }, { biz: candidates[0], dist: Infinity }).biz;
+
+    doMarkerNav(nearest);
   };
 
   const isLive = (b: any): boolean => {
