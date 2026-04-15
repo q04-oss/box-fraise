@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState } from 'react-native';
-import MapView, { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
+import ClusteredMapView from 'react-native-map-clustering';
+import { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { STRAWBERRIES } from '../data/seed';
 import { useColors, fonts, SPACING } from '../theme';
 import { useApp } from '../../App';
 import ARBoxModule from '../lib/NativeARBoxModule';
+import { haversineKm, formatDistanceKm } from '../lib/geo';
 
 const SHEET_NAME = 'main-sheet';
 const COLLAPSED_HEIGHT = 80;
@@ -116,14 +118,15 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
-  const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties } = usePanel();
+  const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
   const [bizError, setBizError] = useState(false);
   const [bizLoading, setBizLoading] = useState(true);
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const userCoords = useRef<{ latitude: number; longitude: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -279,9 +282,12 @@ export default function MapScreen() {
       return;
     }
     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const nextCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+    userCoords.current = nextCoords;
+    setUserLocation(nextCoords);
+    setUserCoords(nextCoords);
     mapRef.current?.animateToRegion({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
+      ...nextCoords,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     }, 400);
@@ -312,8 +318,39 @@ export default function MapScreen() {
     );
   };
 
+  const handleDirections = async (biz: any) => {
+    const appleUrl = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`;
+    try {
+      const supported = await Linking.canOpenURL(appleUrl);
+      await Linking.openURL(supported ? appleUrl : fallbackUrl);
+    } catch {
+      try {
+        await Linking.openURL(fallbackUrl);
+      } catch {
+        Alert.alert('Could not open maps', 'No maps app found on this device.');
+      }
+    }
+  };
+
   const handleStrawberryPress = () => {
-    handleShowAll();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const coords = userCoords.current;
+    const candidates = validBusinesses.filter(b => b.lat !== 0 && b.lng !== 0);
+
+    if (!coords || candidates.length === 0) {
+      // No user location or no valid businesses — fall back to showing all
+      handleShowAll();
+      return;
+    }
+
+    const nearest = candidates.reduce((best, b) => {
+      const d = haversineKm(coords.latitude, coords.longitude, b.lat, b.lng);
+      return d < best.dist ? { biz: b, dist: d } : best;
+    }, { biz: candidates[0], dist: Infinity }).biz;
+
+    doMarkerNav(nearest);
   };
 
   const isLive = (b: any): boolean => {
@@ -340,6 +377,11 @@ export default function MapScreen() {
   const auditionPopups = allPopups.filter(b => b.is_audition);
   const partners = validBusinesses.filter(b => b.type !== 'collection' && b.type !== 'popup');
 
+  const formatDistance = (lat: number, lng: number): string | null => {
+    if (!userLocation) return null;
+    return formatDistanceKm(haversineKm(userLocation.latitude, userLocation.longitude, lat, lng));
+  };
+
   const fabBottom = sheetHeight + 16;
   const fabsVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
@@ -347,7 +389,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <OfflineBanner />
       <BeaconNudge />
-      <MapView
+      <ClusteredMapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={{
@@ -362,9 +404,20 @@ export default function MapScreen() {
         showsScale={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        clusterColor="#c94f6d"
+        clusterTextColor="#fff"
+        clusterFontFamily="DMSans_400Regular"
+        radius={48}
         onUserLocationChange={(e: UserLocationChangeEvent) => {
           const coord = e.nativeEvent.coordinate;
-          if (coord) userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
+          if (!coord) return;
+          const next = { latitude: coord.latitude, longitude: coord.longitude };
+          const prev = userCoords.current;
+          // Only propagate to React state if moved more than ~10 m to avoid GPS jitter re-renders
+          if (prev && haversineKm(prev.latitude, prev.longitude, next.latitude, next.longitude) < 0.01) return;
+          userCoords.current = next;
+          setUserLocation(next);
+          setUserCoords(next);
         }}
       >
         {collectionPoints.map(b => (
@@ -376,7 +429,7 @@ export default function MapScreen() {
             <View style={[styles.pinCollection, { backgroundColor: c.markerBg }]}>
               <View style={styles.pinCollectionDot} />
             </View>
-            <Callout tooltip>
+            <Callout tooltip onPress={() => handleDirections(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
                 {!!b.address && (
@@ -385,6 +438,10 @@ export default function MapScreen() {
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
                 )}
+                {!!formatDistance(b.lat, b.lng) && (
+                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
+                )}
+                <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
             </Callout>
           </Marker>
@@ -438,7 +495,7 @@ export default function MapScreen() {
                 <View style={styles.pinPlacedDot} />
               )}
             </View>
-            <Callout tooltip>
+            <Callout tooltip onPress={() => handleDirections(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
                 {!!b.address && (
@@ -447,12 +504,16 @@ export default function MapScreen() {
                 {!!b.hours && (
                   <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
                 )}
+                {!!formatDistance(b.lat, b.lng) && (
+                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
+                )}
+                <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
               </View>
             </Callout>
           </Marker>
         ))}
 
-      </MapView>
+      </ClusteredMapView>
 
       <TrueSheet
         name={SHEET_NAME}
@@ -497,26 +558,22 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        style={[styles.profileBtn, { backgroundColor: c.card, top: insets.top + 12 }]}
-        onPress={() => { setPanelData({ resetOrder: true }); jumpToPanel('terminal'); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
-        onLongPress={handleSignOut}
-        delayLongPress={600}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabIcon}>❋</Text>
-      </TouchableOpacity>
-
-      {fabsVisible && (
-        <View style={[styles.fabStack, { bottom: fabBottom }]} pointerEvents="box-none">
+{fabsVisible && (
+        <View style={[styles.fabPill, { bottom: fabBottom, backgroundColor: c.card }]} pointerEvents="box-none">
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: c.card }]}
+            style={styles.fabPillBtn}
             onPress={handleStrawberryPress}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
             <Text style={styles.fabIcon}>🍓</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.fab, { backgroundColor: c.card }]} onPress={handleLocateMe} onLongPress={() => { setPanelData({ openOrder: true }); jumpToPanel('terminal'); }} delayLongPress={500} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.fabPillBtn}
+            onPress={handleLocateMe}
+            onLongPress={() => { setPanelData({ openOrder: true }); jumpToPanel('terminal'); }}
+            delayLongPress={500}
+            activeOpacity={0.7}
+          >
             <Text style={styles.fabIcon}>↑</Text>
           </TouchableOpacity>
         </View>
@@ -528,38 +585,23 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  profileBtn: {
-    position: 'absolute',
-    left: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
-    zIndex: 10,
-  },
-  fabStack: {
+fabPill: {
     position: 'absolute',
     right: 16,
-    gap: 12,
-    zIndex: 10,
-  },
-  fab: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 22,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.22,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
     elevation: 6,
+    zIndex: 10,
+  },
+  fabPillBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fabIcon: { fontSize: 22 },
   arDemoBtn: {
@@ -646,4 +688,6 @@ const styles = StyleSheet.create({
   calloutName: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   calloutAddress: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   calloutHours: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutDistance: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutDirections: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, marginTop: 6 },
 });
