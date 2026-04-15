@@ -19,6 +19,7 @@ import app from './app';
 import { db } from './db';
 import { employmentContracts, standingOrders, orders, varieties, popupRsvps, users, membershipFunds, memberships } from './db/schema';
 import { seed } from './db/seed';
+import { ensureSchema } from './db/ensureSchema';
 import { logger } from './lib/logger';
 import { sendPushNotification } from './lib/push';
 import { sendDailySummary } from './lib/resend';
@@ -225,6 +226,8 @@ cron.schedule('1 0 1 1 *', async () => {
 });
 
 async function main(): Promise<void> {
+  await ensureSchema();
+
   try {
     await seed();
   } catch (err) {

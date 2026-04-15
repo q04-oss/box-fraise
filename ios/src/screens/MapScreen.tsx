@@ -19,7 +19,6 @@ import { STRAWBERRIES } from '../data/seed';
 import { useColors, fonts, SPACING } from '../theme';
 import { useApp } from '../../App';
 import ARBoxModule from '../lib/NativeARBoxModule';
-import { haversineKm, formatDistanceKm } from '../lib/geo';
 
 const SHEET_NAME = 'main-sheet';
 const COLLAPSED_HEIGHT = 80;
@@ -282,12 +281,9 @@ export default function MapScreen() {
       return;
     }
     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    const nextCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-    userCoords.current = nextCoords;
-    setUserLocation(nextCoords);
-    setUserCoords(nextCoords);
     mapRef.current?.animateToRegion({
-      ...nextCoords,
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     }, 400);
@@ -318,19 +314,16 @@ export default function MapScreen() {
     );
   };
 
-  const handleDirections = async (biz: any) => {
-    const appleUrl = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
-    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`;
-    try {
-      const supported = await Linking.canOpenURL(appleUrl);
-      await Linking.openURL(supported ? appleUrl : fallbackUrl);
-    } catch {
-      try {
-        await Linking.openURL(fallbackUrl);
-      } catch {
-        Alert.alert('Could not open maps', 'No maps app found on this device.');
+  const handleDirections = (biz: any) => {
+    const url = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to Google Maps web
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`);
       }
-    }
+    });
   };
 
   const handleStrawberryPress = () => {
@@ -345,8 +338,20 @@ export default function MapScreen() {
       return;
     }
 
+    // Find the nearest business using Haversine distance
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
     const nearest = candidates.reduce((best, b) => {
-      const d = haversineKm(coords.latitude, coords.longitude, b.lat, b.lng);
+      const d = distanceKm(coords.latitude, coords.longitude, b.lat, b.lng);
       return d < best.dist ? { biz: b, dist: d } : best;
     }, { biz: candidates[0], dist: Infinity }).biz;
 
@@ -379,7 +384,15 @@ export default function MapScreen() {
 
   const formatDistance = (lat: number, lng: number): string | null => {
     if (!userLocation) return null;
-    return formatDistanceKm(haversineKm(userLocation.latitude, userLocation.longitude, lat, lng));
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat - userLocation.latitude);
+    const dLng = toRad(lng - userLocation.longitude);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(userLocation.latitude)) * Math.cos(toRad(lat)) * Math.sin(dLng / 2) ** 2;
+    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   };
 
   const fabBottom = sheetHeight + 16;
@@ -410,14 +423,11 @@ export default function MapScreen() {
         radius={48}
         onUserLocationChange={(e: UserLocationChangeEvent) => {
           const coord = e.nativeEvent.coordinate;
-          if (!coord) return;
-          const next = { latitude: coord.latitude, longitude: coord.longitude };
-          const prev = userCoords.current;
-          // Only propagate to React state if moved more than ~10 m to avoid GPS jitter re-renders
-          if (prev && haversineKm(prev.latitude, prev.longitude, next.latitude, next.longitude) < 0.01) return;
-          userCoords.current = next;
-          setUserLocation(next);
-          setUserCoords(next);
+          if (coord) {
+            userCoords.current = { latitude: coord.latitude, longitude: coord.longitude };
+            setUserLocation({ latitude: coord.latitude, longitude: coord.longitude });
+            setUserCoords({ latitude: coord.latitude, longitude: coord.longitude });
+          }
         }}
       >
         {collectionPoints.map(b => (
