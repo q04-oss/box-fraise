@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { eq, and, desc, sql, ne } from 'drizzle-orm';
 import { db } from '../db';
-import { varietyReviews, varieties, users, orders, arVideos, tastingFeedReactions } from '../db/schema';
+import { varietyReviews, users, orders, arVideos, tastingFeedReactions } from '../db/schema';
 import { requireUser } from '../lib/auth';
 
 const router = Router();

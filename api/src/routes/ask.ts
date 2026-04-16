@@ -1,7 +1,4 @@
 import { Router } from 'express';
-import { db } from '../db';
-import { varieties, businesses, orders } from '../db/schema';
-import { eq } from 'drizzle-orm';
 import { requireUser } from '../lib/auth';
 
 const router = Router();
