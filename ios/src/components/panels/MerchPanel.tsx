@@ -37,7 +37,7 @@ export default function MerchPanel() {
         <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={[styles.backText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>STRAWBERRY STORE</Text>
+        <Text style={[styles.title, { color: c.text }]}>STRAWBERRY SHOP</Text>
         <View style={styles.backBtn} />
       </View>
 
