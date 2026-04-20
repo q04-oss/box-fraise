@@ -217,6 +217,29 @@ const FARROW_MENU: PartnerMenu[] = [
   },
 ];
 
+const SUNTERRA_DEPARTMENTS: PartnerMenu[] = [
+  {
+    label: 'DEPARTMENTS',
+    sections: [
+      {
+        section: 'DEPARTMENTS',
+        items: [
+          { item: 'Bakery' },
+          { item: 'Dairy' },
+          { item: 'Kitchen Prepared' },
+          { item: 'Deli Meat and Cheese' },
+          { item: 'Frozen Food' },
+          { item: 'General Merchandise' },
+          { item: 'Grocery' },
+          { item: 'Household and Health' },
+          { item: 'Fresh Meat' },
+          { item: 'Produce' },
+        ],
+      },
+    ],
+  },
+];
+
 export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
   'Rosewood Foods': [
     {
@@ -1799,6 +1822,12 @@ export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
       ],
     },
   ],
+
+  'Sunterra Market — Bankers Hall': SUNTERRA_DEPARTMENTS,
+  'Sunterra Market — Britannia Plaza': SUNTERRA_DEPARTMENTS,
+  'Sunterra Market — Kensington Road': SUNTERRA_DEPARTMENTS,
+  'Sunterra Market — Keynote': SUNTERRA_DEPARTMENTS,
+  'Sunterra Market — West Market Square': SUNTERRA_DEPARTMENTS,
 
   'Paper Birch Books': [
     {
