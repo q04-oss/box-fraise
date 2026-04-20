@@ -20,7 +20,9 @@ export type PanelId =
   | 'walk-in-inventory'
   | 'nfc-write'
   | 'nfc-reveal'
-  | 'merch';
+  | 'merch'
+  | 'gift'
+  | 'claim-gift';
 
 export interface OrderState {
   variety_id: number | null;

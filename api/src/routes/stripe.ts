@@ -4,9 +4,9 @@ import { eq, sql, and, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, fundContributions, earningsLedger, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits, personalToilets } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, fundContributions, earningsLedger, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits, personalToilets, gifts } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
-import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived } from '../lib/resend';
+import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived, sendGiftNotification } from '../lib/resend';
 import { logger } from '../lib/logger';
 import { TIER_LABELS } from '../lib/membership';
 import { calculateCut } from '../lib/portal';
@@ -867,6 +867,26 @@ router.post('/webhook', async (req: Request, res: Response) => {
           await db.update(toiletVisits).set({ paid: true, access_code: code, access_code_expires_at: expires })
             .where(and(eq(toiletVisits.id, visitId), eq(toiletVisits.paid, false)));
           logger.info(`Toilet visit ${visitId} paid via Stripe`);
+        }
+      } else if (type === 'gift') {
+        const giftId = parseInt(pi.metadata?.gift_id ?? '', 10);
+        if (!isNaN(giftId)) {
+          const [gift] = await db.select().from(gifts).where(eq(gifts.id, giftId)).limit(1);
+          if (gift && gift.status === 'pending') {
+            await db.update(gifts).set({ status: 'paid', payment_intent_id: pi.id }).where(eq(gifts.id, giftId));
+            // Look up sender name
+            const [sender] = await db.select({ email: users.email }).from(users).where(eq(users.id, gift.sender_user_id)).limit(1);
+            const senderName = sender?.email?.split('@')[0] ?? 'Someone';
+            if (gift.recipient_email) {
+              sendGiftNotification({
+                to: gift.recipient_email,
+                senderName,
+                giftType: gift.gift_type as 'digital' | 'physical' | 'bundle',
+                claimToken: gift.claim_token,
+              }).catch((err) => logger.error('Failed to send gift email:', err));
+            }
+            logger.info(`Gift ${giftId} paid, notification sent to ${gift.recipient_email}`);
+          }
         }
       } else if (type === 'personal_toilet_visit') {
         const visitId = parseInt(pi.metadata?.visit_id ?? '', 10);

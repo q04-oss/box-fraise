@@ -27,7 +27,7 @@ const ITEMS: MerchItem[] = [
 ];
 
 export default function MerchPanel() {
-  const { goBack } = usePanel();
+  const { goBack, showPanel } = usePanel();
   const c = useColors();
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
 
@@ -67,6 +67,19 @@ export default function MerchPanel() {
         <Text style={[styles.intro, { color: c.muted }]}>
           Ships to your door. Pick up at a partner location near you when they're live.
         </Text>
+
+        {/* Gift row */}
+        <TouchableOpacity
+          style={[styles.giftRow, { borderColor: c.border }]}
+          onPress={() => showPanel('gift')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.giftLabel, { color: c.text }]}>Send a sticker as a gift</Text>
+            <Text style={[styles.giftSub, { color: c.muted }]}>Digital from $3 · Physical from $14</Text>
+          </View>
+          <Text style={[styles.giftArrow, { color: c.accent }]}>→</Text>
+        </TouchableOpacity>
 
         {ITEMS.map((item, i) => (
           <View
@@ -168,4 +181,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12, alignItems: 'center',
   },
   preOrderBtnText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 2 },
+  giftRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: 14,
+    padding: SPACING.md, gap: 12,
+  },
+  giftLabel: { fontFamily: fonts.playfair, fontSize: 17, marginBottom: 3 },
+  giftSub: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.3 },
+  giftArrow: { fontFamily: fonts.dmMono, fontSize: 18 },
 });

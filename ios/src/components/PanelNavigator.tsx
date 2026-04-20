@@ -22,6 +22,8 @@ import WalkInInventoryPanel from './panels/WalkInInventoryPanel';
 import NfcWritePanel from './panels/NfcWritePanel';
 import NfcRevealPanel from './panels/NfcRevealPanel';
 import MerchPanel from './panels/MerchPanel';
+import GiftPanel from './panels/GiftPanel';
+import ClaimGiftPanel from './panels/ClaimGiftPanel';
 import { TierGate, PANEL_TIER_REQUIREMENTS } from './TierGate';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
@@ -44,6 +46,8 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'nfc-write': NfcWritePanel,
   'nfc-reveal': NfcRevealPanel,
   'merch': MerchPanel,
+  'gift': GiftPanel,
+  'claim-gift': ClaimGiftPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([
@@ -52,6 +56,8 @@ const FULL_HEIGHT_PANELS = new Set([
   'search', 'receipt',
   'my-profile', 'notifications', 'staff-orders',
   'merch',
+  'gift',
+  'claim-gift',
 ]);
 
 // Panels that collapse the sheet so native system UI (NFC prompt) appears unobstructed

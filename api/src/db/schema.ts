@@ -1545,4 +1545,27 @@ export const devicePairingTokens = pgTable('device_pairing_tokens', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
+// ─── Sticker Gifts ────────────────────────────────────────────────────────────
+
+export const gifts = pgTable('gifts', {
+  id: serial('id').primaryKey(),
+  sender_user_id: integer('sender_user_id').notNull().references(() => users.id),
+  recipient_email: text('recipient_email'),           // at least one required
+  gift_type: text('gift_type').notNull(),             // 'digital' | 'physical' | 'bundle'
+  amount_cents: integer('amount_cents').notNull(),
+  claim_token: text('claim_token').notNull().unique(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid' | 'claimed'
+  payment_intent_id: text('payment_intent_id'),
+  // Physical fulfillment — collected from recipient on claim
+  shipping_name: text('shipping_name'),
+  shipping_address: text('shipping_address'),
+  shipping_city: text('shipping_city'),
+  shipping_province: text('shipping_province'),
+  shipping_postal_code: text('shipping_postal_code'),
+  // Digital fulfillment
+  claimed_by_user_id: integer('claimed_by_user_id').references(() => users.id),
+  claimed_at: timestamp('claimed_at'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 // @final-audit
