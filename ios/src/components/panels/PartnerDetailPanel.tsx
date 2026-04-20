@@ -181,35 +181,40 @@ export default function PartnerDetailPanel() {
           <MenuSectionBlock key={i} section={section} c={c} />
         ))}
 
-        {isEmail && (
-          <TouchableOpacity style={styles.inviteRow} onPress={handleSendSticker} activeOpacity={0.7}>
-            <Text style={[styles.inviteText, { color: c.muted }]}>Send them a sticker →</Text>
-          </TouchableOpacity>
-        )}
-
         <View style={{ height: 80 }} />
       </ScrollView>
 
       <View style={[styles.actionBar, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
         <TouchableOpacity
-          style={[styles.actionBtn, { backgroundColor: c.accent }]}
-          onPress={handleOpenMaps}
+          style={[styles.stickerBtn, { borderColor: c.accent, opacity: isEmail ? 1 : 0.35 }]}
+          onPress={handleSendSticker}
+          disabled={!isEmail}
           activeOpacity={0.8}
         >
-          <Text style={[styles.actionBtnText, { color: '#fff' }]}>Directions</Text>
+          <Text style={[styles.stickerBtnText, { color: c.accent }]}>Send them a sticker 🍓</Text>
         </TouchableOpacity>
 
-        {contactInfo && (
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.actionBtn, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border }]}
-            onPress={handleContactPress}
+            style={[styles.actionBtn, { backgroundColor: c.accent }]}
+            onPress={handleOpenMaps}
             activeOpacity={0.8}
           >
-            <Text style={[styles.actionBtnText, { color: c.text }]}>
-              {contactInfo.url.startsWith('mailto') ? 'Email' : 'Call'}
-            </Text>
+            <Text style={[styles.actionBtnText, { color: '#fff' }]}>Directions</Text>
           </TouchableOpacity>
-        )}
+
+          {contactInfo && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border }]}
+              onPress={handleContactPress}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.actionBtnText, { color: c.text }]}>
+                {contactInfo.url.startsWith('mailto') ? 'Email' : 'Call'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
     </View>
@@ -313,12 +318,16 @@ const styles = StyleSheet.create({
   addOnItem: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   addOnPrice: { fontSize: 11, fontFamily: fonts.dmMono },
 
-  inviteRow: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
-  inviteText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  stickerBtn: {
+    borderWidth: 1, borderRadius: 14,
+    paddingVertical: 14, alignItems: 'center', marginBottom: 10,
+  },
+  stickerBtnText: { fontFamily: fonts.dmMono, fontSize: 12, letterSpacing: 1 },
+  actionRow: { flexDirection: 'row', gap: 10 },
 
   actionBar: {
-    flexDirection: 'row',
-    gap: 10,
+    flexDirection: 'column',
+    gap: 0,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
