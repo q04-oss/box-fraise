@@ -1548,7 +1548,7 @@ export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
     },
   ],
 
-  'Duchess Bake Shop — 10718 124 Street NW': [
+  'Duchess Bake Shop': [
     {
       label: 'BAKE SHOP',
       sections: [
@@ -1731,7 +1731,7 @@ export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
     },
   ],
 
-  'Little Duchess — 9570 76 Avenue NW': [
+  'Little Duchess': [
     {
       label: 'BAKE SHOP',
       sections: [
