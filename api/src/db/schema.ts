@@ -1566,6 +1566,9 @@ export const gifts = pgTable('gifts', {
   claimed_by_user_id: integer('claimed_by_user_id').references(() => users.id),
   claimed_at: timestamp('claimed_at'),
   created_at: timestamp('created_at').notNull().defaultNow(),
-});
+}, (t) => ({
+  idx_sender: index('gifts_sender_user_id_idx').on(t.sender_user_id),
+  idx_recipient_email: index('gifts_recipient_email_idx').on(t.recipient_email),
+}));
 
 // @final-audit

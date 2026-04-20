@@ -636,7 +636,7 @@ export default function MapScreen() {
           <TouchableOpacity
             style={styles.fabPillBtn}
             onPress={() => { setActiveLocation(null); goHome(); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
-            onLongPress={handleLocateMe}
+            onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLocateMe(); }}
             delayLongPress={500}
             activeOpacity={0.7}
           >

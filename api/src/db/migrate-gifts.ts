@@ -21,9 +21,11 @@ async function run() {
       claimed_by_user_id INTEGER REFERENCES users(id),
       claimed_at TIMESTAMP,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    )
+    );
+    CREATE INDEX IF NOT EXISTS gifts_sender_user_id_idx ON gifts(sender_user_id);
+    CREATE INDEX IF NOT EXISTS gifts_recipient_email_idx ON gifts(recipient_email);
   `);
-  console.log('gifts table created');
+  console.log('gifts table + indexes created');
   process.exit(0);
 }
 

@@ -875,8 +875,8 @@ router.post('/webhook', async (req: Request, res: Response) => {
           if (gift && gift.status === 'pending') {
             await db.update(gifts).set({ status: 'paid', payment_intent_id: pi.id }).where(eq(gifts.id, giftId));
             // Look up sender name
-            const [sender] = await db.select({ email: users.email }).from(users).where(eq(users.id, gift.sender_user_id)).limit(1);
-            const senderName = sender?.email?.split('@')[0] ?? 'Someone';
+            const [sender] = await db.select({ email: users.email, display_name: users.display_name }).from(users).where(eq(users.id, gift.sender_user_id)).limit(1);
+            const senderName = sender?.display_name ?? sender?.email?.split('@')[0] ?? 'Someone';
             if (gift.recipient_email) {
               sendGiftNotification({
                 to: gift.recipient_email,
