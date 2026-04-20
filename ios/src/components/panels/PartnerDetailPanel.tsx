@@ -82,7 +82,9 @@ export default function PartnerDetailPanel() {
   const [activeTab, setActiveTab] = useState(0);
 
   const contactInfo = biz.contact ? formatContact(biz.contact) : null;
-  const isEmail = biz.contact?.includes('@') && !biz.contact.startsWith('@');
+  const contactEmail: string | null = (biz.contact && biz.contact.includes('@') && !biz.contact.startsWith('@'))
+    ? biz.contact.trim()
+    : null;
 
   const handleOpenMaps = () => {
     if (!biz.lat || !biz.lng) return;
@@ -99,8 +101,8 @@ export default function PartnerDetailPanel() {
   };
 
   const handleSendSticker = () => {
-    if (!biz.contact) return;
-    showPanel('gift', { recipientEmail: biz.contact, businessName: biz.name, isOutreach: true });
+    if (!contactEmail) return;
+    showPanel('gift', { recipientEmail: contactEmail, businessName: biz.name, isOutreach: true });
   };
 
   const activeMenu = menus[activeTab];
@@ -186,9 +188,9 @@ export default function PartnerDetailPanel() {
 
       <View style={[styles.actionBar, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
         <TouchableOpacity
-          style={[styles.stickerBtn, { borderColor: c.accent, opacity: isEmail ? 1 : 0.35 }]}
+          style={[styles.stickerBtn, { borderColor: c.accent, opacity: contactEmail ? 1 : 0.35 }]}
           onPress={handleSendSticker}
-          disabled={!isEmail}
+          disabled={!contactEmail}
           activeOpacity={0.8}
         >
           <Text style={[styles.stickerBtnText, { color: c.accent }]}>Send them a sticker 🍓</Text>
