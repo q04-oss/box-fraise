@@ -1,51 +1,91 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, TextInput, Alert,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  ActivityIndicator, TextInput, Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { fetchMyStats, updateDisplayName, linkWallet } from '../../lib/api';
-import { fetchFrsBalance } from '../../lib/fraise';
+import {
+  fetchMyStats, updateDisplayName,
+  deleteAuthToken, verifyAppleSignIn, setAuthToken,
+} from '../../lib/api';
 
 export default function MyProfilePanel() {
-  const { goBack, showPanel } = usePanel();
+  const { goBack, showPanel, setOrder, setPanelData } = usePanel();
   const c = useColors();
-  const [stats, setStats] = useState<any>(null);
+
+  const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
+
+  const [stats, setStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
-  const [frsBalance, setFrsBalance] = useState<string | null>(null);
-  const [linkingWallet, setLinkingWallet] = useState(false);
-  const [walletInput, setWalletInput] = useState('');
-  const [editingWallet, setEditingWallet] = useState(false);
 
   useEffect(() => {
-    fetchMyStats().catch(() => null).then(s => {
-      setStats(s);
-      if (s?.eth_address) {
-        fetchFrsBalance(s.eth_address).then(bal => setFrsBalance(bal));
-      }
+    AsyncStorage.getItem('user_db_id').then(id => {
+      const isIn = !!id;
+      setLoggedIn(isIn);
+      if (isIn) loadStats();
     }).finally(() => setLoading(false));
   }, []);
 
-  const handleLinkWallet = async () => {
-    const addr = walletInput.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
-      Alert.alert('Invalid address', 'Enter a valid 0x Ethereum address.');
-      return;
-    }
-    setLinkingWallet(true);
+  const loadStats = () => {
+    setStatsLoading(true);
+    fetchMyStats().catch(() => null).then(s => {
+      setStats(s);
+    }).finally(() => setStatsLoading(false));
+  };
+
+  const handleAppleSignIn = async () => {
+    setSigningIn(true);
     try {
-      const result = await linkWallet(addr);
-      setStats((prev: any) => ({ ...prev, eth_address: result.eth_address }));
-      setEditingWallet(false);
-      fetchFrsBalance(result.eth_address).then(bal => setFrsBalance(bal));
-    } catch {
-      Alert.alert('Error', 'Could not link wallet.');
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+      if (!credential.identityToken) throw new Error('No identity token');
+      const result = await verifyAppleSignIn({
+        identityToken: credential.identityToken,
+        firstName: credential.fullName?.givenName ?? undefined,
+        lastName: credential.fullName?.familyName ?? undefined,
+        email: credential.email ?? undefined,
+      });
+      await AsyncStorage.setItem('user_db_id', String(result.user_id));
+      await setAuthToken(result.token);
+      if (result.display_name) await AsyncStorage.setItem('display_name', result.display_name);
+      if (result.verified) await AsyncStorage.setItem('verified', 'true');
+      setLoggedIn(true);
+      loadStats();
+      setPanelData({ signedIn: true });
+    } catch (e: any) {
+      if (e?.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Sign in failed', e.message ?? 'Please try again.');
+      }
     } finally {
-      setLinkingWallet(false);
+      setSigningIn(false);
     }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign out?', 'You\'ll need to sign in again to place orders.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out', style: 'destructive', onPress: async () => {
+          await AsyncStorage.multiRemove(['user_email', 'user_db_id', 'verified', 'is_dj', 'fraise_chat_email', 'display_name', 'is_shop']);
+          await deleteAuthToken();
+          setOrder({ customer_email: '' });
+          setLoggedIn(false);
+          setStats(null);
+        },
+      },
+    ]);
   };
 
   const handleSaveName = async () => {
@@ -62,29 +102,48 @@ export default function MyProfilePanel() {
     }
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: c.panelBg }]}>
+        <ActivityIndicator color={c.accent} style={{ marginTop: 60 }} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={[styles.backText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text, fontFamily: fonts.dmMono }]}>PROFILE</Text>
-        <TouchableOpacity onPress={() => showPanel('notifications')} activeOpacity={0.7} style={styles.backBtn}>
-          <Text style={[styles.notifIcon, { color: c.muted }]}>◉</Text>
-        </TouchableOpacity>
+        <Text style={[styles.title, { color: c.text }]}>PROFILE</Text>
+        <View style={styles.backBtn} />
       </View>
 
-      {loading ? (
+      {!loggedIn ? (
+        <View style={styles.signInBody}>
+          <Text style={[styles.signInHeading, { color: c.text }]}>Sign in to Box Fraise</Text>
+          <Text style={[styles.signInSub, { color: c.muted }]}>Place orders, track pickups, and earn rewards.</Text>
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={12}
+            style={styles.appleBtn}
+            onPress={handleAppleSignIn}
+          />
+          {signingIn && <ActivityIndicator color={c.accent} style={{ marginTop: 16 }} />}
+        </View>
+      ) : statsLoading ? (
         <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
-      ) : !stats ? null : (
+      ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-          {/* Name / handle */}
+          {/* Name */}
           <View style={[styles.section, { borderBottomColor: c.border }]}>
             {editingName ? (
-              <View style={styles.nameEditRow}>
+              <View style={styles.editRow}>
                 <TextInput
-                  style={[styles.nameInput, { color: c.text, borderBottomColor: c.border, fontFamily: fonts.playfair }]}
+                  style={[styles.nameInput, { color: c.text, borderBottomColor: c.border }]}
                   value={nameInput}
                   onChangeText={setNameInput}
                   autoFocus
@@ -92,33 +151,28 @@ export default function MyProfilePanel() {
                   onSubmitEditing={handleSaveName}
                 />
                 <TouchableOpacity onPress={handleSaveName} disabled={savingName} activeOpacity={0.7}>
-                  <Text style={[styles.saveBtn, { color: c.accent, fontFamily: fonts.dmMono }]}>
-                    {savingName ? '…' : 'SAVE'}
-                  </Text>
+                  <Text style={[styles.actionBtn, { color: c.accent }]}>{savingName ? '…' : 'SAVE'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setEditingName(false)} activeOpacity={0.7}>
-                  <Text style={[styles.saveBtn, { color: c.muted, fontFamily: fonts.dmMono }]}>CANCEL</Text>
+                  <Text style={[styles.actionBtn, { color: c.muted }]}>CANCEL</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                onPress={() => { setNameInput(stats.display_name ?? ''); setEditingName(true); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.name, { color: c.text }]}>{stats.display_name ?? stats.user_code}</Text>
+              <TouchableOpacity onPress={() => { setNameInput(stats?.display_name ?? ''); setEditingName(true); }} activeOpacity={0.8}>
+                <Text style={[styles.name, { color: c.text }]}>{stats?.display_name ?? stats?.user_code ?? '—'}</Text>
               </TouchableOpacity>
             )}
-            {stats.user_code && stats.display_name && (
+            {stats?.user_code && stats?.display_name && (
               <Text style={[styles.code, { color: c.muted }]}>{stats.user_code}</Text>
             )}
           </View>
 
           {/* Streak */}
-          {stats?.current_streak_weeks != null && stats.current_streak_weeks > 0 && (
+          {stats?.current_streak_weeks > 0 && (
             <View style={[styles.section, { borderBottomColor: c.border }]}>
               <Text style={[styles.sectionLabel, { color: c.muted }]}>STREAK</Text>
               <Text style={[styles.balance, { color: c.text }]}>{stats.current_streak_weeks}w</Text>
-              <Text style={[styles.renewalLine, { color: c.muted }]}>
+              <Text style={[styles.subLine, { color: c.muted }]}>
                 {stats.longest_streak_weeks > stats.current_streak_weeks
                   ? `Personal best: ${stats.longest_streak_weeks} weeks`
                   : 'Current personal best'}
@@ -126,72 +180,23 @@ export default function MyProfilePanel() {
             </View>
           )}
 
-          {/* FRS balance */}
-          {stats?.eth_address ? (
-            <View style={[styles.section, { borderBottomColor: c.border }]}>
-              <Text style={[styles.sectionLabel, { color: c.muted }]}>FRAISE BALANCE</Text>
-              <Text style={[styles.balance, { color: c.text }]}>
-                {frsBalance ?? '—'}
-              </Text>
-              <Text style={[styles.renewalLine, { color: c.muted }]}>
-                {stats.eth_address.slice(0, 6)}…{stats.eth_address.slice(-4)} · Optimism
-              </Text>
-            </View>
-          ) : editingWallet ? (
-            <View style={[styles.section, { borderBottomColor: c.border }]}>
-              <Text style={[styles.sectionLabel, { color: c.muted }]}>LINK WALLET</Text>
-              <View style={styles.nameEditRow}>
-                <TextInput
-                  style={[styles.nameInput, { color: c.text, borderBottomColor: c.border, fontFamily: fonts.dmMono, fontSize: 13 }]}
-                  value={walletInput}
-                  onChangeText={setWalletInput}
-                  placeholder="0x…"
-                  placeholderTextColor={c.muted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLinkWallet}
-                />
-                <TouchableOpacity onPress={handleLinkWallet} disabled={linkingWallet} activeOpacity={0.7}>
-                  <Text style={[styles.saveBtn, { color: c.accent, fontFamily: fonts.dmMono }]}>
-                    {linkingWallet ? '…' : 'SAVE'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setEditingWallet(false)} activeOpacity={0.7}>
-                  <Text style={[styles.saveBtn, { color: c.muted, fontFamily: fonts.dmMono }]}>CANCEL</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : null}
-
           {/* Nav */}
-          <View style={styles.navList}>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('order-history')}
-              activeOpacity={0.7}
-            >
+          <View>
+            <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={() => showPanel('merch')} activeOpacity={0.7}>
+              <Text style={[styles.navLabel, { color: c.text }]}>Shop</Text>
+              <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={() => showPanel('order-history')} activeOpacity={0.7}>
               <Text style={[styles.navLabel, { color: c.text }]}>Order History</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.navRow, { borderBottomColor: c.border }]}
-              onPress={() => showPanel('batch-preference')}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={() => showPanel('batch-preference')} activeOpacity={0.7}>
               <Text style={[styles.navLabel, { color: c.text }]}>Batch Preferences</Text>
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
-            {!stats?.eth_address && (
-              <TouchableOpacity
-                style={[styles.navRow, { borderBottomColor: c.border }]}
-                onPress={() => { setWalletInput(''); setEditingWallet(true); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.navLabel, { color: c.text }]}>Link Wallet</Text>
-                <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={handleSignOut} activeOpacity={0.7}>
+              <Text style={[styles.navLabel, { color: '#c94f6d' }]}>Sign Out</Text>
+            </TouchableOpacity>
           </View>
 
         </ScrollView>
@@ -204,27 +209,36 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: { width: 40 },
   backText: { fontSize: 22 },
   notifIcon: { fontSize: 18, textAlign: 'right' },
-  title: { fontSize: 11, letterSpacing: 1.5 },
+  title: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   scroll: { paddingBottom: 60 },
+
+  signInBody: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: SPACING.lg, gap: 12,
+  },
+  signInHeading: { fontSize: 22, fontFamily: fonts.playfair, textAlign: 'center' },
+  signInSub: { fontSize: 13, fontFamily: fonts.dmSans, textAlign: 'center', lineHeight: 20 },
+  appleBtn: { width: '100%', height: 50, marginTop: 8 },
+
   section: {
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth, gap: 4,
   },
-  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  nameInput: { flex: 1, fontSize: 24, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 4 },
-  saveBtn: { fontSize: 11, letterSpacing: 1 },
+  editRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  nameInput: { flex: 1, fontSize: 24, fontFamily: fonts.playfair, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 4 },
+  actionBtn: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1 },
   name: { fontFamily: fonts.playfair, fontSize: 28 },
   code: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1 },
   sectionLabel: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 1.5 },
   balance: { fontFamily: fonts.playfair, fontSize: 32, marginTop: 4 },
-  renewalLine: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
-  navList: {},
+  subLine: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
+
   navRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,

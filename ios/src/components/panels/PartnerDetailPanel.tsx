@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, Image, RefreshControl,
-  StyleSheet, ActivityIndicator, Linking, Platform, Alert,
+  View, Text, TouchableOpacity, ScrollView,
+  StyleSheet, Linking, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
-import { fetchBusinessPortraits, fetchBusinessVisitCount, createTip } from '../../lib/api';
-import { useStripe } from '@stripe/stripe-react-native';
-import { useColors, fonts } from '../../theme';
-import { SPACING } from '../../theme';
+import { useColors, fonts, SPACING } from '../../theme';
+import { PARTNER_MENUS, PartnerMenu, MenuSection, MenuItem } from '../../data/seed';
 
 function formatContact(contact: string): { label: string; url: string } | null {
   const trimmed = contact.trim();
@@ -20,97 +19,99 @@ function formatContact(contact: string): { label: string; url: string } | null {
   return null;
 }
 
+function MenuItemRow({ item, c }: { item: MenuItem; c: any }) {
+  return (
+    <View style={styles.menuItem}>
+      <View style={styles.menuItemTop}>
+        <Text style={[styles.menuItemName, { color: c.text }]}>{item.item}</Text>
+        {!!item.price && (
+          <Text style={[styles.menuItemPrice, { color: c.text }]}>{item.price}</Text>
+        )}
+      </View>
+      {!!item.description && (
+        <Text style={[styles.menuItemDesc, { color: c.muted }]}>{item.description}</Text>
+      )}
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.menuItemTags}>
+          {item.tags.map(tag => (
+            <Text key={tag} style={[styles.menuTag, { color: c.muted, borderColor: c.border }]}>{tag}</Text>
+          ))}
+        </View>
+      )}
+      {item.addOns && item.addOns.length > 0 && (
+        <View style={styles.addOns}>
+          {item.addOns.map(a => (
+            <View key={a.item} style={styles.addOnRow}>
+              <Text style={[styles.addOnItem, { color: c.muted }]}>+ {a.item}</Text>
+              <Text style={[styles.addOnPrice, { color: c.muted }]}>{a.price}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MenuSectionBlock({ section, c }: { section: MenuSection; c: any }) {
+  return (
+    <View style={styles.menuSection}>
+      <View style={styles.menuSectionHeader}>
+        <Text style={[styles.menuSectionTitle, { color: c.text }]}>{section.section}</Text>
+        {!!section.note && (
+          <Text style={[styles.menuSectionNote, { color: c.muted }]}>{section.note}</Text>
+        )}
+      </View>
+      {section.items.map((item, i) => (
+        <MenuItemRow key={i} item={item} c={c} />
+      ))}
+    </View>
+  );
+}
+
 export default function PartnerDetailPanel() {
-  const { goBack, activeLocation } = usePanel();
+  const { goBack, panelData } = usePanel();
   const c = useColors();
-  const [portraits, setPortraits] = useState<{ id: number; url: string; season: string; subject_name?: string }[]>([]);
-  const [visitCount, setVisitCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [tipping, setTipping] = useState(false);
-  const [tipAmount, setTipAmount] = useState<number | null>(null);
+  const insets = useSafeAreaInsets();
 
-  const biz = activeLocation;
+  const biz = panelData?.partnerBusiness;
+  if (!biz) return null;
 
-  const loadData = (isRefresh = false) => {
-    if (!biz) { setLoading(false); return; }
-    Promise.all([
-      fetchBusinessPortraits(biz.id).catch(() => []),
-      fetchBusinessVisitCount(biz.id).catch(() => null),
-    ]).then(([p, v]) => {
-      setPortraits(p as any[]);
-      setVisitCount(v ? (v as any).visit_count : null);
-    }).finally(() => { setLoading(false); if (isRefresh) setRefreshing(false); });
-  };
+  const menuKey = Object.keys(PARTNER_MENUS).find(k => k.toLowerCase() === biz.name?.toLowerCase()) ?? biz.name;
+  const menus: PartnerMenu[] = PARTNER_MENUS[menuKey] ?? [];
+  const hasMenu = menus.length > 0;
+  const [activeTab, setActiveTab] = useState(0);
 
-  useEffect(() => { loadData(); }, [biz?.id]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData(true);
-  };
+  const contactInfo = biz.contact ? formatContact(biz.contact) : null;
+  const isEmail = biz.contact?.includes('@') && !biz.contact.startsWith('@');
 
   const handleOpenMaps = () => {
-    if (!biz?.address) return;
-    const encoded = encodeURIComponent(biz.address);
-    const url = Platform.OS === 'ios' ? `maps://?q=${encoded}` : `geo:0,0?q=${encoded}`;
-    Linking.openURL(url);
+    if (!biz.lat || !biz.lng) return;
+    const appleUrl = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`;
+    Linking.canOpenURL(appleUrl)
+      .then(supported => Linking.openURL(supported ? appleUrl : fallbackUrl))
+      .catch(() => Alert.alert('Could not open maps'));
   };
 
   const handleContactPress = () => {
-    if (!biz?.contact) return;
-    const contact = formatContact(biz.contact);
-    if (!contact) return;
-    Linking.openURL(contact.url);
+    if (!contactInfo) return;
+    Linking.openURL(contactInfo.url);
   };
 
-  const handleCommission = () => {
-    Alert.alert(
-      'Commission a campaign here',
-      `Reach out to Box Fraise to book a portrait campaign at ${biz?.name ?? 'this location'}.`,
-      [{ text: 'OK' }]
+  const handleInvite = () => {
+    if (!biz.contact) return;
+    const subject = encodeURIComponent('quick question');
+    const body = encodeURIComponent(
+      `Hi there,\n\nI've been using a new app called Box Fraise and thought of you — it's a local platform and I think your spot would be a great fit.\n\nIt's still in early beta so it's a pretty small community right now, but that's kind of the point. If you're curious you can download it here:\nhttps://testflight.apple.com/join/zJG1Wc5Y\n\nThere's also a bit more context at fraise.box if you want the longer version.\n\nNo pressure either way — just wanted to flag it.\n\nWarmly,`
     );
+    Linking.openURL(`mailto:${biz.contact}?subject=${subject}&body=${body}`);
   };
 
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
-
-  const handleTip = async (cents: number) => {
-    if (!biz || tipping) return;
-    setTipping(true);
-    setTipAmount(cents);
-    try {
-      const { client_secret } = await createTip(biz.id, cents);
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: client_secret,
-        merchantDisplayName: 'Box Fraise',
-      });
-      if (initError) throw new Error(initError.message);
-      const { error: presentError } = await presentPaymentSheet();
-      if (presentError && presentError.code !== 'Canceled') {
-        Alert.alert('Payment failed', presentError.message);
-      }
-    } catch (err: any) {
-      Alert.alert('Could not process tip', err.message ?? 'Please try again.');
-    } finally {
-      setTipping(false);
-      setTipAmount(null);
-    }
-  };
-
-  if (!biz) return null;
-
-  const campaigns = portraits.reduce<Record<string, typeof portraits>>((acc, p) => {
-    const key = p.season ?? 'Archive';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(p);
-    return acc;
-  }, {});
-  const campaignKeys = Object.keys(campaigns);
-
-  const contactInfo = biz.contact ? formatContact(biz.contact) : null;
+  const activeMenu = menus[activeTab];
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
+
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
@@ -119,118 +120,102 @@ export default function PartnerDetailPanel() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} />}>
+      {/* Menu tabs */}
+      {hasMenu && menus.length > 1 && (
+        <View style={[styles.tabBar, { borderBottomColor: c.border }]}>
+          {menus.map((m, i) => (
+            <TouchableOpacity
+              key={m.label}
+              style={styles.tab}
+              onPress={() => setActiveTab(i)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, { color: activeTab === i ? c.text : c.muted }]}>
+                {m.label}
+              </Text>
+              {activeTab === i && <View style={[styles.tabUnderline, { backgroundColor: c.accent }]} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
-        {/* Currently placed user */}
-        {biz.placed_user_name && (
-          <View style={[styles.placedBanner, { backgroundColor: '#FDF6E3', borderColor: '#C9973A22' }]}>
-            <View style={styles.placedDot} />
-            <Text style={[styles.placedText, { color: '#7A5C1E' }]}>
-              {biz.placed_user_name} is here right now
-            </Text>
-          </View>
-        )}
+      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* Business info */}
-        <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
-          {!!biz.description && (
-            <Text style={[styles.description, { color: c.text }]}>{biz.description}</Text>
-          )}
-
-          {/* Chips row */}
-          <View style={styles.chipsRow}>
+        {/* Info block — only show if no menu or on first load */}
+        {!hasMenu && (
+          <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
+            {!!biz.description && (
+              <Text style={[styles.description, { color: c.text }]}>{biz.description}</Text>
+            )}
             {!!biz.neighbourhood && (
               <Text style={[styles.chip, { color: c.muted, borderColor: c.border }]}>{biz.neighbourhood}</Text>
             )}
-            {visitCount !== null && visitCount > 0 && (
-              <Text style={[styles.chip, { color: c.muted, borderColor: c.border }]}>
-                {visitCount} member {visitCount === 1 ? 'visit' : 'visits'}
-              </Text>
+            {!!biz.hours && (
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { color: c.muted }]}>HOURS</Text>
+                <Text style={[styles.fieldValue, { color: c.text }]}>{biz.hours}</Text>
+              </View>
+            )}
+            {!!biz.address && (
+              <View style={styles.fieldRow}>
+                <Text style={[styles.fieldLabel, { color: c.muted }]}>ADDRESS</Text>
+                <Text style={[styles.fieldValue, { color: c.text }]}>{biz.address}</Text>
+              </View>
             )}
           </View>
+        )}
 
-          {/* Hours */}
-          {!!biz.hours && (
-            <View style={styles.fieldRow}>
-              <Text style={[styles.fieldLabel, { color: c.muted }]}>HOURS</Text>
-              <Text style={[styles.fieldValue, { color: c.text }]}>{biz.hours}</Text>
-            </View>
-          )}
-
-          {/* Contact */}
-          {contactInfo && (
-            <View style={styles.fieldRow}>
-              <Text style={[styles.fieldLabel, { color: c.muted }]}>CONTACT</Text>
-              <TouchableOpacity onPress={handleContactPress} activeOpacity={0.7}>
-                <Text style={[styles.fieldValue, { color: c.accent }]}>{contactInfo.label}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Address + Maps */}
-          <View style={styles.addressRow}>
-            <Text style={[styles.addressText, { color: c.muted }]}>{biz.address}</Text>
-            <TouchableOpacity onPress={handleOpenMaps} activeOpacity={0.7}>
-              <Text style={[styles.mapsLink, { color: c.accent }]}>Open in Maps →</Text>
-            </TouchableOpacity>
-          </View>
-
-        </View>
-
-        {/* Tip section */}
-        {biz.placed_user_name && (
-          <View style={[styles.tipCard, { borderColor: c.border }]}>
-            <Text style={[styles.sectionLabel, { color: c.muted }]}>TIP {biz.placed_user_name.toUpperCase()}</Text>
-            <View style={styles.tipAmounts}>
-              {[300, 500, 1000].map(cents => (
-                <TouchableOpacity
-                  key={cents}
-                  style={[styles.tipBtn, { borderColor: c.border }, tipping && tipAmount === cents && { opacity: 0.5 }]}
-                  onPress={() => handleTip(cents)}
-                  activeOpacity={0.75}
-                  disabled={tipping}
-                >
-                  <Text style={[styles.tipBtnText, { color: c.text }]}>CA${(cents / 100).toFixed(0)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        {/* Info strip when menu is present */}
+        {hasMenu && (
+          <View style={[styles.infoStrip, { borderBottomColor: c.border }]}>
+            {!!biz.neighbourhood && (
+              <Text style={[styles.stripText, { color: c.muted }]}>{biz.neighbourhood}</Text>
+            )}
+            {!!biz.hours && (
+              <Text style={[styles.stripText, { color: c.muted }]}>{biz.hours}</Text>
+            )}
+            {!!biz.address && (
+              <Text style={[styles.stripText, { color: c.muted }]}>{biz.address}</Text>
+            )}
           </View>
         )}
 
-        {/* Campaign portrait rails */}
-        {loading ? (
-          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
-        ) : campaignKeys.length > 0 && (
-          <View style={styles.portraitsSection}>
-            <Text style={[styles.sectionLabel, { color: c.muted, paddingHorizontal: SPACING.md }]}>CAMPAIGNS</Text>
-            {campaignKeys.map(season => (
-              <View key={season} style={styles.campaign}>
-                <Text style={[styles.campaignSeason, { color: c.muted }]}>{season}</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.portraitRail}
-                >
-                  {campaigns[season].map(p => (
-                    <View key={p.id} style={styles.portraitItem}>
-                      <Image
-                        source={{ uri: p.url }}
-                        style={[styles.portraitImage, { backgroundColor: c.card }]}
-                        resizeMode="cover"
-                      />
-                      {!!p.subject_name && (
-                        <Text style={[styles.portraitName, { color: c.muted }]}>{p.subject_name}</Text>
-                      )}
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            ))}
-          </View>
+        {/* Menu content */}
+        {hasMenu && activeMenu && activeMenu.sections.map((section, i) => (
+          <MenuSectionBlock key={i} section={section} c={c} />
+        ))}
+
+        {isEmail && (
+          <TouchableOpacity style={styles.inviteRow} onPress={handleInvite} activeOpacity={0.7}>
+            <Text style={[styles.inviteText, { color: c.muted }]}>Invite to Box Fraise →</Text>
+          </TouchableOpacity>
         )}
 
-        <View style={{ height: 48 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      <View style={[styles.actionBar, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: c.accent }]}
+          onPress={handleOpenMaps}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.actionBtnText, { color: '#fff' }]}>Directions</Text>
+        </TouchableOpacity>
+
+        {contactInfo && (
+          <TouchableOpacity
+            style={[styles.actionBtn, { borderWidth: StyleSheet.hairlineWidth, borderColor: c.border }]}
+            onPress={handleContactPress}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.actionBtnText, { color: c.text }]}>
+              {contactInfo.url.startsWith('mailto') ? 'Email' : 'Call'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
     </View>
   );
 }
@@ -251,86 +236,102 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
   body: { flex: 1 },
 
-  placedBanner: {
+  tabBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
   },
-  placedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#C9973A' },
-  placedText: { fontSize: 13, fontFamily: fonts.dmSans },
+  tab: {
+    marginRight: SPACING.md,
+    paddingVertical: 12,
+    position: 'relative',
+  },
+  tabText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+    borderRadius: 1,
+  },
 
   infoBlock: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
+    gap: 16,
   },
-  description: { fontSize: 14, fontFamily: fonts.dmSans, lineHeight: 22 },
+  infoStrip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 3,
+  },
+  stripText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  description: { fontSize: 14, fontFamily: fonts.dmSans, lineHeight: 22, fontStyle: 'italic' },
   chip: {
+    alignSelf: 'flex-start',
     fontSize: 11, fontFamily: fonts.dmMono,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 20,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-
-  fieldRow: { gap: 3 },
+  fieldRow: { gap: 4 },
   fieldLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-  fieldValue: { fontSize: 13, fontFamily: fonts.dmSans },
+  fieldValue: { fontSize: 14, fontFamily: fonts.dmSans },
 
-  addressRow: { gap: 3 },
-  addressText: { fontSize: 12, fontFamily: fonts.dmSans },
-  mapsLink: { fontSize: 12, fontFamily: fonts.dmMono },
-
-  linksRow: { flexDirection: 'row', gap: 10 },
-  linkBtn: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
+  menuSection: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: SPACING.sm,
   },
-  linkBtnText: { fontSize: 12, fontFamily: fonts.dmMono },
+  menuSectionHeader: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: 8,
+    gap: 2,
+  },
+  menuSectionTitle: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+  menuSectionNote: { fontSize: 10, fontFamily: fonts.dmSans, fontStyle: 'italic' },
 
-  sectionLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-
-  commissionCard: {
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-    borderRadius: 14,
-    padding: SPACING.md,
+  menuItem: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    gap: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  menuItemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
+  menuItemName: { flex: 1, fontSize: 15, fontFamily: fonts.playfair },
+  menuItemPrice: { fontSize: 12, fontFamily: fonts.dmMono },
+  menuItemDesc: { fontSize: 12, fontFamily: fonts.dmSans, lineHeight: 18 },
+  menuItemTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
+  menuTag: {
+    fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 0.5,
     borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  addOns: { marginTop: 4, gap: 2 },
+  addOnRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  addOnItem: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic' },
+  addOnPrice: { fontSize: 11, fontFamily: fonts.dmMono },
+
+  inviteRow: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
+  inviteText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+
+  actionBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  commissionInfo: { flex: 1, gap: 3 },
-  commissionTitle: { fontSize: 15, fontFamily: fonts.playfair },
-  commissionSub: { fontSize: 12, fontFamily: fonts.dmSans },
-  chevron: { fontSize: 22 },
-
-  portraitsSection: { paddingTop: SPACING.md, gap: 20 },
-  campaign: { gap: 10 },
-  campaignSeason: { fontSize: 12, fontFamily: fonts.dmMono, paddingHorizontal: SPACING.md },
-  portraitRail: { paddingHorizontal: SPACING.md, gap: 10 },
-  portraitItem: { gap: 5 },
-  portraitImage: { width: 160, height: 200, borderRadius: 4 },
-  portraitName: { fontSize: 11, fontFamily: fonts.dmMono, textAlign: 'center', width: 160 },
-
-  tipCard: {
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-    borderRadius: 14,
-    padding: SPACING.md,
-    borderWidth: StyleSheet.hairlineWidth,
     gap: 10,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  tipAmounts: { flexDirection: 'row', gap: 10 },
-  tipBtn: {
-    flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: 'center',
   },
-  tipBtnText: { fontSize: 15, fontFamily: fonts.dmMono },
+  actionBtnText: { fontSize: 14, fontFamily: fonts.dmSans, fontWeight: '600' },
 });

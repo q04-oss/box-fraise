@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { eq, asc, and, sql, lt, gte } from 'drizzle-orm';
 import { db } from '../db';
-import { businesses, portraits, businessVisits, employmentContracts, users } from '../db/schema';
+import { businesses, portraits, businessVisits, employmentContracts, users, locations } from '../db/schema';
 import { stripe } from '../lib/stripe';
 import { logger } from '../lib/logger';
 import { requireUser } from '../lib/auth';
@@ -15,7 +15,7 @@ db.execute(sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS venture_id intege
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const rows = await db.select().from(businesses);
-    const [contracts, shopAccounts] = await Promise.all([
+    const [contracts, shopAccounts, locationRows] = await Promise.all([
       db.select({
         business_id: employmentContracts.business_id,
         display_name: users.display_name,
@@ -27,6 +27,9 @@ router.get('/', async (_req: Request, res: Response) => {
       db.select({ id: users.id, business_id: users.business_id })
         .from(users)
         .where(eq(users.is_shop, true)),
+      db.select({ id: locations.id, business_id: locations.business_id })
+        .from(locations)
+        .where(eq(locations.active, true)),
     ]);
 
     const placedByBiz = new Map(contracts.map(c => [
@@ -34,6 +37,7 @@ router.get('/', async (_req: Request, res: Response) => {
       c.display_name ?? c.email.split('@')[0],
     ]));
     const shopByBiz = new Map(shopAccounts.map(u => [u.business_id, u.id]));
+    const locationByBiz = new Map(locationRows.map(l => [l.business_id, l.id]));
 
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     res.json(rows.map(b => ({
@@ -42,6 +46,7 @@ router.get('/', async (_req: Request, res: Response) => {
       lng: b.longitude ? parseFloat(String(b.longitude)) : null,
       placed_user_name: placedByBiz.get(b.id) ?? null,
       shop_user_id: shopByBiz.get(b.id) ?? null,
+      location_id: locationByBiz.get(b.id) ?? null,
     })));
   } catch (err) {
     logger.error('[businesses] GET / error:', err);

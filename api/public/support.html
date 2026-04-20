@@ -3,88 +3,241 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Support — Box Fraise</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <title>Support — box fraise</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --green: #1C3A2A;
-      --cream: #F5F0E8;
-      --card:  #EDEAE0;
-      --text:  #1C1C1E;
-      --muted: #6B6B6B;
-      --gold:  #C4973A;
-      --border: rgba(28,58,42,0.12);
-    }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--cream); color: var(--text); }
 
+    :root {
+      --bg:      #0C0C0E;
+      --bg2:     #0A0A0C;
+      --card:    rgba(28,28,30,0.88);
+      --amber:   #C9973A;
+      --text:    #F2F2F7;
+      --muted:   rgba(242,242,247,0.42);
+      --border:  rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.13);
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── NAV ── */
     nav {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 20px 40px;
-      background: rgba(245,240,232,0.95);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 40px;
+      background: rgba(10,10,12,0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
     }
-    .nav-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--green); text-decoration: none; }
-    .nav-back { font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); text-decoration: none; font-weight: 600; }
-    .nav-back:hover { color: var(--green); }
 
-    .page-header { background: var(--green); padding: 80px 40px 60px; }
-    .page-eyebrow { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); font-weight: 600; margin-bottom: 16px; }
-    .page-title { font-family: 'Playfair Display', serif; font-size: clamp(36px, 5vw, 56px); color: white; line-height: 1.1; }
-    .page-sub { font-size: 15px; color: rgba(255,255,255,0.5); margin-top: 16px; line-height: 1.7; max-width: 480px; }
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 20px;
+      color: var(--text);
+      text-decoration: none;
+    }
 
-    .content { max-width: 720px; margin: 0 auto; padding: 72px 40px; display: flex; flex-direction: column; gap: 48px; }
+    .nav-back {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--text); }
 
+    /* ── HEADER ── */
+    .page-header {
+      padding: 140px 40px 80px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 80% 20%, rgba(201,151,58,0.08) 0%, transparent 60%);
+    }
+
+    .page-eyebrow {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .page-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(40px, 6vw, 64px);
+      color: var(--text);
+      line-height: 1.08;
+      position: relative;
+    }
+
+    .page-sub {
+      font-size: 15px;
+      color: var(--muted);
+      margin-top: 18px;
+      line-height: 1.8;
+      max-width: 480px;
+      position: relative;
+    }
+
+    /* ── CONTENT ── */
+    .content {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 80px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 56px;
+    }
+
+    /* Contact card */
     .contact-card {
-      background: white;
+      background: var(--card);
+      border: 1px solid rgba(201,151,58,0.22);
       border-radius: 16px;
       padding: 36px;
       display: flex;
       flex-direction: column;
       gap: 12px;
-      box-shadow: 0 2px 16px rgba(28,58,42,0.06);
     }
-    .contact-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
-    .contact-title { font-family: 'Playfair Display', serif; font-size: 26px; color: var(--text); }
-    .contact-desc { font-size: 15px; color: var(--muted); line-height: 1.75; }
+
+    .contact-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+
+    .contact-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      color: var(--text);
+    }
+
+    .contact-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
     .contact-link {
       display: inline-block;
       margin-top: 8px;
-      background: var(--green);
-      color: white;
+      background: var(--amber);
+      color: #0C0C0E;
       padding: 12px 28px;
       border-radius: 24px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 1.2px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
       text-decoration: none;
       width: fit-content;
+      transition: opacity 0.2s;
     }
-    .contact-link:hover { opacity: 0.88; }
+    .contact-link:hover { opacity: 0.85; }
 
-    h2 { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--green); margin-bottom: 20px; }
-    .section { border-top: 1px solid var(--border); padding-top: 48px; }
+    /* Section */
+    .section { border-top: 1px solid var(--border); padding-top: 56px; }
 
-    .faq { display: flex; flex-direction: column; gap: 0; }
-    .faq-item { border-bottom: 1px solid var(--border); padding: 24px 0; }
-    .faq-q { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
-    .faq-a { font-size: 15px; color: var(--muted); line-height: 1.8; }
-    .faq-a a { color: var(--green); }
+    .section-heading {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      color: var(--text);
+      margin-bottom: 28px;
+    }
 
+    /* FAQ */
+    .faq { display: flex; flex-direction: column; }
+
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 24px 0;
+    }
+
+    .faq-q {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .faq-a {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.85;
+    }
+
+    .faq-a a { color: var(--amber); text-decoration: none; }
+    .faq-a a:hover { text-decoration: underline; }
+
+    /* ── FOOTER ── */
     footer {
-      background: var(--green); padding: 48px 40px;
-      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 60px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
     }
-    .footer-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: white; }
-    .footer-links { display: flex; gap: 24px; }
-    .footer-links a { font-size: 12px; color: rgba(255,255,255,0.4); text-decoration: none; letter-spacing: 1px; text-transform: uppercase; }
-    .footer-links a:hover { color: white; }
 
-    @media (max-width: 600px) {
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: 22px;
+      color: var(--text);
+    }
+
+    .footer-sub {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 6px;
+      letter-spacing: 1.2px;
+    }
+
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: rgba(242,242,247,0.22);
+      text-decoration: none;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--amber); }
+
+    @media (max-width: 640px) {
       nav { padding: 16px 20px; }
-      .page-header { padding: 60px 20px 40px; }
-      .content { padding: 48px 20px; }
+      .page-header { padding: 110px 20px 56px; }
+      .content { padding: 56px 20px; }
       footer { padding: 40px 20px; flex-direction: column; align-items: flex-start; }
     }
   </style>
@@ -92,14 +245,14 @@
 <body>
 
 <nav>
-  <a href="/" class="nav-logo">Box Fraise</a>
+  <a href="/" class="nav-logo">box fraise</a>
   <a href="/" class="nav-back">← Back</a>
 </nav>
 
 <div class="page-header">
   <p class="page-eyebrow">Help</p>
   <h1 class="page-title">Support</h1>
-  <p class="page-sub">Questions about your order or the app? We're here.</p>
+  <p class="page-sub">Questions about your order, membership, or the platform? We respond to everything.</p>
 </div>
 
 <div class="content">
@@ -109,19 +262,21 @@
     <div class="contact-title">Email us directly.</div>
     <div class="contact-desc">
       We respond to every message. For order issues, include the email address you used to place the order.
+      For membership or account questions, include your member code.
     </div>
     <a href="mailto:austin@fraise.maison" class="contact-link">austin@fraise.maison</a>
   </div>
 
+  <!-- ORDERS -->
   <div class="section">
-    <h2>Common questions</h2>
+    <div class="section-heading">Orders</div>
     <div class="faq">
 
       <div class="faq-item">
         <div class="faq-q">How do I place an order?</div>
         <div class="faq-a">
-          Download the Box Fraise app, select a strawberry variety from the Board, choose your chocolate and finish,
-          pick a collection window at Marché Atwater, and pay. You'll receive a confirmation email and a notification when your order is ready.
+          Download the box fraise app, select a strawberry variety from the Board, choose your chocolate and finish,
+          pick a collection window at Marché Atwater, and pay. You'll receive a confirmation email and a push notification when your order is ready.
         </div>
       </div>
 
@@ -135,7 +290,8 @@
       <div class="faq-item">
         <div class="faq-q">How will I know when my order is ready?</div>
         <div class="faq-a">
-          You'll receive a push notification and an email when your order is ready for collection. Make sure notifications are enabled in iOS Settings → Box Fraise.
+          You'll receive a push notification and an email when your order is ready for collection.
+          Make sure notifications are enabled: iOS Settings → box fraise → Notifications → Allow Notifications.
         </div>
       </div>
 
@@ -158,17 +314,88 @@
       <div class="faq-item">
         <div class="faq-q">My order history isn't showing up.</div>
         <div class="faq-a">
-          Go to the Orders tab and enter the exact email address you used when placing the order. If it still doesn't appear, email us.
+          Go to the Orders tab and enter the exact email address you used when placing the order.
+          If you signed in with Apple, your order may be linked to a private relay address — email us and we'll locate it.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MEMBERSHIP -->
+  <div class="section">
+    <div class="section-heading">Membership</div>
+    <div class="faq">
+
+      <div class="faq-item">
+        <div class="faq-q">What is the membership?</div>
+        <div class="faq-a">
+          box fraise offers seven annual membership tiers — from Découverte to Or Absolu — funded upfront each year.
+          Membership unlocks access to the social platform, editorial layer, greenhouse investment panels, and deeper features within the app.
         </div>
       </div>
 
       <div class="faq-item">
-        <div class="faq-q">I'm not receiving notifications.</div>
+        <div class="faq-q">How do I upgrade or manage my membership?</div>
         <div class="faq-a">
-          Check that notifications are enabled: iOS Settings → Box Fraise → Notifications → Allow Notifications.
-          You will also receive a ready email as a backup.
+          Open the app and go to your member profile. Tier upgrades are available directly from there.
+          For billing questions or to cancel, email us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a>.
         </div>
       </div>
+
+      <div class="faq-item">
+        <div class="faq-q">What is the NFC time bank?</div>
+        <div class="faq-a">
+          Each box you tap with your phone credits platform time to your account. Your social tier — Standard, Reserve, or Estate —
+          is determined by how much time remains in your bank, not by a fixed subscription.
+          Buying more frequently, or in larger lots, keeps your tier active longer.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">My social access expired. How do I restore it?</div>
+        <div class="faq-a">
+          Tap a new box. Access is restored immediately when your time bank has a positive balance.
+          There is no grace period — the system is intentionally cut-throat. A standing order keeps you from lapsing.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOKENS & CURRENCY -->
+  <div class="section">
+    <div class="section-heading">Tokens &amp; Currency</div>
+    <div class="faq">
+
+      <div class="faq-item">
+        <div class="faq-q">What is Fraise (FRS)?</div>
+        <div class="faq-a">
+          Fraise is a gold-backed digital currency issued by Rajzyngier Research. One Fraise equals one London Good Delivery 400 troy ounce gold bar held in allocated Swiss vault storage. FRS runs on the Optimism network.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">What are strawberry tokens?</div>
+        <div class="faq-a">
+          Each box variety has a numbered series of generative SVG tokens. When you purchase a box, a token is minted and linked to that specific harvest. Tokens are tradeable within the platform and carry the full provenance of the variety they came from.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">I have a question about a token transfer or balance.</div>
+        <div class="faq-a">
+          Email us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a> with your member code and the token number in question.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ACCOUNT & APP -->
+  <div class="section">
+    <div class="section-heading">Account &amp; App</div>
+    <div class="faq">
 
       <div class="faq-item">
         <div class="faq-q">Is my payment information secure?</div>
@@ -178,13 +405,33 @@
         </div>
       </div>
 
+      <div class="faq-item">
+        <div class="faq-q">I'm not receiving notifications.</div>
+        <div class="faq-a">
+          Check iOS Settings → box fraise → Notifications → Allow Notifications.
+          You will also receive a ready email as a backup.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">How do I delete my account?</div>
+        <div class="faq-a">
+          Email us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a> with your request.
+          We will remove your account and associated data within 30 days.
+          Note: token provenance records are anonymised rather than deleted, as they form part of the permanent harvest ledger.
+        </div>
+      </div>
+
     </div>
   </div>
 
 </div>
 
 <footer>
-  <div class="footer-logo">Box Fraise</div>
+  <div>
+    <div class="footer-logo">box fraise</div>
+    <div class="footer-sub">Montréal · Est. 2026</div>
+  </div>
   <div class="footer-links">
     <a href="/privacy">Privacy</a>
     <a href="/support">Support</a>

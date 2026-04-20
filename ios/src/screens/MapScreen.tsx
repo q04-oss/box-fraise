@@ -1,8 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
-import MapView from 'react-native-maps';
-import { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
+import MapView, { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,11 +113,50 @@ function LivePopupPin({ color }: { color: string }) {
   );
 }
 
+function HighlightedPartnerPin({ color }: { color: string }) {
+  const anim0 = useRef(new Animated.Value(0)).current;
+  const anim1 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = (anim: Animated.Value, delay: number) => {
+      setTimeout(() => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+          ])
+        ).start();
+      }, delay);
+    };
+    pulse(anim0, 0);
+    pulse(anim1, 500);
+  }, []);
+
+  const ringStyle = (anim: Animated.Value) => ({
+    position: 'absolute' as const,
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: color,
+    opacity: anim.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.5, 0] }),
+    transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 3] }) }],
+  });
+
+  return (
+    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={ringStyle(anim0)} />
+      <Animated.View style={ringStyle(anim1)} />
+      <View style={[styles.pinPartner, { borderColor: color, width: 20, height: 20, borderRadius: 10 }]}>
+        <View style={[styles.pinPartnerDot, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
-  const { setBusinesses, setActiveLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords } = usePanel();
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -129,6 +167,7 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const hasAnimatedToUser = useRef(false);
 
 
   const syncVerifiedState = useCallback(() => {
@@ -169,8 +208,8 @@ export default function MapScreen() {
     }
     if (pendingScreen === 'profile') {
       clearPendingScreen();
-      jumpToPanel('terminal');
-      setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
+      showPanel('my-profile');
+      setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
     }
     if (pendingScreen === 'NFCVerify') {
       clearPendingScreen();
@@ -183,14 +222,7 @@ export default function MapScreen() {
     setBizError(false);
     setBizLoading(true);
     fetchBusinesses()
-      .then((data: any[]) => {
-        setBusinesses(data);
-        const defaultCollection = data.find(b => b.type === 'collection');
-        if (defaultCollection && !order.location_id) {
-          setActiveLocation(defaultCollection);
-          setOrder({ location_id: defaultCollection.id, location_name: defaultCollection.name });
-        }
-      })
+      .then((data: any[]) => { setBusinesses(data); })
       .catch(() => setBizError(true))
       .finally(() => setBizLoading(false));
   };
@@ -210,6 +242,17 @@ export default function MapScreen() {
 
 
   useEffect(() => { loadBusinesses(); loadVarietiesIfNeeded(); loadAndMonitorBeacons(); initBeaconRecommendations(); }, []);
+
+  useEffect(() => {
+    if (!activeLocation?.lat || !activeLocation?.lng) return;
+    mapRef.current?.animateToRegion({
+      latitude: activeLocation.lat - 0.003,
+      longitude: activeLocation.lng,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 400);
+  }, [activeLocation?.id]);
+
 
   // Refresh businesses + portal flag when app comes to foreground
   useEffect(() => {
@@ -238,8 +281,7 @@ export default function MapScreen() {
 
 
   const handlePartnerPress = (biz: any) => {
-    setActiveLocation(biz);
-    showPanel('partner-detail');
+    showPanel('partner-detail', { partnerBusiness: biz });
     setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
     mapRef.current?.animateToRegion({
       latitude: biz.lat - 0.003,
@@ -337,7 +379,7 @@ export default function MapScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const coords = userCoords.current;
-    const candidates = validBusinesses.filter(b => b.lat !== 0 && b.lng !== 0);
+    const candidates = validBusinesses.filter(b => b.lat !== 0 && b.lng !== 0 && (b.type === 'collection' || b.type === 'popup'));
 
     if (!coords || candidates.length === 0) {
       // No user location or no valid businesses — fall back to showing all
@@ -398,6 +440,7 @@ export default function MapScreen() {
           latitudeDelta: 0.04,
           longitudeDelta: 0.04,
         }}
+        mapType="mutedStandard"
         userInterfaceStyle="light"
         showsUserLocation
         showsCompass={false}
@@ -414,6 +457,15 @@ export default function MapScreen() {
           userCoords.current = next;
           setUserLocation(next);
           setUserCoords(next);
+          if (!hasAnimatedToUser.current) {
+            hasAnimatedToUser.current = true;
+            mapRef.current?.animateToRegion({
+              latitude: next.latitude - 0.01,
+              longitude: next.longitude,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            }, 600);
+          }
         }}
       >
         {collectionPoints.map(b => (
@@ -478,19 +530,26 @@ export default function MapScreen() {
           );
         })}
 
-        {partners.map(b => (
+        {partners.map(b => {
+          const isHighlighted = highlightedBizId === b.id;
+          return (
           <Marker
             key={`biz-${b.id}`}
             coordinate={{ latitude: b.lat, longitude: b.lng }}
             onPress={() => handlePartnerPress(b)}
-            tracksViewChanges={false}
+            tracksViewChanges={isHighlighted}
           >
-            <View style={[styles.pinPartner, { borderColor: c.markerBg }]}>
-              <View style={[styles.pinPartnerDot, { backgroundColor: c.markerBg }]} />
-              {b.placed_user_name && (
-                <View style={styles.pinPlacedDot} />
-              )}
-            </View>
+            {isHighlighted
+              ? <HighlightedPartnerPin color={c.markerBg} />
+              : (
+                <View style={[styles.pinPartner, { borderColor: c.markerBg }]}>
+                  <View style={[styles.pinPartnerDot, { backgroundColor: c.markerBg }]} />
+                  {b.placed_user_name && (
+                    <View style={styles.pinPlacedDot} />
+                  )}
+                </View>
+              )
+            }
             <Callout tooltip onPress={() => handleDirections(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
                 <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
@@ -507,7 +566,8 @@ export default function MapScreen() {
               </View>
             </Callout>
           </Marker>
-        ))}
+          );
+        })}
 
       </MapView>
 
@@ -559,6 +619,12 @@ export default function MapScreen() {
           <TouchableOpacity
             style={styles.fabPillBtn}
             onPress={handleStrawberryPress}
+            onLongPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              jumpToPanel('merch');
+              setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
+            }}
+            delayLongPress={400}
             activeOpacity={0.7}
           >
             <Text style={styles.fabIcon}>🍓</Text>
@@ -566,7 +632,7 @@ export default function MapScreen() {
           <TouchableOpacity
             style={styles.fabPillBtn}
             onPress={handleLocateMe}
-            onLongPress={() => { setPanelData({ openOrder: true }); jumpToPanel('terminal'); }}
+            onLongPress={() => { setActiveLocation(null); goHome(); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
             delayLongPress={500}
             activeOpacity={0.7}
           >
@@ -646,12 +712,11 @@ fabPill: {
   pinAuditionDot: { width: 8, height: 8, borderRadius: 2, transform: [{ rotate: '45deg' }] },
   pinPartner: {
     width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#fff', borderWidth: 2.5,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 3,
+    backgroundColor: '#fff', borderWidth: 2,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
   },
-  pinPartnerDot: { width: 5, height: 5, borderRadius: 3 },
+  pinPartnerDot: { width: 6, height: 6, borderRadius: 3 },
   pinPlacedDot: {
     position: 'absolute', top: -3, right: -3,
     width: 7, height: 7, borderRadius: 4,

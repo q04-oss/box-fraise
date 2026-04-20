@@ -10,7 +10,7 @@ export default function LocationPanel() {
 
   const doLocationSwitch = (biz: any) => {
     setActiveLocation(biz);
-    setOrder({ location_id: biz.id, location_name: biz.name, variety_id: null, variety_name: null, price_cents: null, chocolate: null, chocolate_name: null, finish: null, finish_name: null, date: null, time_slot_id: null, time_slot_time: null });
+    setOrder({ location_id: biz.location_id ?? biz.id, location_name: biz.name, variety_id: null, variety_name: null, price_cents: null, chocolate: null, chocolate_name: null, finish: null, finish_name: null, date: null, time_slot_id: null, time_slot_time: null });
   };
 
   const handleLocationSwitch = (biz: any) => {
@@ -25,8 +25,11 @@ export default function LocationPanel() {
     doLocationSwitch(biz);
   };
 
+  const { goHome, setPanelData } = usePanel();
+
   const handleVarietyPress = (v: Variety) => {
-    showPanel('terminal', { openOrder: true, preselectedVariety: v });
+    setPanelData({ preselectedVariety: { id: v.id, name: v.name, price_cents: v.price_cents } });
+    goHome();
   };
 
   const isPopup = activeLocation?.type === 'popup';

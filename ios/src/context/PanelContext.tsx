@@ -19,7 +19,8 @@ export type PanelId =
   | 'walk-in-write'
   | 'walk-in-inventory'
   | 'nfc-write'
-  | 'nfc-reveal';
+  | 'nfc-reveal'
+  | 'merch';
 
 export interface OrderState {
   variety_id: number | null;
@@ -144,6 +145,8 @@ interface PanelContextValue {
   goHome: () => void;
   sheetHeight: number;
   setSheetHeight: (h: number) => void;
+  highlightedBizId: number | null;
+  setHighlightedBizId: (id: number | null) => void;
 }
 
 const PanelContext = createContext<PanelContextValue | null>(null);
@@ -159,6 +162,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [panelData, setPanelData] = useState<Record<string, any> | null>(null);
+  const [highlightedBizId, setHighlightedBizId] = useState<number | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const animSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastNavType = useRef<'show' | 'jump'>('show');
@@ -238,6 +242,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
       panelData, setPanelData,
       showPanel, jumpToPanel, goBack, goHome, lastNavType,
       sheetHeight, setSheetHeight,
+      highlightedBizId, setHighlightedBizId,
     }}>
       {children}
     </PanelContext.Provider>

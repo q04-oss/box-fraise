@@ -46,6 +46,12 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
+    const [location] = await db.select({ id: locations.id }).from(locations).where(eq(locations.id, location_id));
+    if (!location) {
+      res.status(400).json({ error: 'Invalid location' });
+      return;
+    }
+
     const total_cents = variety.price_cents * quantity;
 
     let stripePaymentIntentId: string;
@@ -198,6 +204,12 @@ router.post('/payment-intent', async (req: Request, res: Response) => {
       return;
     }
 
+    const [location] = await db.select({ id: locations.id }).from(locations).where(eq(locations.id, location_id));
+    if (!location) {
+      res.status(400).json({ error: 'Invalid location' });
+      return;
+    }
+
     // Stock guard
     if (variety.stock_remaining <= 0) {
       res.status(409).json({ error: 'sold_out' });
@@ -275,6 +287,9 @@ router.post('/pay-with-balance', requireUser, async (req: Request, res: Response
 
     const [variety] = await db.select().from(varieties).where(eq(varieties.id, variety_id));
     if (!variety || !variety.active) { res.status(404).json({ error: 'Variety not found' }); return; }
+
+    const [location] = await db.select({ id: locations.id }).from(locations).where(eq(locations.id, location_id));
+    if (!location) { res.status(400).json({ error: 'Invalid location' }); return; }
 
     if (variety.stock_remaining < quantity) { res.status(409).json({ error: 'insufficient_stock', available: variety.stock_remaining }); return; }
 

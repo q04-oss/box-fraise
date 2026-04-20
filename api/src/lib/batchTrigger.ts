@@ -28,7 +28,9 @@ export async function checkAndTriggerBatch(
   try {
     const cutoffTime = new Date(Date.now() - CUTOFF_DAYS * 24 * 60 * 60 * 1000);
 
-    // Cancel stale queued orders (older than 7 days)
+    // Cancel stale queued orders (older than 7 days) before acquiring the lock.
+    // These are safe to cancel outside the trigger transaction — their PIs have
+    // already expired and they will never count toward the threshold.
     const stale = await db
       .select()
       .from(orders)
@@ -64,44 +66,78 @@ export async function checkAndTriggerBatch(
       }
     }
 
-    // Sum all valid queued orders for this variety + location
-    const queued = await db
-      .select()
-      .from(orders)
-      .where(and(
-        eq(orders.variety_id, variety_id),
-        eq(orders.location_id, location_id),
-        eq(orders.status, 'queued'),
-      ));
-
-    const totalQueued = queued.reduce((sum, o) => sum + o.quantity, 0);
-    if (totalQueued < MIN_QUANTITY) {
-      return { triggered: false };
-    }
-
-    // Threshold met — create the batch
+    // ── Atomic trigger: advisory lock prevents concurrent triggers for the same
+    // (variety_id, location_id) pair. pg_advisory_xact_lock is held for the
+    // duration of the transaction and released on commit/rollback.
+    //
+    // Inside the transaction we:
+    //   1. Re-read the live queued pool (stale orders are already cancelled above)
+    //   2. Check threshold
+    //   3. Create the batch row
+    //   4. Mark all queued orders as 'paid' — removing them from the pool so a
+    //      subsequent concurrent trigger cannot double-count them.
+    //
+    // Stripe captures happen AFTER the transaction commits, so the lock is
+    // already released by the time we hit the network. If a capture fails the
+    // order remains marked 'paid' with payment_captured=false for manual review.
+    // ───────────────────────────────────────────────────────────────────────────
+    const lockKey = variety_id * 1_000_000 + location_id;
     const now = new Date();
     const deliveryDate = toISODate(addDays(now, LEAD_DAYS));
 
-    const [batch] = await db.insert(batches).values({
-      location_id,
-      variety_id,
-      quantity_total: totalQueued,
-      quantity_remaining: 0,
-      published: false,
-      triggered_at: now,
-      delivery_date: deliveryDate,
-      lead_days: LEAD_DAYS,
-      min_quantity: MIN_QUANTITY,
-      cutoff_at: addDays(now, CUTOFF_DAYS),
-    }).returning();
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+
+      const queued = await tx
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.variety_id, variety_id),
+          eq(orders.location_id, location_id),
+          eq(orders.status, 'queued'),
+        ));
+
+      const totalQueued = queued.reduce((sum, o) => sum + o.quantity, 0);
+      if (totalQueued < MIN_QUANTITY) return null;
+
+      const [batch] = await tx.insert(batches).values({
+        location_id,
+        variety_id,
+        quantity_total: totalQueued,
+        quantity_remaining: 0,
+        published: false,
+        triggered_at: now,
+        delivery_date: deliveryDate,
+        lead_days: LEAD_DAYS,
+        min_quantity: MIN_QUANTITY,
+        cutoff_at: addDays(now, CUTOFF_DAYS),
+      }).returning();
+
+      // Mark all orders 'paid' inside the transaction to atomically remove them
+      // from the queued pool. payment_captured stays false until Stripe confirms.
+      for (const order of queued) {
+        const nfc_token = randomUUID();
+        await tx.update(orders).set({
+          status: 'paid',
+          batch_id: batch.id,
+          nfc_token,
+          payment_captured: false,
+        }).where(eq(orders.id, order.id));
+      }
+
+      return { batch, queued };
+    });
+
+    if (!result) return { triggered: false };
+
+    const { batch, queued } = result;
 
     const [variety] = await db.select({ name: varieties.name }).from(varieties).where(eq(varieties.id, variety_id));
     const [location] = await db.select({ name: locations.name }).from(locations).where(eq(locations.id, location_id));
 
-    // Capture each order's payment intent and mark paid
+    // Capture Stripe payment intents and update payment_captured flag.
+    // Runs outside the transaction — failures are logged for manual reconciliation.
     for (const order of queued) {
-      const nfc_token = randomUUID();
       try {
         if (
           order.stripe_payment_intent_id &&
@@ -110,14 +146,8 @@ export async function checkAndTriggerBatch(
         ) {
           await stripe.paymentIntents.capture(order.stripe_payment_intent_id);
         }
-        await db.update(orders).set({
-          status: 'paid',
-          batch_id: batch.id,
-          nfc_token,
-          payment_captured: true,
-        }).where(eq(orders.id, order.id));
+        await db.update(orders).set({ payment_captured: true }).where(eq(orders.id, order.id));
 
-        // Email + push
         sendBatchTriggered({
           to: order.customer_email,
           varietyName: variety?.name ?? 'strawberries',
@@ -141,7 +171,7 @@ export async function checkAndTriggerBatch(
       }
     }
 
-    logger.info(`Batch ${batch.id} triggered: ${totalQueued} boxes, delivery ${deliveryDate}`);
+    logger.info(`Batch ${batch.id} triggered: ${queued.reduce((s, o) => s + o.quantity, 0)} boxes, delivery ${deliveryDate}`);
     return { triggered: true, deliveryDate };
   } catch (e) {
     logger.error(`checkAndTriggerBatch failed: ${String(e)}`);

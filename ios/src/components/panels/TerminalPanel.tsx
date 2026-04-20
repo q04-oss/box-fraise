@@ -116,6 +116,18 @@ const nameInputRef = useRef<TextInput>(null);
       setOrderOpen(false);
       resetInlineOrder();
       setPanelData(null);
+    } else if (panelData?.signedIn) {
+      setPanelData(null);
+      AsyncStorage.multiGet(['user_email', 'user_db_id', 'display_name', 'verified', 'is_shop', 'is_staff']).then(
+        ([email, dbId, name, verified, shopFlag, staffFlag]) => {
+          if (email[1]) setUserEmail(email[1]);
+          if (dbId[1]) setUserDbId(parseInt(dbId[1], 10));
+          if (name[1]) setDisplayName(name[1]);
+          if (verified[1] === 'true') setIsVerified(true);
+          if (shopFlag[1] === 'true') setIsShop(true);
+          if (staffFlag[1] === 'true') setIsStaff(true);
+        }
+      );
     }
   }, [panelData]);
 
@@ -845,76 +857,33 @@ const nameInputRef = useRef<TextInput>(null);
           </>
         ) : (
           <View style={styles.signInBlock}>
-            <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in to continue</Text>
-            <View style={styles.signInButtons}>
-              {signingIn ? <ActivityIndicator color={c.accent} /> : showOperatorLogin ? (
-                <>
-                  <TextInput
-                    style={[styles.operatorInput, { color: c.text, borderColor: c.border }]}
-                    placeholder="operator code"
-                    placeholderTextColor={c.muted}
-                    value={operatorCode}
-                    onChangeText={t => setOperatorCode(t.toUpperCase())}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={6}
-                    returnKeyType="go"
-                    onSubmitEditing={handleOperatorLogin}
-                  />
-                  <TouchableOpacity onPress={handleOperatorLogin} activeOpacity={0.7} style={[styles.operatorSubmit, { backgroundColor: c.accent }]}>
-                    <Text style={[styles.demoText, { color: c.ctaText }]}>log in as operator</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setShowOperatorLogin(false); setOperatorCode(''); }} activeOpacity={0.6}>
-                    <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
-                  </TouchableOpacity>
-                </>
-              ) : showReviewerLogin ? (
-                <>
-                  <TextInput
-                    style={[styles.operatorInput, { color: c.text, borderColor: c.border }]}
-                    placeholder="email"
-                    placeholderTextColor={c.muted}
-                    value={reviewerEmail}
-                    onChangeText={setReviewerEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    returnKeyType="next"
-                  />
-                  <TextInput
-                    style={[styles.operatorInput, { color: c.text, borderColor: c.border }]}
-                    placeholder="password"
-                    placeholderTextColor={c.muted}
-                    value={reviewerPassword}
-                    onChangeText={setReviewerPassword}
-                    secureTextEntry
-                    returnKeyType="go"
-                    onSubmitEditing={handleReviewerLogin}
-                  />
-                  <TouchableOpacity onPress={handleReviewerLogin} activeOpacity={0.7} style={[styles.operatorSubmit, { backgroundColor: c.accent }]}>
-                    <Text style={[styles.demoText, { color: c.ctaText }]}>sign in</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => { setShowReviewerLogin(false); setReviewerEmail(''); setReviewerPassword(''); }} activeOpacity={0.6}>
-                    <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={14}
-                    style={styles.appleBtn}
-                    onPress={handleAppleSignIn}
-                  />
-                  <TouchableOpacity onPress={() => setShowReviewerLogin(true)} activeOpacity={0.6}>
-                    <Text style={[styles.demoText, { color: c.muted }]}>use email</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setShowOperatorLogin(true)} activeOpacity={0.6}>
-                    <Text style={[styles.demoText, { color: c.muted }]}>operator login</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
+            <Text style={[styles.signInPrompt, { color: c.muted }]}>sign in via your profile to place an order</Text>
+            {showOperatorLogin ? (
+              <>
+                <TextInput
+                  style={[styles.operatorInput, { color: c.text, borderColor: c.border, marginTop: 16 }]}
+                  placeholder="operator code"
+                  placeholderTextColor={c.muted}
+                  value={operatorCode}
+                  onChangeText={t => setOperatorCode(t.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={6}
+                  returnKeyType="go"
+                  onSubmitEditing={handleOperatorLogin}
+                />
+                <TouchableOpacity onPress={handleOperatorLogin} activeOpacity={0.7} style={[styles.operatorSubmit, { backgroundColor: c.accent }]}>
+                  <Text style={[styles.demoText, { color: c.ctaText }]}>log in as operator</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setShowOperatorLogin(false); setOperatorCode(''); }} activeOpacity={0.6}>
+                  <Text style={[styles.demoText, { color: c.muted }]}>cancel</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity onPress={() => setShowOperatorLogin(true)} activeOpacity={0.6} style={{ marginTop: 12 }}>
+                <Text style={[styles.demoText, { color: c.muted }]}>operator login</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

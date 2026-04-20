@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import {
   fetchNotifications,
@@ -54,7 +53,6 @@ function fmtDate(iso: string): string {
 export default function NotificationsPanel() {
   const { goBack } = usePanel();
   const c = useColors();
-  const insets = useSafeAreaInsets();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,7 +158,7 @@ export default function NotificationsPanel() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: c.panelBg, paddingTop: insets.top + 16 }]}>
+    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} activeOpacity={0.7}>
           <Text style={[styles.back, { color: c.accent }]}>←</Text>
@@ -223,7 +221,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingBottom: 14,
+    paddingTop: 18,
+    paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   back: { fontSize: 28 },
