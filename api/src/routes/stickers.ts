@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { eq, isNotNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { businesses } from '../db/schema';
 import { requireUser } from '../lib/auth';
@@ -21,7 +21,7 @@ router.get('/', async (_req, res: Response) => {
       description: businesses.description,
       sticker_concept: businesses.sticker_concept,
       sticker_emoji: businesses.sticker_emoji,
-    }).from(businesses);
+    }).from(businesses).where(eq(businesses.type, 'collection'));
     res.json(rows);
   } catch (err) {
     logger.error('Failed to fetch stickers:', err);

@@ -43,7 +43,7 @@ export default function MerchPanel() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.intro, { color: c.muted }]}>
-          Send a local sticker to anyone. Digital or physical. They'll get a claim code by email.
+          Collect a city. Send one to a friend. Digital or physical — they'll get a claim code by email.
         </Text>
 
         {loading ? (
