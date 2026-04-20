@@ -1799,6 +1799,69 @@ export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
       ],
     },
   ],
+
+  'The Shala': [
+    {
+      label: 'PASSES',
+      sections: [
+        {
+          section: 'INTRODUCTORY',
+          items: [
+            { item: 'New Student/Practitioner 1 Month Unlimited', price: '$79' },
+            { item: 'New Student/Practitioner 3 Month Unlimited', price: '$210' },
+            { item: 'New Student Mysore Package', description: 'Sliding scale pricing' },
+          ],
+        },
+        {
+          section: 'MONTHLY',
+          items: [
+            { item: '5 Classes / Month', price: '$75' },
+            { item: 'Multiclass Bulk Pass', description: 'Minimum 6 classes', price: '$12 / class' },
+            { item: 'Month Limited', description: 'Up to 12 classes', price: '$95' },
+            { item: 'Led Class Month Unlimited', price: '$90' },
+            { item: 'Monthly Unlimited', description: 'Auto-renewal', price: '$120' },
+            { item: 'Month Unlimited', price: '$150' },
+          ],
+        },
+        {
+          section: 'ANNUAL & SEMI-ANNUAL',
+          items: [
+            { item: '6 Month Pass, Unlimited', description: 'Sliding scale' },
+            { item: 'Annual Pass, Unlimited', description: 'Sliding scale' },
+          ],
+        },
+      ],
+    },
+    {
+      label: 'CLASSES',
+      sections: [
+        {
+          section: 'SINGLE CLASSES',
+          items: [
+            { item: 'Led Class', price: '$20' },
+            { item: 'Mysore', price: '$25' },
+            { item: 'Sliding Scale', description: 'Per class / per month' },
+          ],
+        },
+        {
+          section: 'ONLINE',
+          items: [
+            { item: 'Drop-In Zoom', price: '$10' },
+            { item: 'Remote Shala — 10 Classes / Month', price: '$75' },
+            { item: 'Remote Shala Monthly Unlimited', description: 'Includes recorded classes', price: '$90' },
+            { item: 'Remote Shala Monthly Unlimited', description: 'Sr / Student / Unemployed · Includes recorded classes', price: '$70' },
+            { item: 'Remote Shala Monthly Unlimited', description: 'Sr / Student / Unemployed', price: '$50' },
+          ],
+        },
+        {
+          section: 'LIBRARY',
+          items: [
+            { item: 'Pre-Recorded Class', description: 'Sliding scale', price: '$1 / class' },
+          ],
+        },
+      ],
+    },
+  ],
 };
 
 export const COLLECTION_LOCATIONS: CollectionLocation[] = [
