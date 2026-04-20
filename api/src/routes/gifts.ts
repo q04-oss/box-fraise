@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { gifts, users } from '../db/schema';
+import { gifts, users, businesses } from '../db/schema';
 import { sendGiftNotification } from '../lib/resend';
 import { logger } from '../lib/logger';
 import { requireUser } from '../lib/auth';
@@ -16,10 +16,12 @@ const PRICES: Record<string, number> = {
   bundle: 1600,  // $16.00 CAD
 };
 
+const BUSINESS_CUT = 0.25; // 25% of sale goes to the business
+
 // POST /api/gifts/payment-intent
 // Creates a Stripe PI and a pending gift record. Returns the client secret.
 router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
-  const { gift_type, recipient_email } = req.body;
+  const { gift_type, recipient_email, business_id } = req.body;
   const sender_user_id: number = req.userId;
 
   if (!['digital', 'physical', 'bundle'].includes(gift_type)) {
@@ -31,7 +33,19 @@ router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
     return;
   }
 
+  // Validate business if provided
+  let sticker_business_id: number | null = null;
+  let business_name: string | null = null;
+  if (business_id) {
+    const [biz] = await db.select({ id: businesses.id, name: businesses.name })
+      .from(businesses).where(eq(businesses.id, Number(business_id))).limit(1);
+    if (!biz) { res.status(404).json({ error: 'business_not_found' }); return; }
+    sticker_business_id = biz.id;
+    business_name = biz.name;
+  }
+
   const amount_cents = PRICES[gift_type];
+  const business_revenue_cents = sticker_business_id ? Math.floor(amount_cents * BUSINESS_CUT) : null;
   const claim_token = crypto.randomBytes(4).toString('hex').toUpperCase();
 
   try {
@@ -42,6 +56,8 @@ router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
       amount_cents,
       claim_token,
       status: 'pending',
+      sticker_business_id,
+      business_revenue_cents,
     }).returning({ id: gifts.id });
 
     const pi = await stripe.paymentIntents.create({
@@ -53,6 +69,7 @@ router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
         gift_type,
         recipient_email,
         sender_user_id: String(sender_user_id),
+        ...(sticker_business_id ? { business_id: String(sticker_business_id), business_name: business_name ?? '' } : {}),
       },
     });
 
@@ -145,7 +162,12 @@ router.get('/received', requireUser, async (req: any, res: Response) => {
       id: gifts.id,
       gift_type: gifts.gift_type,
       claimed_at: gifts.claimed_at,
-    }).from(gifts).where(eq(gifts.claimed_by_user_id, user_id));
+      sticker_emoji: businesses.sticker_emoji,
+      business_name: businesses.name,
+    })
+      .from(gifts)
+      .leftJoin(businesses, eq(gifts.sticker_business_id, businesses.id))
+      .where(eq(gifts.claimed_by_user_id, user_id));
     res.json(received);
   } catch (err) {
     logger.error('Failed to fetch received gifts:', err);

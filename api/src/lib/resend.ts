@@ -508,16 +508,18 @@ export async function sendGiftNotification(params: {
   senderName: string;
   giftType: 'digital' | 'physical' | 'bundle';
   claimToken: string;
+  businessName?: string;
 }) {
-  const { to, senderName, giftType, claimToken } = params;
+  const { to, senderName, giftType, claimToken, businessName } = params;
   const TESTFLIGHT = 'https://testflight.apple.com/join/zJG1Wc5Y';
   const claimUrl = `https://fraise.box/claim/${claimToken}`;
 
+  const stickerLabel = businessName ? `a ${businessName} sticker` : 'a strawberry sticker';
   const giftLabel = giftType === 'digital'
-    ? 'a digital strawberry sticker'
+    ? `a digital ${stickerLabel}`
     : giftType === 'physical'
-    ? 'a physical sticker pack'
-    : 'a digital + physical sticker bundle';
+    ? `a physical ${stickerLabel} pack`
+    : `a digital + physical ${stickerLabel} bundle`;
 
   const content = `
     <p style="margin:0 0 24px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">

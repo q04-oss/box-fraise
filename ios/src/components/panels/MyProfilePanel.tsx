@@ -23,7 +23,7 @@ export default function MyProfilePanel() {
 
   const [stats, setStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [receivedGifts, setReceivedGifts] = useState<{ id: number; gift_type: string; claimed_at: string }[]>([]);
+  const [receivedGifts, setReceivedGifts] = useState<{ id: number; gift_type: string; claimed_at: string; sticker_emoji: string | null; business_name: string | null }[]>([]);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
@@ -189,7 +189,12 @@ export default function MyProfilePanel() {
               <Text style={[styles.sectionLabel, { color: c.muted }]}>STICKERS</Text>
               <View style={styles.stickerRow}>
                 {receivedGifts.map(g => (
-                  <Text key={g.id} style={styles.stickerEmoji}>🍓</Text>
+                  <View key={g.id} style={styles.stickerItem}>
+                    <Text style={styles.stickerEmoji}>{g.sticker_emoji ?? '🍓'}</Text>
+                    {g.business_name ? (
+                      <Text style={[styles.stickerLabel, { color: c.muted }]} numberOfLines={1}>{g.business_name}</Text>
+                    ) : null}
+                  </View>
                 ))}
               </View>
             </View>
@@ -254,8 +259,10 @@ const styles = StyleSheet.create({
   balance: { fontFamily: fonts.playfair, fontSize: 32, marginTop: 4 },
   subLine: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
 
-  stickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  stickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+  stickerItem: { alignItems: 'center', gap: 4, width: 56 },
   stickerEmoji: { fontSize: 28 },
+  stickerLabel: { fontFamily: fonts.dmMono, fontSize: 8, letterSpacing: 0.3, textAlign: 'center' },
   navRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,

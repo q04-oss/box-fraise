@@ -1,55 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, Alert,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
+import { fetchStickers } from '../../lib/api';
 
-// Update these when the store is live
-const MERCH_STORE_URL = 'https://shop.fraise.box/cart/50900019970281:1';
-
-interface MerchItem {
-  id: string;
+interface StickerBusiness {
+  id: number;
   name: string;
-  description: string;
-  price: string;
-  sizes?: string[];
+  type: string;
+  neighbourhood: string | null;
+  sticker_concept: string | null;
+  sticker_emoji: string | null;
 }
-
-const ITEMS: MerchItem[] = [
-  {
-    id: 'sticker-pack',
-    name: 'Sticker Pack',
-    description: '5 die-cut vinyl strawberry stickers · weatherproof · kiss-cut',
-    price: '$14',
-  },
-];
 
 export default function MerchPanel() {
   const { goBack, showPanel } = usePanel();
   const c = useColors();
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [stickers, setStickers] = useState<StickerBusiness[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handlePreOrder = async (item: MerchItem) => {
+  useEffect(() => {
+    fetchStickers().then(s => setStickers(s)).finally(() => setLoading(false));
+  }, []);
+
+  const handleSend = (biz: StickerBusiness) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (item.sizes && !selectedSizes[item.id]) {
-      Alert.alert('Select a size', 'Please select a size before pre-ordering.');
-      return;
-    }
-    if (MERCH_STORE_URL) {
-      try {
-        await Linking.openURL(MERCH_STORE_URL);
-      } catch {
-        Alert.alert('Could not open store', 'Please try again.');
-      }
-    } else {
-      Alert.alert(
-        'Pre-orders opening soon',
-        'We\'ll notify you when the shop is live.',
-        [{ text: 'OK' }]
-      );
-    }
+    showPanel('gift', { businessId: biz.id, businessName: biz.name });
   };
 
   return (
@@ -58,83 +37,45 @@ export default function MerchPanel() {
         <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={[styles.backText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>SHOP</Text>
+        <Text style={[styles.title, { color: c.text }]}>STRAWBERRY STORE</Text>
         <View style={styles.backBtn} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.preOrderBadge, { color: c.accent }]}>PRE-ORDER</Text>
         <Text style={[styles.intro, { color: c.muted }]}>
-          Ships to your door. Pick up at a partner location near you when they're live.
+          Send a local sticker to anyone. Digital or physical. They'll get a claim code by email.
         </Text>
 
-        {/* Gift row */}
-        <TouchableOpacity
-          style={[styles.giftRow, { borderColor: c.border }]}
-          onPress={() => showPanel('gift')}
-          activeOpacity={0.8}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.giftLabel, { color: c.text }]}>Send a sticker as a gift</Text>
-            <Text style={[styles.giftSub, { color: c.muted }]}>Digital from $3 · Physical from $14</Text>
-          </View>
-          <Text style={[styles.giftArrow, { color: c.accent }]}>→</Text>
-        </TouchableOpacity>
-
-        {ITEMS.map((item, i) => (
-          <View
-            key={item.id}
-            style={[
-              styles.card,
-              { backgroundColor: c.card, borderColor: c.border },
-              i === ITEMS.length - 1 && { marginBottom: 0 },
-            ]}
-          >
-            <View style={styles.cardTop}>
-              <View style={styles.cardInfo}>
-                <Text style={[styles.itemName, { color: c.text }]}>{item.name}</Text>
-                <Text style={[styles.itemDesc, { color: c.muted }]}>{item.description}</Text>
-              </View>
-              <Text style={[styles.itemPrice, { color: c.text }]}>{item.price}</Text>
-            </View>
-
-            {item.sizes && (
-              <View style={styles.sizes}>
-                {item.sizes.map(size => {
-                  const selected = selectedSizes[item.id] === size;
-                  return (
-                    <TouchableOpacity
-                      key={size}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedSizes(prev => ({ ...prev, [item.id]: size }));
-                      }}
-                      activeOpacity={0.7}
-                      style={[
-                        styles.sizeBtn,
-                        { borderColor: selected ? c.accent : c.border },
-                        selected && { backgroundColor: c.accent },
-                      ]}
-                    >
-                      <Text style={[
-                        styles.sizeBtnText,
-                        { color: selected ? '#fff' : c.muted },
-                      ]}>{size}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
+        {loading ? (
+          <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
+        ) : (
+          stickers.map((biz, i) => (
             <TouchableOpacity
-              style={[styles.preOrderBtn, { borderColor: c.accent }]}
-              onPress={() => handlePreOrder(item)}
-              activeOpacity={0.75}
+              key={biz.id}
+              style={[
+                styles.card,
+                { backgroundColor: c.card, borderColor: c.border },
+                i === stickers.length - 1 && { marginBottom: 0 },
+              ]}
+              onPress={() => handleSend(biz)}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.preOrderBtnText, { color: c.accent }]}>PRE-ORDER</Text>
+              <View style={styles.cardLeft}>
+                <Text style={styles.cardEmoji}>{biz.sticker_emoji ?? '🍓'}</Text>
+              </View>
+              <View style={styles.cardBody}>
+                <Text style={[styles.bizName, { color: c.text }]}>{biz.name}</Text>
+                {biz.neighbourhood ? (
+                  <Text style={[styles.neighbourhood, { color: c.muted }]}>{biz.neighbourhood}</Text>
+                ) : null}
+                {biz.sticker_concept ? (
+                  <Text style={[styles.concept, { color: c.muted }]}>{biz.sticker_concept}</Text>
+                ) : null}
+              </View>
+              <Text style={[styles.arrow, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -150,43 +91,20 @@ const styles = StyleSheet.create({
   backBtn: { width: 40 },
   backText: { fontSize: 22 },
   title: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-  scroll: { padding: SPACING.md, paddingBottom: 60, gap: 12 },
-  preOrderBadge: {
-    fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 2,
-    marginBottom: 6,
-  },
+  scroll: { padding: SPACING.md, paddingBottom: 60, gap: 10 },
   intro: {
     fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   card: {
     borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
-    padding: SPACING.md, gap: 14,
+    padding: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: 12,
   },
-  cardTop: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
-  },
-  cardInfo: { flex: 1, gap: 4 },
-  itemName: { fontFamily: fonts.playfair, fontSize: 20 },
-  itemDesc: { fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 18 },
-  itemPrice: { fontFamily: fonts.dmMono, fontSize: 15, letterSpacing: 0.5 },
-  sizes: { flexDirection: 'row', gap: 8 },
-  sizeBtn: {
-    width: 42, height: 32, borderRadius: 8, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sizeBtnText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
-  preOrderBtn: {
-    borderWidth: 1, borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  preOrderBtnText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 2 },
-  giftRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth, borderRadius: 14,
-    padding: SPACING.md, gap: 12,
-  },
-  giftLabel: { fontFamily: fonts.playfair, fontSize: 17, marginBottom: 3 },
-  giftSub: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.3 },
-  giftArrow: { fontFamily: fonts.dmMono, fontSize: 18 },
+  cardLeft: { width: 40, alignItems: 'center' },
+  cardEmoji: { fontSize: 28 },
+  cardBody: { flex: 1, gap: 3 },
+  bizName: { fontFamily: fonts.playfair, fontSize: 17 },
+  neighbourhood: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5 },
+  concept: { fontFamily: fonts.dmSans, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  arrow: { fontFamily: fonts.dmMono, fontSize: 18 },
 });

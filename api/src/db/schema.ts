@@ -227,6 +227,9 @@ export const businesses = pgTable('businesses', {
   beacon_uuid: text('beacon_uuid').unique(),
   // Walk-in purchases: only true for the chocolatier's own counter (Marché Atwater)
   allows_walkin: boolean('allows_walkin').notNull().default(false),
+  // Sticker store
+  sticker_concept: text('sticker_concept'),
+  sticker_emoji: text('sticker_emoji'),
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -1562,6 +1565,9 @@ export const gifts = pgTable('gifts', {
   shipping_city: text('shipping_city'),
   shipping_province: text('shipping_province'),
   shipping_postal_code: text('shipping_postal_code'),
+  // Sticker marketplace — which business sticker was sent
+  sticker_business_id: integer('sticker_business_id').references(() => businesses.id),
+  business_revenue_cents: integer('business_revenue_cents'), // 25% of amount, held for payout
   // Digital fulfillment
   claimed_by_user_id: integer('claimed_by_user_id').references(() => users.id),
   claimed_at: timestamp('claimed_at'),
@@ -1569,6 +1575,7 @@ export const gifts = pgTable('gifts', {
 }, (t) => ({
   idx_sender: index('gifts_sender_user_id_idx').on(t.sender_user_id),
   idx_recipient_email: index('gifts_recipient_email_idx').on(t.recipient_email),
+  idx_sticker_biz: index('gifts_sticker_business_id_idx').on(t.sticker_business_id),
 }));
 
 // @final-audit

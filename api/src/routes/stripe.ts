@@ -877,12 +877,19 @@ router.post('/webhook', async (req: Request, res: Response) => {
             // Look up sender name
             const [sender] = await db.select({ email: users.email, display_name: users.display_name }).from(users).where(eq(users.id, gift.sender_user_id)).limit(1);
             const senderName = sender?.display_name ?? sender?.email?.split('@')[0] ?? 'Someone';
+            // Look up business name if this is a business sticker
+            let businessName: string | undefined;
+            if (gift.sticker_business_id) {
+              const [biz] = await db.select({ name: businesses.name }).from(businesses).where(eq(businesses.id, gift.sticker_business_id)).limit(1);
+              businessName = biz?.name;
+            }
             if (gift.recipient_email) {
               sendGiftNotification({
                 to: gift.recipient_email,
                 senderName,
                 giftType: gift.gift_type as 'digital' | 'physical' | 'bundle',
                 claimToken: gift.claim_token,
+                businessName,
               }).catch((err) => logger.error('Failed to send gift email:', err));
             }
             logger.info(`Gift ${giftId} paid, notification sent to ${gift.recipient_email}`);

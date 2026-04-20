@@ -23,10 +23,13 @@ const GIFT_OPTIONS: { type: GiftType; label: string; desc: string; price: string
 ];
 
 export default function GiftPanel() {
-  const { goBack } = usePanel();
+  const { goBack, panelData } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+
+  const businessId: number | null = panelData?.businessId ?? null;
+  const businessName: string | null = panelData?.businessName ?? null;
 
   const [giftType, setGiftType] = useState<GiftType>('digital');
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -54,7 +57,7 @@ export default function GiftPanel() {
       const res = await fetch(`${API_BASE_URL}/api/gifts/payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-        body: JSON.stringify({ gift_type: giftType, recipient_email: trimmed }),
+        body: JSON.stringify({ gift_type: giftType, recipient_email: trimmed, ...(businessId ? { business_id: businessId } : {}) }),
       });
       if (!res.ok) throw new Error('Failed to create gift');
       const { client_secret } = await res.json();
@@ -129,7 +132,7 @@ export default function GiftPanel() {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>Send a sticker</Text>
+        <Text style={[styles.title, { color: c.text }]}>{businessName ? `${businessName}` : 'Send a sticker'}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
