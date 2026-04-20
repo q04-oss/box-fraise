@@ -1800,6 +1800,59 @@ export const PARTNER_MENUS: Record<string, PartnerMenu[]> = {
     },
   ],
 
+  'Base Salon + Supply': [
+    {
+      label: 'SERVICES',
+      sections: [
+        {
+          section: 'CUTTING',
+          items: [
+            { item: 'Clipper Haircut', price: '$65+' },
+            { item: 'Shears Haircut', price: '$85+' },
+            { item: 'Children\'s Cut', description: 'Under 10 only', price: '$60+' },
+          ],
+        },
+        {
+          section: 'STYLING',
+          items: [
+            { item: 'Blowout', price: '$85+' },
+            { item: 'Finishing Add On', description: 'With color service only', price: '$75+' },
+            { item: 'Formal Styling', price: '$140+' },
+            { item: 'Bridal', description: 'Consultation required', price: '$175+' },
+          ],
+        },
+        {
+          section: 'COLOR CLASSICS',
+          items: [
+            { item: 'Single Process Regrowth', price: '$135+' },
+            { item: 'Single Process Full Color', price: '$165+' },
+            { item: 'Classic Highlights', price: '$200+' },
+            { item: 'Double Process Lightening', description: 'Consultation required', price: '$250+' },
+            { item: 'Balayage and Hair Painting', price: '$250+' },
+            { item: 'Toner and Gloss Add On', description: 'With another color service only', price: '$60+' },
+          ],
+        },
+        {
+          section: 'CUSTOM COLOR ACCENTING',
+          note: 'Consultation required for all services',
+          items: [
+            { item: 'Salt and Pepper Embracing' },
+            { item: 'Mini Refreshes / Partials / Color Blocking' },
+            { item: 'Vivids' },
+            { item: 'Color Corrections' },
+          ],
+        },
+        {
+          section: 'RETEXTURING',
+          items: [
+            { item: 'Body Waves + Perms', description: 'Consultation required', price: '$200+' },
+            { item: 'Keratin Smoothing Treatment', description: 'Consultation required', price: '$500+' },
+          ],
+        },
+      ],
+    },
+  ],
+
   'The Shala': [
     {
       label: 'PASSES',
