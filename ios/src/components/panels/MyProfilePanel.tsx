@@ -10,6 +10,7 @@ import { useColors, fonts, SPACING } from '../../theme';
 import {
   fetchMyStats, updateDisplayName,
   deleteAuthToken, verifyAppleSignIn, setAuthToken,
+  fetchReceivedGifts,
 } from '../../lib/api';
 
 export default function MyProfilePanel() {
@@ -22,6 +23,7 @@ export default function MyProfilePanel() {
 
   const [stats, setStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [receivedGifts, setReceivedGifts] = useState<{ id: number; gift_type: string; claimed_at: string }[]>([]);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
@@ -39,6 +41,7 @@ export default function MyProfilePanel() {
     fetchMyStats().catch(() => null).then(s => {
       setStats(s);
     }).finally(() => setStatsLoading(false));
+    fetchReceivedGifts().then(g => setReceivedGifts(g)).catch(() => {});
   };
 
   const handleAppleSignIn = async () => {
@@ -180,6 +183,18 @@ export default function MyProfilePanel() {
             </View>
           )}
 
+          {/* Sticker collection */}
+          {receivedGifts.length > 0 && (
+            <View style={[styles.section, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>STICKERS</Text>
+              <View style={styles.stickerRow}>
+                {receivedGifts.map(g => (
+                  <Text key={g.id} style={styles.stickerEmoji}>🍓</Text>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* Nav */}
           <View>
             <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={() => showPanel('merch')} activeOpacity={0.7}>
@@ -239,6 +254,8 @@ const styles = StyleSheet.create({
   balance: { fontFamily: fonts.playfair, fontSize: 32, marginTop: 4 },
   subLine: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5, marginTop: 2 },
 
+  stickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  stickerEmoji: { fontSize: 28 },
   navRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,

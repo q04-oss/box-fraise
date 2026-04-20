@@ -2593,6 +2593,13 @@ export async function fetchMyStats(): Promise<any> {
   return r.json();
 }
 
+export async function fetchReceivedGifts(): Promise<{ id: number; gift_type: string; claimed_at: string }[]> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/gifts/received`, { headers: auth });
+  if (!r.ok) return [];
+  return r.json();
+}
+
 export async function fetchGreenhouseDetail(id: number): Promise<any> {
   const r = await fetch(`${BASE_URL}/api/greenhouses/${id}`);
   if (!r.ok) throw new Error('not found');
