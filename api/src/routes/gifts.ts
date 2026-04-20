@@ -21,15 +21,17 @@ const BUSINESS_CUT = 0.25; // 25% of sale goes to the business
 // POST /api/gifts/payment-intent
 // Creates a Stripe PI and a pending gift record. Returns the client secret.
 router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
-  const { gift_type, recipient_email, business_id, is_outreach } = req.body;
+  const { gift_type, recipient_email, recipient_phone, business_id, is_outreach } = req.body;
   const sender_user_id: number = req.userId;
 
   if (!['digital', 'physical', 'bundle'].includes(gift_type)) {
     res.status(400).json({ error: 'invalid_gift_type' });
     return;
   }
-  if (!recipient_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient_email)) {
-    res.status(400).json({ error: 'invalid_recipient_email' });
+  const hasEmail = recipient_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient_email);
+  const hasPhone = recipient_phone && /^\+[1-9]\d{7,14}$/.test(recipient_phone);
+  if (!hasEmail && !hasPhone) {
+    res.status(400).json({ error: 'invalid_recipient' });
     return;
   }
 
@@ -51,7 +53,8 @@ router.post('/payment-intent', requireUser, async (req: any, res: Response) => {
   try {
     const [gift] = await db.insert(gifts).values({
       sender_user_id,
-      recipient_email,
+      recipient_email: hasEmail ? recipient_email : null,
+      recipient_phone: hasPhone ? recipient_phone : null,
       gift_type,
       amount_cents,
       claim_token,

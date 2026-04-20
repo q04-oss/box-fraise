@@ -34,7 +34,9 @@ export default function GiftPanel() {
   const isOutreach: boolean = panelData?.isOutreach ?? false;
 
   const [giftType, setGiftType] = useState<GiftType>('digital');
+  const [recipientMode, setRecipientMode] = useState<'email' | 'phone'>(prefilledEmail ? 'email' : 'email');
   const [recipientEmail, setRecipientEmail] = useState(prefilledEmail ?? '');
+  const [recipientPhone, setRecipientPhone] = useState('');
   const [paying, setPaying] = useState(false);
   const [sent, setSent] = useState(false);
   const [userToken, setUserToken] = useState<string | null>(null);
@@ -44,14 +46,26 @@ export default function GiftPanel() {
   }, []);
 
   const handleSend = async () => {
-    const trimmed = recipientEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
-      return;
-    }
     if (!userToken) {
       Alert.alert('Not signed in', 'Please sign in to send a gift.');
       return;
+    }
+
+    let recipientPayload: Record<string, string> = {};
+    if (recipientMode === 'phone') {
+      const phone = recipientPhone.trim().replace(/\s+/g, '');
+      if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+        Alert.alert('Invalid phone number', 'Enter a number in international format, e.g. +14035551234');
+        return;
+      }
+      recipientPayload = { recipient_phone: phone };
+    } else {
+      const trimmed = recipientEmail.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        Alert.alert('Invalid email', 'Please enter a valid email address.');
+        return;
+      }
+      recipientPayload = { recipient_email: trimmed };
     }
 
     setPaying(true);
@@ -59,7 +73,7 @@ export default function GiftPanel() {
       const res = await fetch(`${API_BASE_URL}/api/gifts/payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
-        body: JSON.stringify({ gift_type: giftType, recipient_email: trimmed, ...(businessId ? { business_id: businessId } : {}), ...(isOutreach ? { is_outreach: true } : {}) }),
+        body: JSON.stringify({ gift_type: giftType, ...recipientPayload, ...(businessId ? { business_id: businessId } : {}), ...(isOutreach ? { is_outreach: true } : {}) }),
       });
       if (!res.ok) throw new Error('Failed to create gift');
       const { client_secret } = await res.json();
@@ -114,7 +128,9 @@ export default function GiftPanel() {
           <Text style={[styles.sentEmoji]}>🍓</Text>
           <Text style={[styles.sentHeading, { color: c.text }]}>On its way.</Text>
           <Text style={[styles.sentSub, { color: c.muted }]}>
-            {recipientEmail.trim().toLowerCase()} will receive an email with a claim code and a link to download the app.
+            {recipientMode === 'phone'
+              ? `${recipientPhone.trim()} will get a text with a claim link.`
+              : `${recipientEmail.trim().toLowerCase()} will receive an email with a claim code.`}
           </Text>
           <TouchableOpacity
             style={[styles.doneBtn, { backgroundColor: c.accent }]}
@@ -161,23 +177,58 @@ export default function GiftPanel() {
         <Text style={[styles.sectionLabel, { color: c.muted, marginTop: SPACING.lg }]}>
           {isOutreach ? 'SENDING TO' : 'RECIPIENT'}
         </Text>
+
+        {!isOutreach && (
+          <View style={[styles.modeToggle, { backgroundColor: c.card, borderColor: c.border }]}>
+            <TouchableOpacity
+              style={[styles.modeBtn, recipientMode === 'email' && { backgroundColor: c.accent }]}
+              onPress={() => { setRecipientMode('email'); Haptics.selectionAsync(); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.modeBtnText, { color: recipientMode === 'email' ? '#fff' : c.muted }]}>Email</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeBtn, recipientMode === 'phone' && { backgroundColor: c.accent }]}
+              onPress={() => { setRecipientMode('phone'); Haptics.selectionAsync(); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.modeBtnText, { color: recipientMode === 'phone' ? '#fff' : c.muted }]}>Phone</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={[styles.inputWrapper, { borderColor: c.border, backgroundColor: c.card }]}>
-          <TextInput
-            style={[styles.input, { color: isOutreach ? c.muted : c.text }]}
-            placeholder="Email address"
-            placeholderTextColor={c.muted}
-            value={recipientEmail}
-            onChangeText={isOutreach ? undefined : setRecipientEmail}
-            editable={!isOutreach}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {recipientMode === 'phone' ? (
+            <TextInput
+              style={[styles.input, { color: c.text }]}
+              placeholder="+1 403 555 1234"
+              placeholderTextColor={c.muted}
+              value={recipientPhone}
+              onChangeText={setRecipientPhone}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          ) : (
+            <TextInput
+              style={[styles.input, { color: isOutreach ? c.muted : c.text }]}
+              placeholder="Email address"
+              placeholderTextColor={c.muted}
+              value={recipientEmail}
+              onChangeText={isOutreach ? undefined : setRecipientEmail}
+              editable={!isOutreach}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          )}
         </View>
         <Text style={[styles.hint, { color: c.muted }]}>
           {isOutreach
             ? `${businessName ?? 'They'} will receive a sticker and a note about Box Fraise.`
-            : "They'll receive a claim code and a link to download the app. No account needed to receive it."}
+            : recipientMode === 'phone'
+            ? "They'll get a text with a claim link. No account needed."
+            : "They'll receive a claim code and a link to download the app. No account needed."}
         </Text>
 
         <View style={{ height: 120 }} />
@@ -227,6 +278,12 @@ const styles = StyleSheet.create({
   optionDesc: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   optionPrice: { fontSize: 14, fontFamily: fonts.dmMono, marginLeft: 12 },
 
+  modeToggle: {
+    flexDirection: 'row', borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10, overflow: 'hidden', marginBottom: 10,
+  },
+  modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 9 },
+  modeBtnText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1 },
   inputWrapper: {
     borderWidth: StyleSheet.hairlineWidth, borderRadius: 12,
     paddingHorizontal: SPACING.md, paddingVertical: 14,

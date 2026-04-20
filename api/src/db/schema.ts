@@ -1553,7 +1553,8 @@ export const devicePairingTokens = pgTable('device_pairing_tokens', {
 export const gifts = pgTable('gifts', {
   id: serial('id').primaryKey(),
   sender_user_id: integer('sender_user_id').notNull().references(() => users.id),
-  recipient_email: text('recipient_email'),           // at least one required
+  recipient_email: text('recipient_email'),           // email or phone required
+  recipient_phone: text('recipient_phone'),           // E.164 format e.g. +14035551234
   gift_type: text('gift_type').notNull(),             // 'digital' | 'physical' | 'bundle'
   amount_cents: integer('amount_cents').notNull(),
   claim_token: text('claim_token').notNull().unique(),

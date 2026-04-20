@@ -7,6 +7,7 @@ import { db } from '../db';
 import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, fundContributions, earningsLedger, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits, personalToilets, gifts } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
 import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived, sendGiftNotification, sendOutreachNotification } from '../lib/resend';
+import { sendStickerSMS } from '../lib/twilio';
 import { logger } from '../lib/logger';
 import { TIER_LABELS } from '../lib/membership';
 import { calculateCut } from '../lib/portal';
@@ -877,7 +878,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
             const [sender] = await db.select({ email: users.email, display_name: users.display_name }).from(users).where(eq(users.id, gift.sender_user_id)).limit(1);
             const senderName = sender?.display_name ?? sender?.email?.split('@')[0] ?? 'Someone';
 
-            // Self-send: auto-claim immediately, skip email
+            // Self-send: auto-claim immediately, skip notification
             const isSelf = gift.recipient_email && sender?.email &&
               gift.recipient_email.toLowerCase() === sender.email.toLowerCase();
 
@@ -897,7 +898,14 @@ router.post('/webhook', async (req: Request, res: Response) => {
                 const [biz] = await db.select({ name: businesses.name }).from(businesses).where(eq(businesses.id, gift.sticker_business_id)).limit(1);
                 businessName = biz?.name;
               }
-              if (gift.recipient_email) {
+              if (gift.recipient_phone) {
+                sendStickerSMS({
+                  to: gift.recipient_phone,
+                  senderName,
+                  claimToken: gift.claim_token,
+                  businessName,
+                }).catch((err) => logger.error('Failed to send sticker SMS:', err));
+              } else if (gift.recipient_email) {
                 if (gift.is_outreach && businessName) {
                   sendOutreachNotification({
                     to: gift.recipient_email,
@@ -916,7 +924,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
                   }).catch((err) => logger.error('Failed to send gift email:', err));
                 }
               }
-              logger.info(`Gift ${giftId} paid, outreach=${gift.is_outreach}, notification sent to ${gift.recipient_email}`);
+              logger.info(`Gift ${giftId} paid, outreach=${gift.is_outreach}, notified via ${gift.recipient_phone ? 'SMS' : 'email'}`);
             }
           }
         }
