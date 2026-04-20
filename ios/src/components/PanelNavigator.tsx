@@ -54,7 +54,7 @@ const FULL_HEIGHT_PANELS = new Set([
   'nfc-write', 'walk-in', 'walk-in-write', 'walk-in-inventory',
   'verified', 'batch-preference', 'order-history',
   'search', 'receipt',
-  'my-profile', 'notifications', 'staff-orders',
+  'notifications', 'staff-orders',
   'merch',
   'gift',
   'claim-gift',
