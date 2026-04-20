@@ -177,21 +177,6 @@ export default function PartnerDetailPanel() {
 
         </View>
 
-        {/* Commission a campaign CTA */}
-        <TouchableOpacity
-          style={[styles.commissionCard, { borderColor: c.border }]}
-          onPress={handleCommission}
-          activeOpacity={0.8}
-        >
-          <View style={styles.commissionInfo}>
-            <Text style={[styles.commissionTitle, { color: c.text }]}>Commission a campaign here</Text>
-            <Text style={[styles.commissionSub, { color: c.muted }]}>
-              Portrait shoot · Get in touch
-            </Text>
-          </View>
-          <Text style={[styles.chevron, { color: c.muted }]}>›</Text>
-        </TouchableOpacity>
-
         {/* Tip section */}
         {biz.placed_user_name && (
           <View style={[styles.tipCard, { borderColor: c.border }]}>

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
-import ClusteredMapView from 'react-native-map-clustering';
+import MapView from 'react-native-maps';
 import { Callout, Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -240,7 +240,7 @@ export default function MapScreen() {
   const handlePartnerPress = (biz: any) => {
     setActiveLocation(biz);
     showPanel('partner-detail');
-    setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
+    setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
     mapRef.current?.animateToRegion({
       latitude: biz.lat - 0.003,
       longitude: biz.lng,
@@ -389,7 +389,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <OfflineBanner />
       <BeaconNudge />
-      <ClusteredMapView
+      <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={{
@@ -404,10 +404,6 @@ export default function MapScreen() {
         showsScale={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        clusterColor="#c94f6d"
-        clusterTextColor="#fff"
-        clusterFontFamily="DMSans_400Regular"
-        radius={48}
         onUserLocationChange={(e: UserLocationChangeEvent) => {
           const coord = e.nativeEvent.coordinate;
           if (!coord) return;
@@ -513,7 +509,7 @@ export default function MapScreen() {
           </Marker>
         ))}
 
-      </ClusteredMapView>
+      </MapView>
 
       <TrueSheet
         name={SHEET_NAME}
