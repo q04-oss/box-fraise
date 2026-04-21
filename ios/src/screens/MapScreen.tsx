@@ -298,12 +298,10 @@ export default function MapScreen() {
       ? biz.contact.trim() : null;
     if (!contactEmail) return;
     showPanel('gift', { recipientEmail: contactEmail, businessName: biz.name, isOutreach: true });
-    setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
   };
 
   const handleSupportFromPin = (biz: any) => {
     showPanel('donate', { businessId: biz.id, businessName: biz.name });
-    setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
   };
 
   const handlePopupPress = (biz: any) => {
