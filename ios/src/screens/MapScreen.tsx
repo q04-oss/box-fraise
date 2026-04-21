@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, useWindowDimensions, LayoutChangeEvent, Alert, ActivityIndicator, Animated, AppState, Linking } from 'react-native';
 import MapView, { Marker, UserLocationChangeEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -123,7 +123,7 @@ export default function MapScreen() {
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
     [DETENTS, SCREEN_HEIGHT],
   );
-  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack } = usePanel();
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack, searchQuery, setSearchQuery } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -547,17 +547,21 @@ export default function MapScreen() {
             </PanelErrorBoundary>
           </View>
           <View style={[styles.tabBarArea, { paddingBottom: insets.bottom }]}>
-            <View style={[styles.searchPill, { backgroundColor: c.card }]}>
-              <TouchableOpacity
-                style={styles.searchPillMain}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goHome(); TrueSheet.resize(SHEET_NAME, 1); }}
-                activeOpacity={0.7}
+            <View style={[styles.searchPill, { backgroundColor: c.cardDark }]}>
+              <TextInput
+                style={[styles.searchPillInput, { color: c.text }]}
+                value={searchQuery}
+                onChangeText={(text: string) => { setSearchQuery(text); if (currentPanel !== 'home') goHome(); TrueSheet.resize(SHEET_NAME, 1); }}
+                onFocus={() => { if (currentPanel !== 'home') goHome(); TrueSheet.resize(SHEET_NAME, 1); }}
+                placeholder="for better taste"
+                placeholderTextColor={c.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
                 accessibilityLabel="Search"
-              >
-                <Text style={[styles.searchPillText, { color: c.muted }]}>for better taste</Text>
-              </TouchableOpacity>
+              />
               <TouchableOpacity
-                style={[styles.profileBtn, { backgroundColor: c.cardDark }]}
+                style={[styles.profileBtn, { backgroundColor: c.card }]}
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); jumpToPanel('my-profile'); TrueSheet.resize(SHEET_NAME, 2); }}
                 activeOpacity={0.7}
                 accessibilityLabel="Profile"
@@ -617,14 +621,12 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 6,
   },
-  searchPillMain: {
+  searchPillInput: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  searchPillText: {
     fontSize: 13,
     fontFamily: fonts.dmMono,
     letterSpacing: 0.5,
+    paddingVertical: 0,
   },
   profileBtn: {
     width: 32,
