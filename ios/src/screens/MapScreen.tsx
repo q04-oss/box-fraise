@@ -113,13 +113,12 @@ function LivePopupPin({ color }: { color: string }) {
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
-  const TAB_PILL_HEIGHT = 44;
-  const TAB_PILL_BOTTOM = insets.bottom + 12;
+  const TAB_HEIGHT = 44;
+  const TAB_AREA_HEIGHT = TAB_HEIGHT + insets.bottom;
   const DETENTS = useMemo<[number, number, number]>(() => {
-    const collapsedFrac = (TAB_PILL_HEIGHT + TAB_PILL_BOTTOM) / SCREEN_HEIGHT;
-    const fullFrac = (SCREEN_HEIGHT - TAB_PILL_HEIGHT - TAB_PILL_BOTTOM - 8) / SCREEN_HEIGHT;
-    return [collapsedFrac, 0.55, fullFrac];
-  }, [SCREEN_HEIGHT, TAB_PILL_BOTTOM]);
+    const collapsedFrac = TAB_AREA_HEIGHT / SCREEN_HEIGHT;
+    return [collapsedFrac, 0.55, 1];
+  }, [SCREEN_HEIGHT, TAB_AREA_HEIGHT]);
   const detentAbsoluteHeights = useMemo<[number, number, number]>(
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
     [DETENTS, SCREEN_HEIGHT],
@@ -409,7 +408,7 @@ export default function MapScreen() {
     return { label: open ? 'open now' : 'closed', open };
   };
 
-  const locateBtnBottom = TAB_PILL_BOTTOM + TAB_PILL_HEIGHT + 12;
+  const locateBtnBottom = TAB_AREA_HEIGHT + 12;
   const locateBtnVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
   const handleTabPress = (tab: 'discover' | 'order' | 'me') => {
@@ -554,9 +553,31 @@ export default function MapScreen() {
         scrollable
       >
         <View style={{ height: contentHeight, backgroundColor: c.sheetBg }} onLayout={onSheetLayout}>
-          <PanelErrorBoundary onReset={() => goHome()}>
-            <PanelNavigator />
-          </PanelErrorBoundary>
+          <View style={{ flex: 1 }}>
+            <PanelErrorBoundary onReset={() => goHome()}>
+              <PanelNavigator />
+            </PanelErrorBoundary>
+          </View>
+          <View style={[styles.tabBarArea, { paddingBottom: insets.bottom }]}>
+            <View
+              accessibilityRole="tablist"
+              style={[styles.tabPill, { backgroundColor: c.card }]}
+            >
+              {(['discover', 'order', 'me'] as const).map(tab => (
+                <TouchableOpacity
+                  key={tab}
+                  style={styles.tabItem}
+                  onPress={() => handleTabPress(tab)}
+                  activeOpacity={0.6}
+                  accessibilityRole="tab"
+                  accessibilityLabel={tab}
+                  accessibilityState={{ selected: activeRootTab === tab }}
+                >
+                  <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
       </TrueSheet>
 
@@ -577,25 +598,6 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <View
-        accessibilityRole="tablist"
-        style={[styles.tabBar, { bottom: TAB_PILL_BOTTOM, backgroundColor: c.sheetBg }]}
-      >
-        {(['discover', 'order', 'me'] as const).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={styles.tabItem}
-            onPress={() => handleTabPress(tab)}
-            activeOpacity={0.6}
-            accessibilityRole="tab"
-            accessibilityLabel={tab}
-            accessibilityState={{ selected: activeRootTab === tab }}
-          >
-            <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       {locateBtnVisible && (
         <TouchableOpacity
           style={[styles.locateBtn, { bottom: locateBtnBottom }]}
@@ -612,19 +614,16 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabBar: {
-    position: 'absolute',
-    alignSelf: 'center',
+  tabBarArea: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+  },
+  tabPill: {
     flexDirection: 'row',
     borderRadius: 100,
     height: 44,
     paddingHorizontal: 4,
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
   tabItem: {
     paddingHorizontal: 24,
