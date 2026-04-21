@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel } from '../context/PanelContext';
-import PanelNavigator from '../components/PanelNavigator';
+import PanelNavigator, { detentIndexForPanel } from '../components/PanelNavigator';
 import OfflineBanner from '../components/OfflineBanner';
 import PanelErrorBoundary from '../components/PanelErrorBoundary';
 import BeaconNudge from '../components/BeaconNudge';
@@ -113,8 +113,16 @@ function LivePopupPin({ color }: { color: string }) {
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
-  const DETENTS = useMemo<[number, number, number]>(() => [0.001, 0.55, 1], []);
-  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack } = usePanel();
+  const TAB_BAR_HEIGHT = 44;
+  const DETENTS = useMemo<[number, number, number]>(() => {
+    const fullFrac = (SCREEN_HEIGHT - TAB_BAR_HEIGHT - insets.bottom) / SCREEN_HEIGHT;
+    return [0.001, 0.55, fullFrac];
+  }, [SCREEN_HEIGHT, insets.bottom]);
+  const detentAbsoluteHeights = useMemo<[number, number, number]>(
+    () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
+    [DETENTS, SCREEN_HEIGHT],
+  );
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack, activeRootTab } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -162,17 +170,17 @@ export default function MapScreen() {
     if (pendingScreen === 'order-history') {
       clearPendingScreen();
       showPanel('order-history');
-      setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
+      setTimeout(() => TrueSheet.resize(SHEET_NAME, detentIndexForPanel('order-history')), 350);
     }
     if (pendingScreen === 'profile') {
       clearPendingScreen();
       showPanel('my-profile');
-      setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
+      setTimeout(() => TrueSheet.resize(SHEET_NAME, detentIndexForPanel('my-profile')), 350);
     }
     if (pendingScreen === 'NFCVerify') {
       clearPendingScreen();
       showPanel('verifyNFC');
-      setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
+      setTimeout(() => TrueSheet.resize(SHEET_NAME, detentIndexForPanel('verifyNFC')), 350);
     }
   }, [pendingScreen, businesses]);
 
@@ -399,24 +407,22 @@ export default function MapScreen() {
     return { label: open ? 'open now' : 'closed', open };
   };
 
-  const locateBtnBottom = insets.bottom + 28;
+  const locateBtnBottom = insets.bottom + TAB_BAR_HEIGHT + 12;
   const locateBtnVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
-  const indicatorText = (() => {
-    if (order.order_status && order.order_status !== 'cancelled' && order.delivery_date) {
-      const date = new Date(order.delivery_date);
-      const day = date.toLocaleDateString('en', { weekday: 'short' }).toLowerCase();
-      const loc = order.location_name?.toLowerCase() ?? '';
-      return loc ? `${loc}  ·  ${day}` : `confirmed  ·  ${day}`;
+  const handleTabPress = (tab: 'discover' | 'order' | 'me') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (tab === 'discover') {
+      goHome();
+      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('home'));
+    } else if (tab === 'order') {
+      jumpToPanel('order-history');
+      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('order-history'));
+    } else if (tab === 'me') {
+      jumpToPanel('my-profile');
+      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('my-profile'));
     }
-    if (activeLocation) {
-      const status = getOpenStatus(activeLocation.hours);
-      const name = activeLocation.name.toLowerCase();
-      if (status) return `${name}  ·  ${status.label}`;
-      return name;
-    }
-    return 'box fraise';
-  })();
+  };
 
   return (
     <View style={styles.container}>
@@ -536,7 +542,7 @@ export default function MapScreen() {
         onPositionChange={onPositionChange}
         onDidPresent={(e: any) => {
           const idx = e.nativeEvent.index;
-          const h = [0, Math.round(SCREEN_HEIGHT * 0.55), SCREEN_HEIGHT][idx] ?? 0;
+          const h = detentAbsoluteHeights[idx] ?? 0;
           setSheetHeight(h);
           setContentHeight(h);
           if (idx === 0 && currentPanel === 'partner-detail' && !suppressCollapseBack.current) {
@@ -569,19 +575,24 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      {sheetHeight < 50 && (
-        <TouchableOpacity
-          style={[styles.floatingIndicator, { bottom: insets.bottom + 28 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            goHome();
-            TrueSheet.resize(SHEET_NAME, 1);
-          }}
-          activeOpacity={0.6}
-        >
-          <Text style={[styles.floatingLabel, { color: c.text }]}>{indicatorText}</Text>
-        </TouchableOpacity>
-      )}
+      <View
+        accessibilityRole="tablist"
+        style={[styles.tabBar, { bottom: 0, height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom, borderTopColor: c.border, backgroundColor: c.sheetBg }]}
+      >
+        {(['discover', 'order', 'me'] as const).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={styles.tabItem}
+            onPress={() => handleTabPress(tab)}
+            activeOpacity={0.6}
+            accessibilityRole="tab"
+            accessibilityLabel={tab}
+            accessibilityState={{ selected: activeRootTab === tab }}
+          >
+            <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {locateBtnVisible && (
         <TouchableOpacity
@@ -599,18 +610,23 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  floatingIndicator: {
+  tabBar: {
     position: 'absolute',
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    zIndex: 10,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    zIndex: 20,
   },
-  floatingLabel: {
-    fontSize: 12,
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabel: {
+    fontSize: 11,
     fontFamily: fonts.dmMono,
     letterSpacing: 1.5,
-    textAlign: 'center',
   },
   locateBtn: {
     position: 'absolute',
