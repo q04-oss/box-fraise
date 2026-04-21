@@ -790,7 +790,8 @@ fabPill: {
   },
   calloutAction: {
     flex: 1,
-    paddingVertical: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: StyleSheet.hairlineWidth,
