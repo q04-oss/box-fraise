@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, Keyboard,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
+  TextInput, Keyboard, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Haptics from 'expo-haptics';
@@ -12,18 +13,14 @@ import { API_BASE_URL } from '../../config/api';
 
 const SHEET_NAME = 'main-sheet';
 
-const AMOUNTS = [
-  { cents: 300, label: '$3' },
-  { cents: 500, label: '$5' },
-  { cents: 1000, label: '$10' },
-  { cents: 2500, label: '$25' },
-];
+const PRESETS = [300, 500, 1000, 2500];
 
 export default function DonatePanel() {
   const { goBack } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const inputRef = useRef<TextInput>(null);
 
   const [selected, setSelected] = useState<number | null>(500);
   const [customInput, setCustomInput] = useState('');
@@ -32,15 +29,15 @@ export default function DonatePanel() {
 
   const customCents = customInput ? Math.round(parseFloat(customInput) * 100) : 0;
   const activeCents = customInput ? customCents : (selected ?? 0);
+
   const displayAmount = customInput
-    ? (customCents >= 100 ? `$${parseFloat(customInput).toFixed(2)}` : '')
-    : AMOUNTS.find(a => a.cents === selected)?.label ?? '';
+    ? (isNaN(parseFloat(customInput)) ? '$0' : `$${parseFloat(customInput).toFixed(2)}`)
+    : `$${((selected ?? 0) / 100).toFixed(2)}`;
+
+  const canPay = activeCents >= 100 && !paying;
 
   const handleDonate = async () => {
-    if (activeCents < 100) {
-      alert('Minimum donation is $1.00.');
-      return;
-    }
+    if (!canPay) return;
     Keyboard.dismiss();
     setPaying(true);
     try {
@@ -96,7 +93,7 @@ export default function DonatePanel() {
           </TouchableOpacity>
           <View style={styles.headerSpacer} />
         </View>
-        <View style={styles.body}>
+        <View style={styles.thankBody}>
           <Text style={styles.thankEmoji}>🍓</Text>
           <Text style={[styles.thankHeading, { color: c.text }]}>Thank you.</Text>
           <Text style={[styles.thankSub, { color: c.muted }]}>It means a lot.</Text>
@@ -113,7 +110,11 @@ export default function DonatePanel() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: c.panelBg }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: c.panelBg }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Header */}
       <View style={[styles.header, { borderBottomColor: c.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
@@ -122,60 +123,78 @@ export default function DonatePanel() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.body}>
-        <Text style={[styles.sub, { color: c.muted, paddingHorizontal: SPACING.md }]}>
-          Independent, local, and built from scratch. If you like what we're building, this helps.
-        </Text>
+      {/* Amount display */}
+      <TouchableOpacity
+        style={styles.amountDisplay}
+        onPress={() => { inputRef.current?.focus(); setSelected(null); }}
+        activeOpacity={1}
+      >
+        <Text style={[styles.amountBig, { color: c.text }]}>{displayAmount}</Text>
+        <Text style={[styles.amountSub, { color: c.muted }]}>CAD</Text>
+      </TouchableOpacity>
 
-        <View style={[styles.amountRow, { paddingHorizontal: SPACING.md }]}>
-          {AMOUNTS.map(a => {
-            const active = !customInput && selected === a.cents;
-            return (
-              <TouchableOpacity
-                key={a.cents}
-                style={[
-                  styles.amountBtn,
-                  { borderColor: active ? c.accent : c.border },
-                  active && { backgroundColor: c.accent },
-                ]}
-                onPress={() => { setSelected(a.cents); setCustomInput(''); Haptics.selectionAsync(); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.amountLabel, { color: active ? '#fff' : c.text }]}>
-                  {a.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      {/* Presets */}
+      <View style={styles.presetRow}>
+        {PRESETS.map(cents => {
+          const active = !customInput && selected === cents;
+          return (
+            <TouchableOpacity
+              key={cents}
+              style={[
+                styles.preset,
+                { borderColor: active ? c.accent : c.border, backgroundColor: active ? c.accent : 'transparent' },
+              ]}
+              onPress={() => {
+                setSelected(cents);
+                setCustomInput('');
+                inputRef.current?.blur();
+                Haptics.selectionAsync();
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.presetLabel, { color: active ? '#fff' : c.muted }]}>
+                ${cents / 100 % 1 === 0 ? cents / 100 : (cents / 100).toFixed(2)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-        <View style={[styles.customWrapper, { borderColor: customInput ? c.accent : c.border, backgroundColor: c.card }]}>
-          <Text style={[styles.customPrefix, { color: c.muted }]}>$</Text>
+      {/* Custom input */}
+      <View style={[styles.customRow, { borderTopColor: c.border, borderBottomColor: c.border }]}>
+        <Text style={[styles.customLabel, { color: c.muted }]}>Other</Text>
+        <View style={styles.customInputWrap}>
+          <Text style={[styles.customCurrency, { color: customInput ? c.text : c.muted }]}>$</Text>
           <TextInput
+            ref={inputRef}
             style={[styles.customInput, { color: c.text }]}
-            placeholder="Custom amount"
+            placeholder="0.00"
             placeholderTextColor={c.muted}
             keyboardType="decimal-pad"
             returnKeyType="done"
             onSubmitEditing={Keyboard.dismiss}
             value={customInput}
             onChangeText={v => { setCustomInput(v); setSelected(null); }}
+            onFocus={() => setSelected(null)}
           />
         </View>
+      </View>
 
+      {/* Pay button */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
         <TouchableOpacity
-          style={[styles.payBtn, { backgroundColor: c.accent, opacity: (paying || activeCents < 100) ? 0.5 : 1 }]}
+          style={[styles.payBtn, { backgroundColor: c.accent, opacity: canPay ? 1 : 0.4 }]}
           onPress={handleDonate}
-          disabled={paying || activeCents < 100}
+          disabled={!canPay}
           activeOpacity={0.8}
         >
           {paying
             ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.payBtnText}>{displayAmount ? `Donate ${displayAmount} →` : 'Donate →'}</Text>
+            : <Text style={styles.payBtnText}>Donate {displayAmount} →</Text>
           }
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -191,32 +210,41 @@ const styles = StyleSheet.create({
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
 
-  body: { flex: 1, paddingTop: SPACING.lg, gap: SPACING.lg, justifyContent: 'flex-end', paddingBottom: SPACING.lg },
-  sub: { fontFamily: fonts.dmSans, fontSize: 14, lineHeight: 22 },
-
-  amountRow: { flexDirection: 'row', gap: 10 },
-  customWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: SPACING.md, borderWidth: 1, borderRadius: 12,
-    paddingHorizontal: SPACING.md, paddingVertical: 14,
+  amountDisplay: {
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 40, gap: 4,
   },
-  customPrefix: { fontFamily: fonts.playfair, fontSize: 18, marginRight: 4 },
-  customInput: { flex: 1, fontFamily: fonts.playfair, fontSize: 18 },
-  amountBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 12,
+  amountBig: { fontFamily: fonts.playfair, fontSize: 56 },
+  amountSub: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1.5 },
+
+  presetRow: {
+    flexDirection: 'row', gap: 8,
+    paddingHorizontal: SPACING.md, paddingBottom: SPACING.lg,
+  },
+  preset: {
+    flex: 1, paddingVertical: 10, borderRadius: 20,
     borderWidth: 1, alignItems: 'center',
   },
-  amountLabel: { fontFamily: fonts.playfair, fontSize: 18 },
+  presetLabel: { fontFamily: fonts.dmMono, fontSize: 13, letterSpacing: 0.5 },
 
-  payBtn: {
-    marginHorizontal: SPACING.md, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center',
+  customRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACING.md, paddingVertical: 18,
+    borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  customLabel: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 1, width: 48 },
+  customInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  customCurrency: { fontFamily: fonts.playfair, fontSize: 22, marginRight: 4 },
+  customInput: { flex: 1, fontFamily: fonts.playfair, fontSize: 22 },
+
+  footer: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
+  payBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   payBtnText: { fontFamily: fonts.dmSans, fontWeight: '600', fontSize: 15, color: '#fff' },
 
-  thankEmoji: { fontSize: 48, textAlign: 'center' },
-  thankHeading: { fontFamily: fonts.playfair, fontSize: 28, textAlign: 'center' },
-  thankSub: { fontFamily: fonts.dmSans, fontSize: 14, textAlign: 'center' },
-  doneBtn: { paddingVertical: 16, paddingHorizontal: 40, borderRadius: 14, alignItems: 'center', alignSelf: 'center', marginTop: 8 },
+  thankBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  thankEmoji: { fontSize: 48 },
+  thankHeading: { fontFamily: fonts.playfair, fontSize: 32 },
+  thankSub: { fontFamily: fonts.dmSans, fontSize: 14 },
+  doneBtn: { marginTop: 8, paddingVertical: 16, paddingHorizontal: 40, borderRadius: 14 },
   doneBtnText: { fontFamily: fonts.dmSans, fontWeight: '600', fontSize: 14, color: '#fff' },
 });
