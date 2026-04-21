@@ -51,6 +51,7 @@ export default function GiftPanel() {
       return;
     }
 
+    const trimmedEmail = recipientEmail.trim().toLowerCase();
     let recipientPayload: Record<string, string> = {};
     if (recipientMode === 'phone') {
       const phone = recipientPhone.trim().replace(/\s+/g, '');
@@ -60,12 +61,11 @@ export default function GiftPanel() {
       }
       recipientPayload = { recipient_phone: phone };
     } else {
-      const trimmed = recipientEmail.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
         Alert.alert('Invalid email', 'Please enter a valid email address.');
         return;
       }
-      recipientPayload = { recipient_email: trimmed };
+      recipientPayload = { recipient_email: trimmedEmail };
     }
 
     setPaying(true);
@@ -82,7 +82,7 @@ export default function GiftPanel() {
         merchantDisplayName: 'Box Fraise',
         paymentIntentClientSecret: client_secret,
         applePay: { merchantCountryCode: 'CA', merchantIdentifier: 'merchant.com.boxfraise.app' },
-        defaultBillingDetails: { email: trimmed },
+        defaultBillingDetails: { email: trimmedEmail },
         appearance: {
           colors: {
             primary: c.accent,
