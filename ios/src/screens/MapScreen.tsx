@@ -564,39 +564,36 @@ export default function MapScreen() {
             }
             <Callout tooltip onPress={() => handlePartnerPress(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
-
-                {/* Header */}
-                <View style={styles.calloutHeader}>
-                  <Text style={[styles.calloutName, { color: c.text }]} numberOfLines={1}>{b.name}</Text>
-                  {!!(b.neighbourhood || b.hours || formatDistance(b.lat, b.lng)) && (
-                    <Text style={[styles.calloutMeta, { color: c.muted }]} numberOfLines={1}>
-                      {[b.neighbourhood, b.hours, formatDistance(b.lat, b.lng)].filter(Boolean).join(' · ')}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Actions */}
-                <View style={styles.calloutActions}>
+                <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
+                {!!b.address && (
+                  <Text style={[styles.calloutAddress, { color: c.muted }]}>{b.address}</Text>
+                )}
+                {!!b.hours && (
+                  <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
+                )}
+                {!!formatDistance(b.lat, b.lng) && (
+                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
+                )}
+                <View style={[styles.calloutActions, { borderTopColor: c.border }]}>
                   <CalloutSubview
                     onPress={() => handleStickerFromPin(b)}
-                    style={[styles.calloutPill, { borderColor: c.border, opacity: (b.contact && b.contact.includes('@') && !b.contact.startsWith('@')) ? 1 : 0.3 }]}
+                    style={[styles.calloutAction, { borderRightColor: c.border, opacity: (b.contact && b.contact.includes('@') && !b.contact.startsWith('@')) ? 1 : 0.3 }]}
                   >
-                    <Text style={styles.calloutPillEmoji}>🍓</Text>
+                    <Text style={styles.calloutActionEmoji}>🍓</Text>
                   </CalloutSubview>
                   <CalloutSubview
                     onPress={() => handleSupportFromPin(b)}
-                    style={[styles.calloutPill, { borderColor: c.accent }]}
+                    style={[styles.calloutAction, { borderRightColor: c.border }]}
                   >
-                    <Text style={[styles.calloutPillText, { color: c.accent }]}>Support</Text>
+                    <Text style={[styles.calloutActionText, { color: c.accent }]}>Support</Text>
                   </CalloutSubview>
                   <CalloutSubview
                     onPress={() => handleDirections(b)}
-                    style={[styles.calloutPill, { borderColor: c.border, flex: 1 }]}
+                    style={styles.calloutAction}
                   >
-                    <Text style={[styles.calloutPillText, { color: c.text }]}>Directions</Text>
+                    <Text style={[styles.calloutActionText, { color: c.text }]}>Directions</Text>
                   </CalloutSubview>
                 </View>
-
               </View>
             </Callout>
           </Marker>
@@ -768,37 +765,37 @@ fabPill: {
   },
   bizErrorText: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
   callout: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    width: 240,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    minWidth: 140,
+    maxWidth: 220,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  calloutHeader: {
-    paddingHorizontal: 14,
-    paddingTop: 13,
-    paddingBottom: 10,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
     gap: 3,
   },
-  calloutName: { fontSize: 15, fontFamily: fonts.playfair, letterSpacing: 0.2 },
-  calloutMeta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
+  calloutName: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  calloutAddress: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
+  calloutHours: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutDistance: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
   calloutActions: {
     flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 6,
+    marginHorizontal: -12,
+    marginBottom: -9,
   },
-  calloutPill: {
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  calloutAction: {
+    flex: 1,
+    paddingTop: 8,
+    paddingBottom: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRightWidth: StyleSheet.hairlineWidth,
   },
-  calloutPillEmoji: { fontSize: 13, lineHeight: 16 },
-  calloutPillText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.4 },
+  calloutActionEmoji: { fontSize: 14 },
+  calloutActionText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.4 },
 });
