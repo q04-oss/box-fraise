@@ -186,6 +186,7 @@ export default function HomePanel() {
 
   // ── Discover / search ──
   const [searchQuery, setSearchQuery] = useState('');
+  const [userResults, setUserResults] = useState<{ id: number; display_name: string; portrait_url: string | null; verified: boolean }[]>([]);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -199,6 +200,19 @@ export default function HomePanel() {
       );
     });
   }, [businesses, searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) { setUserResults([]); return; }
+    const timeout = setTimeout(async () => {
+      try {
+        const { searchUsers } = await import('../../lib/api');
+        const results = await searchUsers(q);
+        setUserResults(results);
+      } catch { setUserResults([]); }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   const formatDist = (b: Business): string | null => {
     if (!userCoords) return null;
@@ -402,7 +416,30 @@ export default function HomePanel() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {searchResults.length === 0 ? (
+              {userResults.length > 0 && (
+                <>
+                  <Text style={[styles.searchSectionLabel, { color: c.muted }]}>people</Text>
+                  {userResults.map(u => (
+                    <TouchableOpacity
+                      key={u.id}
+                      style={[styles.locCard, { borderBottomColor: c.border }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        showPanel('user-profile', { userId: u.id, displayName: u.display_name });
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.locCardBody}>
+                        <Text style={[styles.locCardName, { color: c.text }]}>{u.display_name}</Text>
+                        {u.verified && <Text style={[styles.locCardMeta, { color: c.muted }]}>verified</Text>}
+                      </View>
+                      <Text style={[styles.locCardArrow, { color: c.muted }]}>→</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <Text style={[styles.searchSectionLabel, { color: c.muted, marginTop: SPACING.md }]}>places</Text>
+                </>
+              )}
+              {searchResults.length === 0 && userResults.length === 0 ? (
                 <Text style={[styles.nothingText, { color: c.muted, paddingHorizontal: SPACING.md, paddingTop: SPACING.md }]}>nothing matched — try a neighbourhood or name</Text>
               ) : searchResults.map(b => {
                 const dist = formatDist(b);
@@ -754,6 +791,7 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: SPACING.sm, gap: 10 },
   searchBox: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   searchInput: { fontSize: 14, fontFamily: fonts.dmSans },
+  searchSectionLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 4 },
   locCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth },
   locCardBody: { flex: 1, gap: 3 },
   locCardName: { fontSize: 16, fontFamily: fonts.playfair },

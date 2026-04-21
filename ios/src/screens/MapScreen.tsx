@@ -122,7 +122,7 @@ export default function MapScreen() {
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
     [DETENTS, SCREEN_HEIGHT],
   );
-  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack, activeRootTab } = usePanel();
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack, activeRootTab, curatedMap, setCuratedMap } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -363,7 +363,10 @@ export default function MapScreen() {
   };
 
   const now = new Date();
-  const validBusinesses = businesses.filter(b => b.lat && b.lng);
+  const allValidBusinesses = businesses.filter(b => b.lat && b.lng);
+  const validBusinesses = curatedMap
+    ? allValidBusinesses.filter(b => curatedMap.businessIds.includes(b.id))
+    : allValidBusinesses;
   const collectionPoints = validBusinesses.filter(b => b.type === 'collection');
   const allPopups = validBusinesses.filter(b => {
     if (b.type !== 'popup') return false;
@@ -575,6 +578,17 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
+      {curatedMap && (
+        <View style={[styles.curatedStrip, { bottom: TAB_BAR_HEIGHT + insets.bottom, backgroundColor: c.sheetBg, borderTopColor: c.border }]}>
+          <Text style={[styles.curatedText, { color: c.text }]} numberOfLines={1}>
+            {curatedMap.authorName}'s map  ·  {curatedMap.name}
+          </Text>
+          <TouchableOpacity onPress={() => { setCuratedMap(null); }} activeOpacity={0.6}>
+            <Text style={[styles.curatedExit, { color: c.muted }]}>×</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View
         accessibilityRole="tablist"
         style={[styles.tabBar, { bottom: 0, height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom, borderTopColor: c.border, backgroundColor: c.sheetBg }]}
@@ -610,6 +624,19 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  curatedStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    zIndex: 20,
+  },
+  curatedText: { flex: 1, fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  curatedExit: { fontSize: 20, paddingLeft: 12 },
   tabBar: {
     position: 'absolute',
     left: 0,

@@ -21,7 +21,8 @@ export type PanelId =
   | 'merch'
   | 'gift'
   | 'donate'
-  | 'send-credit';
+  | 'send-credit'
+  | 'user-profile';
 
 export interface OrderState {
   variety_id: number | null;
@@ -150,6 +151,8 @@ interface PanelContextValue {
   setHighlightedBizId: (id: number | null) => void;
   suppressCollapseBack: React.MutableRefObject<boolean>;
   activeRootTab: RootTab;
+  curatedMap: { mapId: number; name: string; authorName: string; businessIds: number[] } | null;
+  setCuratedMap: (m: { mapId: number; name: string; authorName: string; businessIds: number[] } | null) => void;
 }
 
 const PanelContext = createContext<PanelContextValue | null>(null);
@@ -166,6 +169,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
   const [sheetHeight, setSheetHeight] = useState(0);
   const [panelData, setPanelData] = useState<Record<string, any> | null>(null);
   const [highlightedBizId, setHighlightedBizId] = useState<number | null>(null);
+  const [curatedMap, setCuratedMap] = useState<{ mapId: number; name: string; authorName: string; businessIds: number[] } | null>(null);
   const activeRootTab: RootTab = currentPanel === 'order-history' ? 'order' : currentPanel === 'my-profile' ? 'me' : 'discover';
   const slideAnim = useRef(new Animated.Value(0)).current;
   const animSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -250,6 +254,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
       highlightedBizId, setHighlightedBizId,
       suppressCollapseBack,
       activeRootTab,
+      curatedMap, setCuratedMap,
     }}>
       {children}
     </PanelContext.Provider>
