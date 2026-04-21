@@ -527,7 +527,7 @@ export default function MapScreen() {
                   <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
                 )}
                 <CalloutSubview onPress={() => handleDirections(b)}>
-                  <Text style={[styles.calloutDirections, { color: c.accent ?? '#c94f6d' }]}>get directions →</Text>
+                  <Text style={[styles.calloutDirections, { color: c.accent }]}>get directions →</Text>
                 </CalloutSubview>
               </View>
             </Callout>
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   pinPlacedDot: {
     position: 'absolute', top: -3, right: -3,
     width: 7, height: 7, borderRadius: 4,
-    backgroundColor: '#C9973A',
+    backgroundColor: '#1C1C1E',
     borderWidth: 1.5, borderColor: '#fff',
   },
   bizLoadingIndicator: { position: 'absolute', alignSelf: 'center' },

@@ -8,10 +8,11 @@ export const SPACING = {
   xl: 32,
 };
 
-// Warm amber — references the Claude terminal's warmth + the Or Fin gold finish
-// Used as primary action colour across all panels
+// No accent colour — hierarchy through typography, size, and opacity only.
+// accent = text, so all former accent references become black/white.
+// Primary buttons invert: text-coloured bg, ctaText-coloured label.
 export const lightColors = {
-  accent: '#C9973A',
+  accent: '#1C1C1E',
   background: '#FFFFFF',
   bg: '#FFFFFF',
   card: '#F7F5F2',
@@ -29,12 +30,12 @@ export const lightColors = {
   pillBg: '#F0EDE8',
   pillBorder: '#E5E1DA',
   ctaText: '#FFFFFF',
-  markerBg: '#A0522D',
-  markerBorder: '#A0522D',
+  markerBg: '#1C1C1E',
+  markerBorder: '#1C1C1E',
 };
 
 export const darkColors = {
-  accent: '#D4A843',
+  accent: '#F2F2F7',
   background: '#1C1C1E',
   bg: 'transparent',
   card: 'rgba(28,28,30,0.92)',
@@ -52,8 +53,8 @@ export const darkColors = {
   pillBg: 'rgba(255,255,255,0.09)',
   pillBorder: 'rgba(255,255,255,0.13)',
   ctaText: '#1C1C1E',
-  markerBg: '#A0522D',
-  markerBorder: '#A0522D',
+  markerBg: '#F2F2F7',
+  markerBorder: '#F2F2F7',
 };
 
 export function useColors() {
@@ -62,9 +63,9 @@ export function useColors() {
 }
 
 export const fonts = {
-  playfair: 'PlayfairDisplay_700Bold',
-  playfairItalic: 'PlayfairDisplay_400Regular_Italic',
-  dmSans: 'DMSans_400Regular',
-  body: 'DMSans_400Regular',
+  playfair: 'DMMono_400Regular',
+  playfairItalic: 'DMMono_400Regular',
+  dmSans: 'DMMono_400Regular',
+  body: 'DMMono_400Regular',
   dmMono: 'DMMono_400Regular',
 };

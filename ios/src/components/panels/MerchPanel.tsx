@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { usePanel } from '../../context/PanelContext';
@@ -28,8 +28,8 @@ export default function MerchPanel() {
   }, []);
 
   const handleSend = (biz: StickerBusiness) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    showPanel('gift', { businessId: biz.id, businessName: biz.name });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    showPanel('gift', { businessId: biz.id, businessName: biz.name, isOutreach: true });
   };
 
   return (
@@ -38,49 +38,49 @@ export default function MerchPanel() {
         <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backBtn}>
           <Text style={[styles.backText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>STRAWBERRY SHOP</Text>
+        <Text style={[styles.title, { color: c.text }]}>strawberry shop</Text>
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.intro, { color: c.muted }]}>
-          Collect a city. Send one to a friend. Digital or physical — they'll get a claim code by email.
-        </Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
+          <Text style={[styles.description, { color: c.muted }]}>
+            Send a sticker to a business you love. Digital or physical — they'll get a claim code by email.
+          </Text>
+        </View>
 
         {loading ? (
           <ActivityIndicator color={c.accent} style={{ marginTop: 40 }} />
+        ) : stickers.length === 0 ? (
+          <View style={styles.infoBlock}>
+            <Text style={[styles.description, { color: c.muted }]}>no stickers available yet.</Text>
+          </View>
         ) : (
-          stickers.map((biz, i) => (
-            <TouchableOpacity
-              key={biz.id}
-              style={[
-                styles.card,
-                { backgroundColor: c.card, borderColor: c.border },
-                i === stickers.length - 1 && { marginBottom: 0 },
-              ]}
-              onPress={() => handleSend(biz)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardLeft}>
-                {biz.sticker_image_url ? (
-                  <Image source={{ uri: biz.sticker_image_url }} style={styles.stickerImg} />
-                ) : (
-                  <Text style={styles.cardEmoji}>{biz.sticker_emoji ?? '🍓'}</Text>
-                )}
-              </View>
-              <View style={styles.cardBody}>
+          <>
+            <View style={[styles.sectionHeader, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>BUSINESSES</Text>
+            </View>
+            {stickers.map((biz, i) => (
+              <TouchableOpacity
+                key={biz.id}
+                style={[styles.row, { borderBottomColor: c.border }]}
+                onPress={() => handleSend(biz)}
+                activeOpacity={0.75}
+              >
                 <Text style={[styles.bizName, { color: c.text }]}>{biz.name}</Text>
-                {biz.neighbourhood ? (
-                  <Text style={[styles.neighbourhood, { color: c.muted }]}>{biz.neighbourhood}</Text>
-                ) : null}
-                {biz.sticker_concept ? (
-                  <Text style={[styles.concept, { color: c.muted }]}>{biz.sticker_concept}</Text>
-                ) : null}
-              </View>
-              <Text style={[styles.arrow, { color: c.accent }]}>→</Text>
-            </TouchableOpacity>
-          ))
+                {!!(biz.neighbourhood || biz.sticker_concept) && (
+                  <Text style={[styles.meta, { color: c.muted }]} numberOfLines={2}>
+                    {[biz.neighbourhood, biz.sticker_concept].filter(Boolean).join('  ·  ')}
+                  </Text>
+                )}
+                <Text style={[styles.action, { color: c.muted }]}>send sticker</Text>
+              </TouchableOpacity>
+            ))}
+          </>
         )}
+
+        <View style={{ height: 48 }} />
       </ScrollView>
     </View>
   );
@@ -95,22 +95,25 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40 },
   backText: { fontSize: 22 },
-  title: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-  scroll: { padding: SPACING.md, paddingBottom: 60, gap: 10 },
-  intro: {
-    fontFamily: fonts.dmSans, fontSize: 13, lineHeight: 20,
-    marginBottom: 8,
+  title: { fontSize: 32, fontFamily: fonts.playfair },
+
+  infoBlock: {
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 16,
   },
-  card: {
-    borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
-    padding: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: 12,
+  description: { fontSize: 14, fontFamily: fonts.dmSans, lineHeight: 22, fontStyle: 'italic' },
+
+  sectionHeader: {
+    paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  cardLeft: { width: 56, alignItems: 'center' },
-  cardEmoji: { fontSize: 28 },
-  stickerImg: { width: 52, height: 52, borderRadius: 6 },
-  cardBody: { flex: 1, gap: 3 },
-  bizName: { fontFamily: fonts.playfair, fontSize: 17 },
-  neighbourhood: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5 },
-  concept: { fontFamily: fonts.dmSans, fontSize: 12, lineHeight: 17, marginTop: 2 },
-  arrow: { fontFamily: fonts.dmMono, fontSize: 18 },
+  sectionLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
+
+  row: {
+    paddingHorizontal: SPACING.md, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 4,
+  },
+  bizName: { fontSize: 24, fontFamily: fonts.playfair },
+  meta: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
+  action: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, textDecorationLine: 'underline', marginTop: 4 },
 });

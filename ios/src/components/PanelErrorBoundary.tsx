@@ -44,6 +44,6 @@ export default class PanelErrorBoundary extends Component<Props, State> {
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 20 },
   title: { fontSize: 16, fontFamily: 'DM Sans', color: 'rgba(242,242,247,0.5)', textAlign: 'center', fontStyle: 'italic' },
-  btn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: 'rgba(201,151,58,0.15)' },
-  btnText: { fontSize: 11, fontFamily: 'DM Mono', letterSpacing: 2, color: '#C9973A' },
+  btn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: 'rgba(242,242,247,0.1)' },
+  btnText: { fontSize: 11, fontFamily: 'DM Mono', letterSpacing: 2, color: 'rgba(242,242,247,0.7)' },
 });

@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
   supportBtn: { alignSelf: 'center', paddingVertical: 16 },
   supportText: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1 },
   ambientBlock: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, paddingBottom: SPACING.md, gap: 4 },
-  ambientDate: { fontSize: 22, fontFamily: fonts.playfair },
+  ambientDate: { fontSize: 32, fontFamily: fonts.playfair },
   ambientSeason: { fontSize: 13, fontFamily: fonts.playfair, fontStyle: 'italic' },
   ambientStat: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1, marginTop: 6 },
 
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
   // Order flow
   orderBlock: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, gap: 0 },
   stepLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, paddingVertical: 10 },
-  stepSummary: { fontSize: 22, fontFamily: fonts.playfair, paddingVertical: 8 },
+  stepSummary: { fontSize: 28, fontFamily: fonts.playfair, paddingVertical: 8 },
   stepSummaryMuted: { fontSize: 12, fontFamily: fonts.dmMono, paddingVertical: 4 },
   rowDivider: { height: StyleSheet.hairlineWidth, marginVertical: SPACING.sm },
   optionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10 },
@@ -786,20 +786,20 @@ const styles = StyleSheet.create({
   swatch: { width: 14, height: 14, borderRadius: 7 },
   qtyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 16 },
   qtyBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  qtyBtnText: { fontSize: 22, fontFamily: fonts.playfair },
-  qtyValue: { fontSize: 22, fontFamily: fonts.playfair, minWidth: 32, textAlign: 'center' },
+  qtyBtnText: { fontSize: 32, fontFamily: fonts.playfair },
+  qtyValue: { fontSize: 32, fontFamily: fonts.playfair, minWidth: 40, textAlign: 'center' },
   qtyConfirm: { marginLeft: 'auto' as any },
   reviewBlock: { paddingTop: 8, gap: 6 },
-  reviewVariety: { fontSize: 22, fontFamily: fonts.playfair },
-  reviewTotal: { fontSize: 24, fontFamily: fonts.playfair, marginTop: 4 },
+  reviewVariety: { fontSize: 28, fontFamily: fonts.playfair },
+  reviewTotal: { fontSize: 48, fontFamily: fonts.playfair, marginTop: 4 },
   batchNote: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 4 },
-  confirmedTitle: { fontSize: 22, fontFamily: fonts.playfair, paddingTop: 8 },
+  confirmedTitle: { fontSize: 32, fontFamily: fonts.playfair, paddingTop: 8 },
   cancelText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 
   // Variety cards
   varietyBlock: { gap: 6, paddingVertical: SPACING.sm },
   varietyTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  varietyName: { fontSize: 24, fontFamily: fonts.playfair, flex: 1 },
+  varietyName: { fontSize: 32, fontFamily: fonts.playfair, flex: 1 },
   varietyPrice: { fontSize: 14, fontFamily: fonts.dmMono },
   provenanceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   farm: { fontSize: 11, fontFamily: fonts.dmMono },
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
   // Pay bar
   reviewBar: { paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, gap: SPACING.sm },
   reviewBarBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  reviewBarBtnText: { fontSize: 17, fontFamily: fonts.dmSans, fontWeight: '700' },
+  reviewBarBtnText: { fontSize: 20, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 
   nothingText: { fontSize: 13, fontFamily: fonts.dmSans, fontStyle: 'italic', paddingVertical: 8 },
 });

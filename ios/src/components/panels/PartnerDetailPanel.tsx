@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, paddingVertical: 4 },
   backBtnText: { fontSize: 28, lineHeight: 34 },
-  title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
+  title: { flex: 1, textAlign: 'center', fontSize: 32, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
   body: { flex: 1 },
 
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   menuSectionNote: { fontSize: 10, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   menuItem: { paddingHorizontal: SPACING.md, paddingVertical: 12, gap: 4, borderTopWidth: StyleSheet.hairlineWidth },
   menuItemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
-  menuItemName: { flex: 1, fontSize: 15, fontFamily: fonts.playfair },
+  menuItemName: { flex: 1, fontSize: 18, fontFamily: fonts.playfair },
   menuItemPrice: { fontSize: 12, fontFamily: fonts.dmMono },
   menuItemDesc: { fontSize: 12, fontFamily: fonts.dmSans, lineHeight: 18 },
   menuItemTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },

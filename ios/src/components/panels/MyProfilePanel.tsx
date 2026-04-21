@@ -234,7 +234,7 @@ export default function MyProfilePanel() {
               <Text style={[styles.navChevron, { color: c.accent }]}>→</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.navRow, { borderBottomColor: c.border }]} onPress={handleSignOut} activeOpacity={0.7}>
-              <Text style={[styles.navLabel, { color: '#c94f6d' }]}>Sign Out</Text>
+              <Text style={[styles.navLabel, { color: c.muted }]}>Sign Out</Text>
             </TouchableOpacity>
           </View>
 
