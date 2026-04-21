@@ -123,7 +123,7 @@ export default function MapScreen() {
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
     [DETENTS, SCREEN_HEIGHT],
   );
-  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack, activeRootTab } = usePanel();
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, goBack, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId, currentPanel, suppressCollapseBack } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -134,13 +134,15 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userInitial, setUserInitial] = useState<string | null>(null);
   const hasAnimatedToUser = useRef(false);
 
 
   const syncVerifiedState = useCallback(() => {
-    AsyncStorage.multiGet(['verified', 'user_db_id']).then(([v, u]) => {
+    AsyncStorage.multiGet(['verified', 'user_db_id', 'display_name']).then(([v, u, n]) => {
       if (v[1] === 'true') setIsVerified(true);
       setIsLoggedIn(!!u[1]);
+      if (n[1]) setUserInitial(n[1].trim()[0]?.toUpperCase() ?? null);
     });
   }, []);
 
@@ -411,20 +413,6 @@ export default function MapScreen() {
   const locateBtnBottom = TAB_AREA_HEIGHT + 12;
   const locateBtnVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
-  const handleTabPress = (tab: 'discover' | 'order' | 'me') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (tab === 'discover') {
-      goHome();
-      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('home'));
-    } else if (tab === 'order') {
-      jumpToPanel('order-history');
-      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('order-history'));
-    } else if (tab === 'me') {
-      jumpToPanel('my-profile');
-      TrueSheet.resize(SHEET_NAME, detentIndexForPanel('my-profile'));
-    }
-  };
-
   return (
     <View style={styles.container}>
       <OfflineBanner />
@@ -559,23 +547,25 @@ export default function MapScreen() {
             </PanelErrorBoundary>
           </View>
           <View style={[styles.tabBarArea, { paddingBottom: insets.bottom }]}>
-            <View
-              accessibilityRole="tablist"
-              style={[styles.tabPill, { backgroundColor: c.card }]}
-            >
-              {(['discover', 'order', 'me'] as const).map(tab => (
-                <TouchableOpacity
-                  key={tab}
-                  style={styles.tabItem}
-                  onPress={() => handleTabPress(tab)}
-                  activeOpacity={0.6}
-                  accessibilityRole="tab"
-                  accessibilityLabel={tab}
-                  accessibilityState={{ selected: activeRootTab === tab }}
-                >
-                  <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={[styles.searchPill, { backgroundColor: c.card }]}>
+              <TouchableOpacity
+                style={styles.searchPillMain}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); goHome(); TrueSheet.resize(SHEET_NAME, 1); }}
+                activeOpacity={0.7}
+                accessibilityLabel="Search"
+              >
+                <Text style={[styles.searchPillText, { color: c.muted }]}>for better taste</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.profileBtn, { backgroundColor: c.cardDark }]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); jumpToPanel('my-profile'); TrueSheet.resize(SHEET_NAME, 2); }}
+                activeOpacity={0.7}
+                accessibilityLabel="Profile"
+              >
+                <Text style={[styles.profileBtnText, { color: c.text }]}>
+                  {userInitial ?? '·'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -615,25 +605,37 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabBarArea: {
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
     justifyContent: 'center',
-    paddingTop: 6,
   },
-  tabPill: {
+  searchPill: {
     flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 100,
     height: 44,
-    paddingHorizontal: 4,
+    paddingLeft: 20,
+    paddingRight: 6,
   },
-  tabItem: {
-    paddingHorizontal: 24,
+  searchPillMain: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  searchPillText: {
+    fontSize: 13,
+    fontFamily: fonts.dmMono,
+    letterSpacing: 0.5,
+  },
+  profileBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabLabel: {
-    fontSize: 11,
+  profileBtnText: {
+    fontSize: 12,
     fontFamily: fonts.dmMono,
-    letterSpacing: 1.5,
   },
   locateBtn: {
     position: 'absolute',
