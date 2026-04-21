@@ -368,16 +368,6 @@ export default function HomePanel() {
               returnKeyType="search"
             />
           </View>
-          <TouchableOpacity
-            style={[styles.avatar, { backgroundColor: c.cardDark }]}
-            onPress={() => {
-              showPanel('my-profile');
-              setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.avatarInitials, { color: c.text }]}>{initials || '❋'}</Text>
-          </TouchableOpacity>
         </View>
       )}
 
