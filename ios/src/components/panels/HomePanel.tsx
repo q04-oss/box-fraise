@@ -375,7 +375,7 @@ export default function HomePanel() {
         <TouchableOpacity
           style={styles.strip}
           activeOpacity={0.6}
-          onPress={() => setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 50)}
+          onPress={() => showPanel('verifyNFC')}
         >
           <Text style={[styles.stripBrand, { color: c.text }]}>
             {`box fraise × ${activeLocation!.name.toLowerCase()}`}
@@ -505,10 +505,6 @@ export default function HomePanel() {
                 <Text style={[styles.confirmedTitle, { color: c.text }]}>
                   {confirmedOrder.status === 'queued' ? "you're in the queue." : 'order placed.'}
                 </Text>
-                <Text style={[styles.stepSummaryMuted, { color: c.muted }]}>
-                  {inlineOrder.variety_name}{'  ·  '}{inlineOrder.chocolate_name}{'  ·  '}{inlineOrder.finish_name}{'  ·  '}×{inlineOrder.quantity}
-                </Text>
-                <Text style={[styles.stepSummaryMuted, { color: c.muted }]}>{activeLocation!.name}</Text>
                 {confirmedOrder.queued_boxes != null && (
                   <View style={styles.batchBarWrap}>
                     <View style={[styles.batchBarTrack, { backgroundColor: c.border }]}>
@@ -516,7 +512,7 @@ export default function HomePanel() {
                     </View>
                     <Text style={[styles.batchBarLabel, { color: c.muted }]}>
                       {confirmedOrder.status === 'queued'
-                        ? `${confirmedOrder.queued_boxes} of ${confirmedOrder.min_quantity} boxes · ${confirmedOrder.min_quantity - confirmedOrder.queued_boxes} more to fill`
+                        ? `${confirmedOrder.min_quantity - confirmedOrder.queued_boxes} more to fill`
                         : 'batch filled · being prepared'}
                     </Text>
                     {confirmedOrder.status === 'queued' && (
@@ -525,7 +521,7 @@ export default function HomePanel() {
                   </View>
                 )}
                 <TouchableOpacity onPress={resetOrder} activeOpacity={0.7} style={{ paddingTop: 8 }}>
-                  <Text style={[styles.stepLabel, { color: c.accent }]}>NEW ORDER</Text>
+                  <Text style={[styles.stepLabel, { color: c.accent }]}>new order →</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -687,7 +683,7 @@ export default function HomePanel() {
                       </Text>
                       <Text style={[styles.stepSummaryMuted, { color: c.muted }]}>{activeLocation!.name}</Text>
                       <Text style={[styles.reviewTotal, { color: c.text }]}>CA${(totalCents / 100).toFixed(2)}</Text>
-                      <Text style={[styles.batchNote, { color: c.muted }]}>card held — only charged once enough orders fill a batch</Text>
+                      <Text style={[styles.batchNote, { color: c.muted }]}>held until batch fills</Text>
                     </View>
                   </>
                 )}
@@ -727,7 +723,7 @@ export default function HomePanel() {
               >
                 {paying
                   ? <ActivityIndicator color="#fff" />
-                  : <Text style={[styles.reviewBarBtnText, { color: '#fff' }]}>Pay  CA${(totalCents / 100).toFixed(2)}</Text>
+                  : <Text style={[styles.reviewBarBtnText, { color: '#fff' }]}>Pay →</Text>
                 }
               </TouchableOpacity>
             </View>

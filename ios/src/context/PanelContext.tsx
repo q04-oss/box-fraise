@@ -17,7 +17,9 @@ export type PanelId =
   | 'nfc-write'
   | 'nfc-reveal'
   | 'merch'
-  | 'gift';
+  | 'gift'
+  | 'donate'
+  | 'send-credit';
 
 export interface OrderState {
   variety_id: number | null;
