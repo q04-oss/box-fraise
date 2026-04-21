@@ -546,8 +546,8 @@ export default function MapScreen() {
               <PanelNavigator />
             </PanelErrorBoundary>
           </View>
-          <View style={[styles.tabBarArea, { paddingBottom: insets.bottom }]}>
-            <View style={[styles.searchPill, { backgroundColor: c.cardDark }]}>
+          <View style={[styles.tabBarArea, { paddingBottom: insets.bottom, backgroundColor: c.sheetBg }]}>
+            <View style={[styles.searchPill, { backgroundColor: c.sheetBg }]}>
               <TextInput
                 style={[styles.searchPillInput, { color: c.text }]}
                 value={searchQuery}
@@ -561,7 +561,7 @@ export default function MapScreen() {
                 accessibilityLabel="Search"
               />
               <TouchableOpacity
-                style={[styles.profileBtn, { backgroundColor: c.card }]}
+                style={[styles.profileBtn, { backgroundColor: c.cardDark }]}
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); jumpToPanel('my-profile'); TrueSheet.resize(SHEET_NAME, 2); }}
                 activeOpacity={0.7}
                 accessibilityLabel="Profile"
@@ -620,6 +620,11 @@ const styles = StyleSheet.create({
     height: 44,
     paddingLeft: 20,
     paddingRight: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   searchPillInput: {
     flex: 1,
