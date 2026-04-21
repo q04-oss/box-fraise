@@ -12,6 +12,7 @@ export const SPACING = {
 // Used as primary action colour across all panels
 export const lightColors = {
   accent: '#C9973A',
+  background: '#FFFFFF',
   bg: '#FFFFFF',
   card: '#F7F5F2',
   cardDark: '#EEEBE6',
@@ -34,6 +35,7 @@ export const lightColors = {
 
 export const darkColors = {
   accent: '#D4A843',
+  background: '#1C1C1E',
   bg: 'transparent',
   card: 'rgba(28,28,30,0.92)',
   cardDark: 'rgba(255,255,255,0.09)',
@@ -63,5 +65,6 @@ export const fonts = {
   playfair: 'PlayfairDisplay_700Bold',
   playfairItalic: 'PlayfairDisplay_400Regular_Italic',
   dmSans: 'DMSans_400Regular',
+  body: 'DMSans_400Regular',
   dmMono: 'DMMono_400Regular',
 };
