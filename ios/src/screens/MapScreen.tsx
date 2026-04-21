@@ -114,10 +114,11 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const TAB_HEIGHT = 44;
+  const TAB_OFFSET = insets.bottom + 12;
   const DETENTS = useMemo<[number, number, number]>(() => {
-    const fullFrac = (SCREEN_HEIGHT - TAB_HEIGHT - insets.bottom) / SCREEN_HEIGHT;
+    const fullFrac = (SCREEN_HEIGHT - TAB_HEIGHT - TAB_OFFSET) / SCREEN_HEIGHT;
     return [0.001, 0.55, fullFrac];
-  }, [SCREEN_HEIGHT, insets.bottom]);
+  }, [SCREEN_HEIGHT, TAB_OFFSET]);
   const detentAbsoluteHeights = useMemo<[number, number, number]>(
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
     [DETENTS, SCREEN_HEIGHT],
@@ -421,7 +422,7 @@ export default function MapScreen() {
     }
   };
 
-  const locateBtnBottom = insets.bottom + TAB_HEIGHT + 12;
+  const locateBtnBottom = TAB_OFFSET + TAB_HEIGHT + 12;
   const locateBtnVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
   return (
@@ -587,7 +588,7 @@ export default function MapScreen() {
 
       <View
         accessibilityRole="tablist"
-        style={[styles.tabBar, { backgroundColor: c.sheetBg, paddingBottom: insets.bottom }]}
+        style={[styles.tabBar, { bottom: TAB_OFFSET, backgroundColor: c.sheetBg }]}
       >
         {(['discover', 'order', 'me'] as const).map(tab => (
           <TouchableOpacity
@@ -614,9 +615,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    height: 44,
     flexDirection: 'row',
-    minHeight: 44,
     zIndex: 20,
     shadowColor: '#000',
     shadowOpacity: 0.06,
