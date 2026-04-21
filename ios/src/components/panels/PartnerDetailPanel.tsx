@@ -119,8 +119,24 @@ export default function PartnerDetailPanel() {
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{biz.name}</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={[styles.stickerBtn, { opacity: contactEmail ? 1 : 0.25 }]}
+          onPress={handleSendSticker}
+          disabled={!contactEmail}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.stickerEmoji}>🍓</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Support strip */}
+      <TouchableOpacity
+        style={[styles.supportStrip, { backgroundColor: `${c.accent}14`, borderBottomColor: `${c.accent}30` }]}
+        onPress={handleSupport}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.supportStripText, { color: c.accent }]}>Support this business →</Text>
+      </TouchableOpacity>
 
       {/* Menu tabs */}
       {hasMenu && menus.length > 1 && (
@@ -187,27 +203,6 @@ export default function PartnerDetailPanel() {
           <MenuSectionBlock key={i} section={section} c={c} />
         ))}
 
-        {/* Secondary actions — inline rows */}
-        <View style={[styles.inlineActions, { borderTopColor: c.border }]}>
-          <TouchableOpacity
-            style={[styles.inlineRow, { borderBottomColor: c.border, opacity: contactEmail ? 1 : 0.3 }]}
-            onPress={handleSendSticker}
-            disabled={!contactEmail}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.inlineRowLabel, { color: c.text }]}>Send a sticker</Text>
-            <Text style={[styles.inlineRowRight, { color: c.accent }]}>🍓</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.inlineRow, { borderBottomColor: c.border }]}
-            onPress={handleSupport}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.inlineRowLabel, { color: c.text }]}>Support this business</Text>
-            <Text style={[styles.inlineRowRight, { color: c.muted }]}>→</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={{ height: 24 }} />
       </ScrollView>
 
@@ -252,7 +247,14 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, paddingVertical: 4 },
   backBtnText: { fontSize: 28, lineHeight: 34 },
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
-  headerSpacer: { width: 40 },
+  stickerBtn: { width: 40, alignItems: 'flex-end', justifyContent: 'center' },
+  stickerEmoji: { fontSize: 22 },
+  supportStrip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  supportStripText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
   body: { flex: 1 },
 
   tabBar: {
@@ -335,21 +337,6 @@ const styles = StyleSheet.create({
   addOnRow: { flexDirection: 'row', justifyContent: 'space-between' },
   addOnItem: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   addOnPrice: { fontSize: 11, fontFamily: fonts.dmMono },
-
-  inlineActions: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginTop: SPACING.md,
-  },
-  inlineRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  inlineRowLabel: { fontFamily: fonts.dmSans, fontSize: 14 },
-  inlineRowRight: { fontFamily: fonts.dmMono, fontSize: 16 },
 
   actionRow: { flexDirection: 'row', gap: 10 },
   actionBar: {
