@@ -574,7 +574,7 @@ export default function MapScreen() {
           style={[styles.floatingIndicator, { bottom: insets.bottom + 28 }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            showPanel('home');
+            goHome();
             TrueSheet.resize(SHEET_NAME, 1);
           }}
           activeOpacity={0.6}

@@ -11,7 +11,9 @@ import {
   jsonb,
   unique,
   index,
+  check,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const chocolateEnum = pgEnum('chocolate', [
   'none',
@@ -134,6 +136,10 @@ export const orders = pgTable('orders', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   idx_customer_email: index('orders_customer_email_idx').on(t.customer_email),
+  chocolate_finish_pair: check(
+    'chocolate_finish_pair_check',
+    sql`(${t.chocolate} IS NULL AND ${t.finish} IS NULL) OR (${t.chocolate} IS NOT NULL AND ${t.finish} IS NOT NULL)`,
+  ),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

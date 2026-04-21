@@ -32,8 +32,16 @@ router.post('/', async (req: Request, res: Response) => {
     gift_note,
   } = req.body;
 
-  if (!variety_id || !location_id || !quantity || !customer_email) {
+  if (!variety_id || !location_id || !customer_email) {
     res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    res.status(400).json({ error: 'quantity must be a positive integer' });
+    return;
+  }
+  if ((chocolate == null) !== (finish == null)) {
+    res.status(400).json({ error: 'chocolate and finish must both be set or both omitted' });
     return;
   }
 
@@ -192,8 +200,16 @@ router.post('/payment-intent', async (req: Request, res: Response) => {
     customer_email,
   } = req.body;
 
-  if (!variety_id || !quantity || !location_id || !customer_email) {
+  if (!variety_id || !location_id || !customer_email) {
     res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    res.status(400).json({ error: 'quantity must be a positive integer' });
+    return;
+  }
+  if ((chocolate == null) !== (finish == null)) {
+    res.status(400).json({ error: 'chocolate and finish must both be set or both omitted' });
     return;
   }
 
@@ -276,8 +292,14 @@ router.post('/pay-with-balance', requireUser, async (req: Request, res: Response
     chocolate, finish, quantity, is_gift, gift_note, push_token,
   } = req.body;
 
-  if (!variety_id || !location_id || !quantity) {
+  if (!variety_id || !location_id) {
     res.status(400).json({ error: 'Missing required fields' }); return;
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    res.status(400).json({ error: 'quantity must be a positive integer' }); return;
+  }
+  if ((chocolate == null) !== (finish == null)) {
+    res.status(400).json({ error: 'chocolate and finish must both be set or both omitted' }); return;
   }
 
   try {

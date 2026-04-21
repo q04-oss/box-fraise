@@ -199,7 +199,8 @@ export default function PartnerDetailPanel() {
   const hasStrawberryInCart = cart.some(i => i.type === 'strawberry');
   const hasChocolateOnCart = cart.some(i => i.type === 'strawberry' && !!i.chocolate);
   const cartSubtotalCents = cart.reduce((sum, i) => sum + i.price_cents * i.quantity, 0);
-  const cartTotalCents = cartSubtotalCents + (supportCents ?? 0);
+  // supportCents is displayed as a voluntary tip but not yet charged — exclude from payment total
+  const cartTotalCents = cartSubtotalCents;
   const canPayWithBalance = !!(userDbId && adBalanceCents >= cartTotalCents && !cart.some(i => i.type === 'menu'));
 
   const pickupLocation = useMemo(() => {
@@ -254,7 +255,8 @@ export default function PartnerDetailPanel() {
     if (!userEmail) { Alert.alert('Sign in required', 'Sign in via your profile to place an order.'); return; }
     const strawberryItem = cart.find(i => i.type === 'strawberry') as Extract<CartItem, { type: 'strawberry' }> | undefined;
     if (cart.some(i => i.type === 'menu')) { Alert.alert('Coming soon', 'Menu ordering will be available shortly.'); return; }
-    if (!strawberryItem || !pickupLocation) return;
+    if (!strawberryItem) return;
+    if (!pickupLocation) { Alert.alert('No pickup location', 'Enable location access or move closer to a collection point.'); return; }
     setPaying(true);
     try {
       const created = await createOrder({ variety_id: strawberryItem.variety_id, location_id: pickupLocation.id as number, chocolate: strawberryItem.chocolate ?? null, finish: strawberryItem.finish ?? null, quantity: strawberryItem.quantity, is_gift: false, customer_email: userEmail ?? '', push_token: pushToken, gift_note: null });
@@ -262,8 +264,12 @@ export default function PartnerDetailPanel() {
       if (initErr) throw new Error(initErr.message);
       suppressCollapseBack.current = true;
       TrueSheet.present(SHEET_NAME, 0);
-      const { error: presentErr } = await presentPaymentSheet();
-      suppressCollapseBack.current = false;
+      let presentErr: any;
+      try {
+        ({ error: presentErr } = await presentPaymentSheet());
+      } finally {
+        suppressCollapseBack.current = false;
+      }
       if (presentErr) { setTimeout(() => TrueSheet.present(SHEET_NAME, 1), 150); if (presentErr.code === 'Canceled') { setPaying(false); return; } throw new Error(presentErr.message); }
       const confirmedOrder = await confirmOrder(created.order.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -277,7 +283,8 @@ export default function PartnerDetailPanel() {
 
   const handlePayWithBalance = async () => {
     const strawberryItem = cart.find(i => i.type === 'strawberry') as Extract<CartItem, { type: 'strawberry' }> | undefined;
-    if (!strawberryItem || !pickupLocation) return;
+    if (!strawberryItem) return;
+    if (!pickupLocation) { Alert.alert('No pickup location', 'Enable location access or move closer to a collection point.'); return; }
     setPaying(true);
     try {
       const confirmedOrder = await payOrderWithBalance({ variety_id: strawberryItem.variety_id, location_id: pickupLocation.id, chocolate: strawberryItem.chocolate ?? null, finish: strawberryItem.finish ?? null, quantity: strawberryItem.quantity, is_gift: false, push_token: pushToken, gift_note: null });
