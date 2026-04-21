@@ -143,7 +143,7 @@ export default function PartnerDetailPanel() {
 
       <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* Info block — only show if no menu or on first load */}
+        {/* Info block — only show if no menu */}
         {!hasMenu && (
           <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
             {!!biz.description && (
@@ -187,27 +187,31 @@ export default function PartnerDetailPanel() {
           <MenuSectionBlock key={i} section={section} c={c} />
         ))}
 
-        <View style={{ height: 80 }} />
+        {/* Secondary actions — inline rows */}
+        <View style={[styles.inlineActions, { borderTopColor: c.border }]}>
+          <TouchableOpacity
+            style={[styles.inlineRow, { borderBottomColor: c.border, opacity: contactEmail ? 1 : 0.3 }]}
+            onPress={handleSendSticker}
+            disabled={!contactEmail}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.inlineRowLabel, { color: c.text }]}>Send a sticker</Text>
+            <Text style={[styles.inlineRowRight, { color: c.accent }]}>🍓</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.inlineRow, { borderBottomColor: c.border }]}
+            onPress={handleSupport}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.inlineRowLabel, { color: c.text }]}>Support this business</Text>
+            <Text style={[styles.inlineRowRight, { color: c.muted }]}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 24 }} />
       </ScrollView>
 
       <View style={[styles.actionBar, { borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, SPACING.md) }]}>
-        <TouchableOpacity
-          style={[styles.stickerBtn, { borderColor: c.accent, opacity: contactEmail ? 1 : 0.35 }]}
-          onPress={handleSendSticker}
-          disabled={!contactEmail}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.stickerBtnText, { color: c.accent }]}>Send them a sticker 🍓</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.stickerBtn, { borderColor: c.border }]}
-          onPress={handleSupport}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.stickerBtnText, { color: c.text }]}>Support this business</Text>
-        </TouchableOpacity>
-
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: c.accent }]}
@@ -332,16 +336,23 @@ const styles = StyleSheet.create({
   addOnItem: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   addOnPrice: { fontSize: 11, fontFamily: fonts.dmMono },
 
-  stickerBtn: {
-    borderWidth: 1, borderRadius: 14,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 10,
+  inlineActions: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: SPACING.md,
   },
-  stickerBtnText: { fontFamily: fonts.dmMono, fontSize: 12, letterSpacing: 1 },
-  actionRow: { flexDirection: 'row', gap: 10 },
+  inlineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  inlineRowLabel: { fontFamily: fonts.dmSans, fontSize: 14 },
+  inlineRowRight: { fontFamily: fonts.dmMono, fontSize: 16 },
 
+  actionRow: { flexDirection: 'row', gap: 10 },
   actionBar: {
-    flexDirection: 'column',
-    gap: 0,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
