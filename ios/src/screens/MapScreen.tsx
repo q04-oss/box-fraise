@@ -588,7 +588,7 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <View style={[styles.tabBarOuter, { paddingBottom: insets.bottom + 8, backgroundColor: c.sheetBg }]}>
+      <View style={[styles.tabBarOuter, { bottom: insets.bottom + 8 }]}>
         <View
           accessibilityRole="tablist"
           style={[styles.tabPill, { backgroundColor: c.sheetBg }]}
@@ -619,7 +619,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     alignItems: 'center',
     zIndex: 20,
   },
