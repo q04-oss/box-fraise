@@ -3954,3 +3954,106 @@ export async function createCreditContactIntent(params: { recipient_phone?: stri
   return r.json();
 }
 
+
+// ─── Maps & Social ────────────────────────────────────────────────────────────
+
+export async function fetchMyMaps() {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/mine`, { headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function fetchUserMaps(userId: number) {
+  const r = await fetch(`${BASE_URL}/api/maps/user/${userId}`);
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function fetchMap(mapId: number) {
+  const r = await fetch(`${BASE_URL}/api/maps/${mapId}`);
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function createMap(name: string, description?: string) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function deleteMap(mapId: number) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/${mapId}`, { method: 'DELETE', headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function addToMap(mapId: number, businessId: number, note?: string) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/${mapId}/entries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ business_id: businessId, note }),
+  });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function removeFromMap(mapId: number, businessId: number) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/${mapId}/entries/${businessId}`, { method: 'DELETE', headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function saveUser(userId: number) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/saves/${userId}`, { method: 'POST', headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function unsaveUser(userId: number) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/saves/${userId}`, { method: 'DELETE', headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function checkUserSaved(userId: number): Promise<{ saved: boolean }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/saves/check/${userId}`, { headers: auth });
+  if (!r.ok) return { saved: false };
+  return r.json();
+}
+
+export async function fetchPresenceFeed() {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/feed`, { headers: auth });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function setFeedVisibility(visible: boolean) {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/maps/feed/visibility`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify({ visible }),
+  });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+
+export async function searchUsers(q: string) {
+  const r = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(q)}`);
+  if (!r.ok) throw new Error('failed');
+  const data = await r.json();
+  return (data.users ?? []) as { id: number; display_name: string; portrait_url: string | null; verified: boolean }[];
+}
