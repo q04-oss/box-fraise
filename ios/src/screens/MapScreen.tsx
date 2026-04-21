@@ -116,8 +116,9 @@ export default function MapScreen() {
   const TAB_PILL_HEIGHT = 44;
   const TAB_PILL_BOTTOM = insets.bottom + 12;
   const DETENTS = useMemo<[number, number, number]>(() => {
+    const collapsedFrac = (TAB_PILL_HEIGHT + TAB_PILL_BOTTOM) / SCREEN_HEIGHT;
     const fullFrac = (SCREEN_HEIGHT - TAB_PILL_HEIGHT - TAB_PILL_BOTTOM - 8) / SCREEN_HEIGHT;
-    return [0.001, 0.55, fullFrac];
+    return [collapsedFrac, 0.55, fullFrac];
   }, [SCREEN_HEIGHT, TAB_PILL_BOTTOM]);
   const detentAbsoluteHeights = useMemo<[number, number, number]>(
     () => DETENTS.map(d => Math.round(d * SCREEN_HEIGHT)) as [number, number, number],
@@ -578,7 +579,7 @@ export default function MapScreen() {
 
       <View
         accessibilityRole="tablist"
-        style={[styles.tabBar, { bottom: TAB_PILL_BOTTOM, backgroundColor: c.card }]}
+        style={[styles.tabBar, { bottom: TAB_PILL_BOTTOM, backgroundColor: c.sheetBg }]}
       >
         {(['discover', 'order', 'me'] as const).map(tab => (
           <TouchableOpacity
