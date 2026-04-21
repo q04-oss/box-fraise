@@ -346,7 +346,6 @@ export default function HomePanel() {
         <View style={styles.searchRow}>
           <View style={[styles.searchBox, { backgroundColor: c.cardDark, borderColor: c.border }]}>
             <TextInput
-              ref={searchRef}
               style={[styles.searchInput, { color: c.text }]}
               placeholder="for better taste"
               placeholderTextColor={c.muted}
