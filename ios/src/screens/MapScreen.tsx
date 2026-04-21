@@ -564,41 +564,39 @@ export default function MapScreen() {
             }
             <Callout tooltip onPress={() => handlePartnerPress(b)}>
               <View style={[styles.callout, { backgroundColor: c.card }]}>
-                <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
-                {!!b.description && (
-                  <Text style={[styles.calloutDesc, { color: c.muted }]} numberOfLines={2}>{b.description}</Text>
-                )}
-                <View style={styles.calloutMeta}>
-                  {!!b.neighbourhood && (
-                    <Text style={[styles.calloutMetaText, { color: c.muted }]}>{b.neighbourhood}</Text>
-                  )}
-                  {!!b.hours && (
-                    <Text style={[styles.calloutMetaText, { color: c.muted }]}>{b.hours}</Text>
-                  )}
-                  {!!formatDistance(b.lat, b.lng) && (
-                    <Text style={[styles.calloutMetaText, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
+
+                {/* Header */}
+                <View style={styles.calloutHeader}>
+                  <Text style={[styles.calloutName, { color: c.text }]} numberOfLines={1}>{b.name}</Text>
+                  {!!(b.neighbourhood || b.hours || formatDistance(b.lat, b.lng)) && (
+                    <Text style={[styles.calloutMeta, { color: c.muted }]} numberOfLines={1}>
+                      {[b.neighbourhood, b.hours, formatDistance(b.lat, b.lng)].filter(Boolean).join(' · ')}
+                    </Text>
                   )}
                 </View>
-                <View style={[styles.calloutActions, { borderTopColor: c.border }]}>
+
+                {/* Actions */}
+                <View style={styles.calloutActions}>
                   <CalloutSubview
                     onPress={() => handleStickerFromPin(b)}
-                    style={[styles.calloutAction, { borderRightColor: c.border, opacity: (b.contact && b.contact.includes('@') && !b.contact.startsWith('@')) ? 1 : 0.3 }]}
+                    style={[styles.calloutPill, { borderColor: c.border, opacity: (b.contact && b.contact.includes('@') && !b.contact.startsWith('@')) ? 1 : 0.3 }]}
                   >
-                    <Text style={styles.calloutActionEmoji}>🍓</Text>
+                    <Text style={styles.calloutPillEmoji}>🍓</Text>
                   </CalloutSubview>
                   <CalloutSubview
                     onPress={() => handleSupportFromPin(b)}
-                    style={[styles.calloutAction, { borderRightColor: c.border }]}
+                    style={[styles.calloutPill, { borderColor: c.accent }]}
                   >
-                    <Text style={[styles.calloutActionText, { color: c.accent }]}>Support</Text>
+                    <Text style={[styles.calloutPillText, { color: c.accent }]}>Support</Text>
                   </CalloutSubview>
                   <CalloutSubview
                     onPress={() => handleDirections(b)}
-                    style={styles.calloutAction}
+                    style={[styles.calloutPill, { borderColor: c.border, flex: 1 }]}
                   >
-                    <Text style={[styles.calloutActionText, { color: c.text }]}>Directions</Text>
+                    <Text style={[styles.calloutPillText, { color: c.text }]}>Directions</Text>
                   </CalloutSubview>
                 </View>
+
               </View>
             </Callout>
           </Marker>
@@ -770,32 +768,37 @@ fabPill: {
   },
   bizErrorText: { fontSize: 13, fontFamily: 'DMSans_400Regular' },
   callout: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    minWidth: 220,
-    maxWidth: 260,
+    width: 240,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  calloutName: { fontSize: 13, fontFamily: fonts.dmMono, letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10 },
-  calloutDesc: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic', lineHeight: 16, paddingHorizontal: 12, marginTop: 4 },
-  calloutMeta: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 10, marginTop: 4 },
-  calloutMetaText: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
+  calloutHeader: {
+    paddingHorizontal: 14,
+    paddingTop: 13,
+    paddingBottom: 10,
+    gap: 3,
+  },
+  calloutName: { fontSize: 15, fontFamily: fonts.playfair, letterSpacing: 0.2 },
+  calloutMeta: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   calloutActions: {
     flexDirection: 'row',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
-  calloutAction: {
-    flex: 1,
-    paddingTop: 8,
-    paddingBottom: 8,
+  calloutPill: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRightWidth: StyleSheet.hairlineWidth,
   },
-  calloutActionEmoji: { fontSize: 16 },
-  calloutActionText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.4 },
+  calloutPillEmoji: { fontSize: 13, lineHeight: 16 },
+  calloutPillText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.4 },
 });
