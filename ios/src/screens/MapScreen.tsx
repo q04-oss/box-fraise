@@ -585,23 +585,25 @@ export default function MapScreen() {
         </TouchableOpacity>
       )}
 
-      <View
-        accessibilityRole="tablist"
-        style={[styles.tabPill, { bottom: 0, height: TAB_HEIGHT + insets.bottom, paddingBottom: insets.bottom, backgroundColor: c.sheetBg }]}
-      >
-        {(['discover', 'order', 'me'] as const).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={styles.tabItem}
-            onPress={() => handleTabPress(tab)}
-            activeOpacity={0.6}
-            accessibilityRole="tab"
-            accessibilityLabel={tab}
-            accessibilityState={{ selected: activeRootTab === tab }}
-          >
-            <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
+      <View style={[styles.tabBarOuter, { height: TAB_HEIGHT + insets.bottom, paddingBottom: insets.bottom }]}>
+        <View
+          accessibilityRole="tablist"
+          style={[styles.tabPill, { backgroundColor: c.sheetBg }]}
+        >
+          {(['discover', 'order', 'me'] as const).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabItem}
+              onPress={() => handleTabPress(tab)}
+              activeOpacity={0.6}
+              accessibilityRole="tab"
+              accessibilityLabel={tab}
+              accessibilityState={{ selected: activeRootTab === tab }}
+            >
+              <Text style={[styles.tabLabel, { color: activeRootTab === tab ? c.text : c.muted }]}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
     </View>
@@ -610,12 +612,25 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabPill: {
+  tabBarOuter: {
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 20,
+  },
+  tabPill: {
+    flexDirection: 'row',
+    borderRadius: 100,
+    height: 44,
+    paddingHorizontal: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   tabItem: {
     flex: 1,
