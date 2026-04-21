@@ -396,7 +396,7 @@ export default function HomePanel() {
             </Text>
           </View>
 
-          {searchQuery.trim() !== '' && (
+          {searchQuery.trim() !== '' ? (
             <ScrollView
               style={styles.scroll}
               showsVerticalScrollIndicator={false}
@@ -423,17 +423,23 @@ export default function HomePanel() {
                   </TouchableOpacity>
                 );
               })}
-              <View style={{ height: 40 }} />
+              <TouchableOpacity
+                style={styles.supportBtn}
+                onPress={() => showPanel('donate')}
+                activeOpacity={0.6}
+              >
+                <Text style={[styles.supportText, { color: c.muted }]}>Support Box Fraise →</Text>
+              </TouchableOpacity>
             </ScrollView>
+          ) : (
+            <TouchableOpacity
+              style={styles.supportBtn}
+              onPress={() => showPanel('donate')}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.supportText, { color: c.muted }]}>Support Box Fraise →</Text>
+            </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={styles.supportBtn}
-            onPress={() => showPanel('donate')}
-            activeOpacity={0.6}
-          >
-            <Text style={[styles.supportText, { color: c.muted }]}>Support Box Fraise →</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -739,7 +745,7 @@ const styles = StyleSheet.create({
   stripSpacer: { height: 16 },
   scroll: { flex: 1 },
   discoverContainer: { flex: 1 },
-  supportBtn: { position: 'absolute', bottom: 16, alignSelf: 'center' },
+  supportBtn: { alignSelf: 'center', paddingVertical: 16 },
   supportText: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1 },
   ambientBlock: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, paddingBottom: SPACING.md, gap: 4 },
   ambientDate: { fontSize: 22, fontFamily: fonts.playfair },
