@@ -62,6 +62,8 @@ const FULL_HEIGHT_PANELS = new Set([
   'merch',
   'gift',
   'claim-gift',
+  'donate',
+  'send-credit',
 ]);
 
 // Panels that collapse the sheet so native system UI (NFC prompt) appears unobstructed
