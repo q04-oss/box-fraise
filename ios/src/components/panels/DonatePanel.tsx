@@ -111,11 +111,11 @@ export default function DonatePanel() {
       </View>
 
       <View style={styles.body}>
-        <Text style={[styles.sub, { color: c.muted }]}>
+        <Text style={[styles.sub, { color: c.muted, paddingHorizontal: SPACING.md }]}>
           Independent, local, and built from scratch. If you like what we're building, this helps.
         </Text>
 
-        <View style={styles.amountRow}>
+        <View style={[styles.amountRow, { paddingHorizontal: SPACING.md }]}>
           {AMOUNTS.map(a => (
             <TouchableOpacity
               key={a.cents}
@@ -135,7 +135,7 @@ export default function DonatePanel() {
         </View>
 
         <TouchableOpacity
-          style={[styles.payBtn, { backgroundColor: c.accent, paddingBottom: Math.max(insets.bottom, SPACING.md) + 16, opacity: paying ? 0.7 : 1 }]}
+          style={[styles.payBtn, { backgroundColor: c.accent, opacity: paying ? 0.7 : 1 }]}
           onPress={handleDonate}
           disabled={paying}
           activeOpacity={0.8}
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, textAlign: 'center', fontSize: 20, fontFamily: fonts.playfair },
   headerSpacer: { width: 40 },
 
-  body: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, gap: SPACING.lg },
+  body: { flex: 1, paddingTop: SPACING.lg, gap: SPACING.lg, justifyContent: 'flex-end', paddingBottom: SPACING.lg },
   sub: { fontFamily: fonts.dmSans, fontSize: 14, lineHeight: 22 },
 
   amountRow: { flexDirection: 'row', gap: 10 },
@@ -173,8 +173,8 @@ const styles = StyleSheet.create({
   amountLabel: { fontFamily: fonts.playfair, fontSize: 18 },
 
   payBtn: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingTop: 18, alignItems: 'center',
+    marginHorizontal: SPACING.md, borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
   },
   payBtnText: { fontFamily: fonts.dmSans, fontWeight: '600', fontSize: 15, color: '#fff' },
 
