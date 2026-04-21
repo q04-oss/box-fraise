@@ -403,7 +403,7 @@ export default function HomePanel() {
               keyboardShouldPersistTaps="handled"
             >
               {searchResults.length === 0 ? (
-                <Text style={[styles.nothingText, { color: c.muted, paddingHorizontal: SPACING.md, paddingTop: SPACING.md }]}>no results</Text>
+                <Text style={[styles.nothingText, { color: c.muted, paddingHorizontal: SPACING.md, paddingTop: SPACING.md }]}>nothing matched — try a neighbourhood or name</Text>
               ) : searchResults.map(b => {
                 const dist = formatDist(b);
                 const meta = [(b as any).neighbourhood ?? (b as any).city, b.hours].filter(Boolean).join('  ·  ');
@@ -411,7 +411,7 @@ export default function HomePanel() {
                   <TouchableOpacity
                     key={b.id}
                     style={[styles.locCard, { borderBottomColor: c.border }]}
-                    onPress={() => handleLocationSelect(b)}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleLocationSelect(b); }}
                     activeOpacity={0.75}
                   >
                     <View style={styles.locCardBody}>
@@ -482,7 +482,7 @@ export default function HomePanel() {
                 contentContainerStyle={styles.switcherRow}
                 renderItem={({ item: b }) => (
                   <TouchableOpacity
-                    onPress={() => { setActiveLocation(b); setOrder({ location_id: b.id, location_name: b.name }); }}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveLocation(b); setOrder({ location_id: b.id, location_name: b.name }); }}
                     activeOpacity={0.7}
                     style={[styles.switcherChip, { borderColor: c.border }]}
                   >
@@ -553,6 +553,7 @@ export default function HomePanel() {
                           style={styles.varietyBlock}
                           onPress={() => {
                             if (!userDbId) { Alert.alert('Sign in required', 'Sign in via your profile to place an order.'); return; }
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             setInlineOrder(p => ({ ...p, variety_id: v.id, variety_name: v.name, price_cents: v.price_cents }));
                             setOrderStep('chocolate');
                             setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 200);
@@ -602,7 +603,7 @@ export default function HomePanel() {
                             {i > 0 && <View style={[styles.rowDivider, { backgroundColor: c.border }]} />}
                             <TouchableOpacity
                               style={styles.optionRow}
-                              onPress={() => { setInlineOrder(p => ({ ...p, chocolate: choc.id, chocolate_name: choc.name })); setOrderStep('finish'); scrollToBottom(); }}
+                              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInlineOrder(p => ({ ...p, chocolate: choc.id, chocolate_name: choc.name })); setOrderStep('finish'); scrollToBottom(); }}
                               activeOpacity={0.7}
                             >
                               <View style={[styles.swatch, { backgroundColor: (choc as any).swatchColor }]} />
@@ -631,7 +632,7 @@ export default function HomePanel() {
                             {i > 0 && <View style={[styles.rowDivider, { backgroundColor: c.border }]} />}
                             <TouchableOpacity
                               style={styles.optionRow}
-                              onPress={() => { setInlineOrder(p => ({ ...p, finish: fin.id, finish_name: fin.name })); setOrderStep('quantity'); scrollToBottom(); }}
+                              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInlineOrder(p => ({ ...p, finish: fin.id, finish_name: fin.name })); setOrderStep('quantity'); scrollToBottom(); }}
                               activeOpacity={0.7}
                             >
                               <Text style={[styles.optionName, { color: c.text }]}>{fin.name}</Text>
@@ -656,14 +657,14 @@ export default function HomePanel() {
                       <>
                         <Text style={[styles.stepLabel, { color: c.muted }]}>boxes</Text>
                         <View style={styles.qtyRow}>
-                          <TouchableOpacity onPress={() => setInlineOrder(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))} activeOpacity={0.7} style={styles.qtyBtn}>
+                          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInlineOrder(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) })); }} activeOpacity={0.7} style={styles.qtyBtn}>
                             <Text style={[styles.qtyBtnText, { color: c.accent }]}>−</Text>
                           </TouchableOpacity>
                           <Text style={[styles.qtyValue, { color: c.text }]}>{inlineOrder.quantity}</Text>
-                          <TouchableOpacity onPress={() => setInlineOrder(p => ({ ...p, quantity: Math.min(12, p.quantity + 1) }))} activeOpacity={0.7} style={styles.qtyBtn}>
+                          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setInlineOrder(p => ({ ...p, quantity: Math.min(12, p.quantity + 1) })); }} activeOpacity={0.7} style={styles.qtyBtn}>
                             <Text style={[styles.qtyBtnText, { color: c.accent }]}>+</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => { setOrderStep('review'); scrollToBottom(); }} activeOpacity={0.7} style={styles.qtyConfirm}>
+                          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setOrderStep('review'); scrollToBottom(); }} activeOpacity={0.7} style={styles.qtyConfirm}>
                             <Text style={[styles.stepLabel, { color: c.accent }]}>CONFIRM</Text>
                           </TouchableOpacity>
                         </View>

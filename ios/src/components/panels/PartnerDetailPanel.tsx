@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, Linking, Alert,
+  StyleSheet, Linking, Alert, TextInput, ActivityIndicator,
 } from 'react-native';
+import { useStripe } from '@stripe/stripe-react-native';
+import * as Haptics from 'expo-haptics';
+import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { PARTNER_MENUS, PartnerMenu, MenuSection, MenuItem } from '../../data/seed';
+import { API_BASE_URL } from '../../config/api';
+
+const SHEET_NAME = 'main-sheet';
+const PRESETS = [300, 500, 1000, 2500];
 
 function formatContact(contact: string): { label: string; url: string } | null {
   const trimmed = contact.trim();
@@ -23,13 +30,9 @@ function MenuItemRow({ item, c }: { item: MenuItem; c: any }) {
     <View style={styles.menuItem}>
       <View style={styles.menuItemTop}>
         <Text style={[styles.menuItemName, { color: c.text }]}>{item.item}</Text>
-        {!!item.price && (
-          <Text style={[styles.menuItemPrice, { color: c.text }]}>{item.price}</Text>
-        )}
+        {!!item.price && <Text style={[styles.menuItemPrice, { color: c.text }]}>{item.price}</Text>}
       </View>
-      {!!item.description && (
-        <Text style={[styles.menuItemDesc, { color: c.muted }]}>{item.description}</Text>
-      )}
+      {!!item.description && <Text style={[styles.menuItemDesc, { color: c.muted }]}>{item.description}</Text>}
       {item.tags && item.tags.length > 0 && (
         <View style={styles.menuItemTags}>
           {item.tags.map(tag => (
@@ -56,22 +59,29 @@ function MenuSectionBlock({ section, c }: { section: MenuSection; c: any }) {
     <View style={styles.menuSection}>
       <View style={styles.menuSectionHeader}>
         <Text style={[styles.menuSectionTitle, { color: c.text }]}>{section.section}</Text>
-        {!!section.note && (
-          <Text style={[styles.menuSectionNote, { color: c.muted }]}>{section.note}</Text>
-        )}
+        {!!section.note && <Text style={[styles.menuSectionNote, { color: c.muted }]}>{section.note}</Text>}
       </View>
-      {section.items.map((item, i) => (
-        <MenuItemRow key={i} item={item} c={c} />
-      ))}
+      {section.items.map((item, i) => <MenuItemRow key={i} item={item} c={c} />)}
     </View>
   );
 }
 
 export default function PartnerDetailPanel() {
-  const { goBack, panelData, showPanel } = usePanel();
+  const { goBack, panelData } = usePanel();
   const c = useColors();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const biz = panelData?.partnerBusiness;
+
+  const [activeTab, setActiveTab] = useState(0);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [selected, setSelected] = useState<number | null>(500);
+  const [customInput, setCustomInput] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [supportDone, setSupportDone] = useState(false);
+
   if (!biz) return null;
 
   const bizNameLower = biz.name?.toLowerCase() ?? '';
@@ -81,37 +91,104 @@ export default function PartnerDetailPanel() {
     ?? biz.name;
   const menus: PartnerMenu[] = PARTNER_MENUS[menuKey] ?? [];
   const hasMenu = menus.length > 0;
-  const [activeTab, setActiveTab] = useState(0);
+  const activeMenu = menus[activeTab];
 
   const contactInfo = biz.contact ? formatContact(biz.contact) : null;
-  const contactEmail: string | null = (biz.contact && biz.contact.includes('@') && !biz.contact.startsWith('@'))
-    ? biz.contact.trim()
-    : null;
 
-  const handleOpenMaps = () => {
+  const openStatus = (() => {
+    if (!biz.hours) return null;
+    const now = new Date();
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const today = dayNames[now.getDay()];
+    const lc = biz.hours.toLowerCase();
+    const hasDays = /mon|tue|wed|thu|fri|sat|sun/.test(lc);
+    if (hasDays && !lc.includes(today)) return { label: 'closed today', open: false };
+    const timeMatch = lc.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*[–\-to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+    if (!timeMatch) return null;
+    const toMin = (h: string, m: string, mer: string) => {
+      let hour = parseInt(h);
+      if (mer === 'pm' && hour !== 12) hour += 12;
+      if (mer === 'am' && hour === 12) hour = 0;
+      return hour * 60 + (parseInt(m) || 0);
+    };
+    const openMin = toMin(timeMatch[1], timeMatch[2], timeMatch[3]);
+    const closeMin = toMin(timeMatch[4], timeMatch[5], timeMatch[6] || (openMin > toMin(timeMatch[4], timeMatch[5], 'am') ? 'pm' : 'am'));
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return nowMin >= openMin && nowMin < closeMin ? { label: 'open now', open: true } : { label: 'closed', open: false };
+  })();
+
+  const handleDirections = () => {
     if (!biz.lat || !biz.lng) return;
-    const appleUrl = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
-    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`;
-    Linking.canOpenURL(appleUrl)
-      .then(supported => Linking.openURL(supported ? appleUrl : fallbackUrl))
-      .catch(() => Alert.alert('Could not open maps'));
+    const apple = `maps://maps.apple.com/?daddr=${biz.lat},${biz.lng}&dirflg=d`;
+    const fallback = `https://www.google.com/maps/dir/?api=1&destination=${biz.lat},${biz.lng}`;
+    Linking.canOpenURL(apple).then(ok => Linking.openURL(ok ? apple : fallback)).catch(() => {});
   };
+
+  const customCents = customInput ? Math.round(parseFloat(customInput) * 100) : 0;
+  const activeCents = customInput ? customCents : (selected ?? 0);
+  const displayAmount = customInput
+    ? (isNaN(parseFloat(customInput)) ? '$0' : `$${parseFloat(customInput).toFixed(2)}`)
+    : `$${((selected ?? 0) / 100).toFixed(2)}`;
+  const canPay = activeCents >= 100 && !paying;
 
   const handleContactPress = () => {
     if (!contactInfo) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Linking.openURL(contactInfo.url);
   };
 
-  const handleSendSticker = () => {
-    if (!contactEmail) return;
-    showPanel('gift', { recipientEmail: contactEmail, businessName: biz.name, isOutreach: true });
+  const handleOpenSupport = () => {
+    setSupportOpen(true);
+    TrueSheet.resize(SHEET_NAME, 2);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350);
   };
 
-  const handleSupport = () => {
-    showPanel('donate', { businessId: biz.id, businessName: biz.name });
-  };
+  const handleDonate = async () => {
+    if (!canPay) return;
+    setPaying(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/donate/business/${biz.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_cents: activeCents }),
+      });
+      if (!res.ok) throw new Error('Failed to create payment');
+      const { client_secret } = await res.json();
 
-  const activeMenu = menus[activeTab];
+      const { error: initErr } = await initPaymentSheet({
+        merchantDisplayName: 'Box Fraise',
+        paymentIntentClientSecret: client_secret,
+        applePay: { merchantCountryCode: 'CA', merchantIdentifier: 'merchant.com.boxfraise.app' },
+        appearance: {
+          colors: {
+            primary: c.accent,
+            background: '#FFFFFF',
+            componentBackground: '#F7F5F2',
+            componentText: '#1C1C1E',
+            componentBorder: '#E5E1DA',
+            placeholderText: '#8E8E93',
+          },
+        },
+      });
+      if (initErr) throw new Error(initErr.message);
+
+      TrueSheet.present(SHEET_NAME, 0);
+      const { error: presentErr } = await presentPaymentSheet();
+      if (presentErr) {
+        setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 150);
+        if (presentErr.code === 'Canceled') { setPaying(false); return; }
+        throw new Error(presentErr.message);
+      }
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSupportDone(true);
+      setTimeout(() => TrueSheet.present(SHEET_NAME, 2), 150);
+    } catch (err: any) {
+      Alert.alert('Something went wrong', err.message ?? 'Please try again.');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: c.panelBg }]}>
@@ -120,59 +197,23 @@ export default function PartnerDetailPanel() {
         <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={[styles.backBtnText, { color: c.accent }]}>←</Text>
         </TouchableOpacity>
-        <Text
-          style={[styles.title, { color: c.text }]}
-          numberOfLines={1}
-          onLongPress={handleSupport}
-          suppressHighlighting
-        >{biz.name}</Text>
+        <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{biz.name}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Action strip */}
-      <View style={[styles.actionStrip, { borderBottomColor: c.border }]}>
-        <TouchableOpacity
-          style={[styles.actionStripBtn, { borderRightColor: c.border, opacity: contactEmail ? 1 : 0.3 }]}
-          onPress={handleSendSticker}
-          disabled={!contactEmail}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.actionStripEmoji}>🍓</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionStripBtn, { opacity: contactInfo ? 1 : 0.3 }]}
-          onPress={handleContactPress}
-          disabled={!contactInfo}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.actionStripText, { color: c.text }]}>
-            {contactInfo?.url.startsWith('mailto') ? 'Email' : 'Call'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Menu tabs */}
       {hasMenu && menus.length > 1 && (
         <View style={[styles.tabBar, { borderBottomColor: c.border }]}>
           {menus.map((m, i) => (
-            <TouchableOpacity
-              key={m.label}
-              style={styles.tab}
-              onPress={() => setActiveTab(i)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, { color: activeTab === i ? c.text : c.muted }]}>
-                {m.label}
-              </Text>
+            <TouchableOpacity key={m.label} style={styles.tab} onPress={() => setActiveTab(i)} activeOpacity={0.7}>
+              <Text style={[styles.tabText, { color: activeTab === i ? c.text : c.muted }]}>{m.label}</Text>
               {activeTab === i && <View style={[styles.tabUnderline, { backgroundColor: c.accent }]} />}
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        {/* Info block — only show if no menu */}
         {!hasMenu && (
           <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
             {!!biz.description && (
@@ -193,32 +234,109 @@ export default function PartnerDetailPanel() {
                 <Text style={[styles.fieldValue, { color: c.text }]}>{biz.address}</Text>
               </View>
             )}
+            <View style={styles.infoActions}>
+              {openStatus && (
+                <Text style={[styles.infoLabel, { color: openStatus.open ? c.accent : c.muted }]}>{openStatus.label}</Text>
+              )}
+              {(biz.lat && biz.lng) && (
+                <TouchableOpacity onPress={handleDirections} activeOpacity={0.6}>
+                  <Text style={[styles.infoAction, { color: c.muted }]}>directions</Text>
+                </TouchableOpacity>
+              )}
+              {contactInfo && (
+                <TouchableOpacity onPress={handleContactPress} activeOpacity={0.6}>
+                  <Text style={[styles.infoAction, { color: c.muted }]}>{contactInfo.label}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setSupportOpen(v => !v)} activeOpacity={0.6}>
+                <Text style={[styles.infoAction, { color: supportOpen ? c.accent : c.muted }]}>support</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* Info strip when menu is present */}
         {hasMenu && (
           <View style={[styles.infoStrip, { borderBottomColor: c.border }]}>
-            {!!biz.neighbourhood && (
-              <Text style={[styles.stripText, { color: c.muted }]}>{biz.neighbourhood}</Text>
-            )}
-            {!!biz.hours && (
-              <Text style={[styles.stripText, { color: c.muted }]}>{biz.hours}</Text>
-            )}
-            {!!biz.address && (
-              <Text style={[styles.stripText, { color: c.muted }]}>{biz.address}</Text>
+            {!!biz.neighbourhood && <Text style={[styles.stripText, { color: c.muted }]}>{biz.neighbourhood}</Text>}
+            {!!biz.hours && <Text style={[styles.stripText, { color: c.muted }]}>{biz.hours}</Text>}
+            {!!biz.address && <Text style={[styles.stripText, { color: c.muted }]}>{biz.address}</Text>}
+            <View style={styles.infoActions}>
+              {openStatus && (
+                <Text style={[styles.infoLabel, { color: openStatus.open ? c.accent : c.muted }]}>{openStatus.label}</Text>
+              )}
+              {(biz.lat && biz.lng) && (
+                <TouchableOpacity onPress={handleDirections} activeOpacity={0.6}>
+                  <Text style={[styles.infoAction, { color: c.muted }]}>directions</Text>
+                </TouchableOpacity>
+              )}
+              {contactInfo && (
+                <TouchableOpacity onPress={handleContactPress} activeOpacity={0.6}>
+                  <Text style={[styles.infoAction, { color: c.muted }]}>{contactInfo.label}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setSupportOpen(v => !v)} activeOpacity={0.6}>
+                <Text style={[styles.infoAction, { color: supportOpen ? c.accent : c.muted }]}>support</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {supportOpen && (
+          <View style={[styles.infoBlock, { borderBottomColor: c.border }]}>
+            {supportDone ? (
+              <Text style={[styles.fieldValue, { color: c.muted }]}>thank you. it means a lot.</Text>
+            ) : (
+              <>
+                <View style={styles.fieldRow}>
+                  <Text style={[styles.fieldLabel, { color: c.muted }]}>AMOUNT</Text>
+                  <View style={styles.presetRow}>
+                    {PRESETS.map(cents => {
+                      const active = !customInput && selected === cents;
+                      return (
+                        <TouchableOpacity
+                          key={cents}
+                          onPress={() => { setSelected(cents); setCustomInput(''); Haptics.selectionAsync(); }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.presetChip, { color: active ? c.accent : c.muted }]}>${cents / 100}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.fieldRow}>
+                  <Text style={[styles.fieldLabel, { color: c.muted }]}>OTHER</Text>
+                  <View style={styles.customInputWrap}>
+                    <Text style={[styles.fieldValue, { color: customInput ? c.text : c.muted }]}>$</Text>
+                    <TextInput
+                      ref={inputRef}
+                      style={[styles.fieldValue, styles.customInput, { color: c.text }]}
+                      placeholder="0.00"
+                      placeholderTextColor={c.muted}
+                      keyboardType="decimal-pad"
+                      value={customInput}
+                      onChangeText={v => { setCustomInput(v); setSelected(null); }}
+                      onFocus={() => setSelected(null)}
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity onPress={handleDonate} disabled={!canPay} activeOpacity={0.6}>
+                  {paying
+                    ? <ActivityIndicator color={c.accent} size="small" />
+                    : <Text style={[styles.infoAction, { color: canPay ? c.accent : c.muted }]}>donate {displayAmount} →</Text>
+                  }
+                </TouchableOpacity>
+              </>
             )}
           </View>
         )}
 
-        {/* Menu content */}
         {hasMenu && activeMenu && activeMenu.sections.map((section, i) => (
           <MenuSectionBlock key={i} section={section} c={c} />
         ))}
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: 48 }} />
       </ScrollView>
-
 
     </View>
   );
@@ -227,11 +345,8 @@ export default function PartnerDetailPanel() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingTop: 18,
-    paddingBottom: 18,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backBtn: { width: 40, paddingVertical: 4 },
@@ -240,71 +355,38 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 40 },
   body: { flex: 1 },
 
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: SPACING.md,
-  },
-  tab: {
-    marginRight: SPACING.md,
-    paddingVertical: 12,
-    position: 'relative',
-  },
+  tabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: SPACING.md },
+  tab: { marginRight: SPACING.md, paddingVertical: 12, position: 'relative' },
   tabText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
-  tabUnderline: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 1.5,
-    borderRadius: 1,
-  },
+  tabUnderline: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 1.5, borderRadius: 1 },
 
   infoBlock: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 16,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 16,
   },
   infoStrip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 3,
+    paddingHorizontal: SPACING.md, paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 3,
   },
   stripText: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  infoActions: { flexDirection: 'row', gap: 16, marginTop: 4 },
+  infoAction: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, textDecorationLine: 'underline', textDecorationStyle: 'solid' },
+  infoLabel: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
 
   description: { fontSize: 14, fontFamily: fonts.dmSans, lineHeight: 22, fontStyle: 'italic' },
   chip: {
-    alignSelf: 'flex-start',
-    fontSize: 11, fontFamily: fonts.dmMono,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 4,
+    alignSelf: 'flex-start', fontSize: 11, fontFamily: fonts.dmMono,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
   fieldRow: { gap: 4 },
   fieldLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   fieldValue: { fontSize: 14, fontFamily: fonts.dmSans },
 
-  menuSection: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: SPACING.sm,
-  },
-  menuSectionHeader: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: 8,
-    gap: 2,
-  },
+  menuSection: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: SPACING.sm },
+  menuSectionHeader: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 8, gap: 2 },
   menuSectionTitle: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
   menuSectionNote: { fontSize: 10, fontFamily: fonts.dmSans, fontStyle: 'italic' },
-
-  menuItem: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    gap: 4,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  menuItem: { paddingHorizontal: SPACING.md, paddingVertical: 12, gap: 4, borderTopWidth: StyleSheet.hairlineWidth },
   menuItemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   menuItemName: { flex: 1, fontSize: 15, fontFamily: fonts.playfair },
   menuItemPrice: { fontSize: 12, fontFamily: fonts.dmMono },
@@ -312,26 +394,15 @@ const styles = StyleSheet.create({
   menuItemTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
   menuTag: {
     fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 0.5,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: StyleSheet.hairlineWidth, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2,
   },
   addOns: { marginTop: 4, gap: 2 },
   addOnRow: { flexDirection: 'row', justifyContent: 'space-between' },
   addOnItem: { fontSize: 11, fontFamily: fonts.dmSans, fontStyle: 'italic' },
   addOnPrice: { fontSize: 11, fontFamily: fonts.dmMono },
 
-  actionStrip: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  actionStripBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: StyleSheet.hairlineWidth,
-  },
-  actionStripEmoji: { fontSize: 14 },
-  actionStripText: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
+  presetRow: { flexDirection: 'row', gap: 12 },
+  presetChip: { fontSize: 14, fontFamily: fonts.dmSans },
+  customInputWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  customInput: { minWidth: 60 },
 });

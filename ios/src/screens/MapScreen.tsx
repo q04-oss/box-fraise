@@ -156,7 +156,7 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const DETENTS = useMemo<[number, number, number]>(() => [COLLAPSED_HEIGHT / SCREEN_HEIGHT, 0.5, 1], [SCREEN_HEIGHT]);
-  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId } = usePanel();
+  const { setBusinesses, setActiveLocation, activeLocation, setOrder, order, businesses, jumpToPanel, goHome, showPanel, sheetHeight, setSheetHeight, setPanelData, setVarieties, varieties, setUserCoords, highlightedBizId, setHighlightedBizId } = usePanel();
   const { pendingScreen, pendingData, clearPendingScreen, pushToken } = useApp();
   const c = useColors();
   const [contentHeight, setContentHeight] = useState(SCREEN_HEIGHT * 0.55);
@@ -435,6 +435,32 @@ export default function MapScreen() {
     return formatDistanceKm(haversineKm(userLocation.latitude, userLocation.longitude, lat, lng));
   };
 
+  const getOpenStatus = (hours: string | null | undefined): { label: string; open: boolean } | null => {
+    if (!hours) return null;
+    // Expects e.g. "Mon–Fri 8am–6pm" or "8am–6pm" or "8:00–18:00"
+    const now = new Date();
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const today = dayNames[now.getDay()];
+    const lc = hours.toLowerCase();
+    // If hours string mentions days and today isn't included, closed
+    const hasDays = /mon|tue|wed|thu|fri|sat|sun/.test(lc);
+    if (hasDays && !lc.includes(today)) return { label: 'closed today', open: false };
+    // Extract time range like 8am–6pm or 8:00–18:00
+    const timeMatch = lc.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*[–\-to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+    if (!timeMatch) return null;
+    const toMin = (h: string, m: string, meridiem: string) => {
+      let hour = parseInt(h);
+      if (meridiem === 'pm' && hour !== 12) hour += 12;
+      if (meridiem === 'am' && hour === 12) hour = 0;
+      return hour * 60 + (parseInt(m) || 0);
+    };
+    const openMin = toMin(timeMatch[1], timeMatch[2], timeMatch[3]);
+    const closeMin = toMin(timeMatch[4], timeMatch[5], timeMatch[6] || (openMin > toMin(timeMatch[4], timeMatch[5], 'am') ? 'pm' : 'am'));
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const open = nowMin >= openMin && nowMin < closeMin;
+    return { label: open ? 'open now' : 'closed', open };
+  };
+
   const fabBottom = sheetHeight + 16;
   const fabsVisible = sheetHeight < SCREEN_HEIGHT - insets.top - 40;
 
@@ -551,6 +577,7 @@ export default function MapScreen() {
             coordinate={{ latitude: b.lat, longitude: b.lng }}
             tracksViewChanges={isHighlighted}
             onPress={() => {
+              setHighlightedBizId(b.id);
               showPanel('partner-detail', { partnerBusiness: b });
               TrueSheet.resize(SHEET_NAME, 1);
             }}
@@ -566,23 +593,6 @@ export default function MapScreen() {
                 </View>
               )
             }
-            <Callout tooltip onPress={() => handlePartnerPress(b)}>
-              <View style={[styles.callout, { backgroundColor: c.card }]}>
-                <Text style={[styles.calloutName, { color: c.text }]}>{b.name}</Text>
-                {!!b.address && (
-                  <Text style={[styles.calloutAddress, { color: c.muted }]}>{b.address}</Text>
-                )}
-                {!!b.hours && (
-                  <Text style={[styles.calloutHours, { color: c.muted }]}>{b.hours}</Text>
-                )}
-                {!!formatDistance(b.lat, b.lng) && (
-                  <Text style={[styles.calloutDistance, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
-                )}
-                <CalloutSubview onPress={() => handleDirections(b)}>
-                  <Text style={[styles.calloutDirections, { color: c.accent }]}>get directions →</Text>
-                </CalloutSubview>
-              </View>
-            </Callout>
           </Marker>
           );
         })}
@@ -649,7 +659,7 @@ export default function MapScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.fabPillBtn}
-            onPress={() => { setActiveLocation(null); goHome(); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
+            onPress={() => { setActiveLocation(null); setHighlightedBizId(null); goHome(); setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350); }}
             onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleLocateMe(); }}
             delayLongPress={500}
             activeOpacity={0.7}
@@ -767,6 +777,7 @@ const styles = StyleSheet.create({
   calloutName: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   calloutAddress: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   calloutHours: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
+  calloutStatus: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   calloutDistance: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3, marginTop: 2 },
   calloutDirections: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5, marginTop: 6, paddingBottom: 2 },
 });
