@@ -168,7 +168,6 @@ export default function MapScreen() {
   const [isVerified, setIsVerified] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const hasAnimatedToUser = useRef(false);
-  const calloutSubviewTapped = useRef(false);
 
 
   const syncVerifiedState = useCallback(() => {
@@ -282,7 +281,6 @@ export default function MapScreen() {
 
 
   const handlePartnerPress = (biz: any) => {
-    if (calloutSubviewTapped.current) { calloutSubviewTapped.current = false; return; }
     showPanel('partner-detail', { partnerBusiness: biz });
     setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 350);
     mapRef.current?.animateToRegion({
@@ -551,7 +549,6 @@ export default function MapScreen() {
           <Marker
             key={`biz-${b.id}`}
             coordinate={{ latitude: b.lat, longitude: b.lng }}
-            onPress={() => handlePartnerPress(b)}
             tracksViewChanges={isHighlighted}
           >
             {isHighlighted
@@ -581,19 +578,19 @@ export default function MapScreen() {
                 </View>
                 <View style={[styles.calloutActions, { borderTopColor: c.border }]}>
                   <CalloutSubview
-                    onPress={() => { calloutSubviewTapped.current = true; handleStickerFromPin(b); }}
+                    onPress={() => handleStickerFromPin(b)}
                     style={[styles.calloutAction, { borderRightColor: c.border, opacity: (b.contact && b.contact.includes('@') && !b.contact.startsWith('@')) ? 1 : 0.3 }]}
                   >
                     <Text style={styles.calloutActionEmoji}>🍓</Text>
                   </CalloutSubview>
                   <CalloutSubview
-                    onPress={() => { calloutSubviewTapped.current = true; handleSupportFromPin(b); }}
+                    onPress={() => handleSupportFromPin(b)}
                     style={[styles.calloutAction, { borderRightColor: c.border }]}
                   >
                     <Text style={[styles.calloutActionText, { color: c.accent }]}>Support</Text>
                   </CalloutSubview>
                   <CalloutSubview
-                    onPress={() => { calloutSubviewTapped.current = true; handleDirections(b); }}
+                    onPress={() => handleDirections(b)}
                     style={styles.calloutAction}
                   >
                     <Text style={[styles.calloutActionText, { color: c.text }]}>Directions</Text>
