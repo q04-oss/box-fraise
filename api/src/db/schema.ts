@@ -1584,6 +1584,19 @@ export const gifts = pgTable('gifts', {
 
 // ─── Platform credit ──────────────────────────────────────────────────────────
 
+export const pendingCreditTransfers = pgTable('pending_credit_transfers', {
+  id: serial('id').primaryKey(),
+  from_user_id: integer('from_user_id').notNull().references(() => users.id),
+  recipient_email: text('recipient_email'),
+  recipient_phone: text('recipient_phone'),
+  amount_cents: integer('amount_cents').notNull(),
+  claim_token: text('claim_token').notNull().unique(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid' | 'claimed'
+  payment_intent_id: text('payment_intent_id').unique(),
+  note: text('note'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const creditTransactions = pgTable('credit_transactions', {
   id: serial('id').primaryKey(),
   from_user_id: integer('from_user_id').references(() => users.id),   // null = platform grant

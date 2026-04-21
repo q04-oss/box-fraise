@@ -3943,3 +3943,14 @@ export async function createCreditTransferIntent(to_user_id: number, amount_cent
   return r.json();
 }
 
+export async function createCreditContactIntent(params: { recipient_phone?: string; recipient_email?: string; amount_cents: number; note?: string }): Promise<{ client_secret: string; claim_token: string }> {
+  const auth = await authHeader();
+  const r = await fetch(`${BASE_URL}/api/credits/send-to-contact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(params),
+  });
+  if (!r.ok) throw new Error('failed');
+  return r.json();
+}
+

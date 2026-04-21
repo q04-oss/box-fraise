@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users } from '../db/schema';
 import { logger } from '../lib/logger';
 import { signToken, requireUser } from '../lib/auth';
+import { autoClaimPendingCredits } from './credits';
 
 // ─── Boot-time migration: social time-bank columns ───────────────────────────
 db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_time_bank_seconds integer NOT NULL DEFAULT 0`).catch(() => {});
@@ -128,6 +129,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
     // 1. Look up by apple_user_id
     const [byApple] = await db.select().from(users).where(eq(users.apple_user_id, appleId));
     if (byApple) {
+      autoClaimPendingCredits(byApple.id, byApple.email).catch(() => {});
       const token = signToken(byApple.id);
       res.json({ user_id: byApple.id, token, is_new: false, email: byApple.email, verified: byApple.verified, fraise_chat_email: byApple.fraise_chat_email, display_name: byApple.display_name });
       return;
@@ -138,6 +140,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
       const [byEmail] = await db.select().from(users).where(eq(users.email, appleEmail));
       if (byEmail) {
         await db.update(users).set({ apple_user_id: appleId }).where(eq(users.id, byEmail.id));
+        autoClaimPendingCredits(byEmail.id, appleEmail).catch(() => {});
         const token = signToken(byEmail.id);
         res.json({ user_id: byEmail.id, token, is_new: false, email: byEmail.email, verified: byEmail.verified, fraise_chat_email: byEmail.fraise_chat_email, display_name: byEmail.display_name });
         return;
@@ -154,6 +157,7 @@ async function handleAppleSignIn(req: Request, res: Response) {
           ...(displayName ? { display_name: displayName } : {}),
         })
         .returning();
+      autoClaimPendingCredits(created.id, appleEmail).catch(() => {});
       const token = signToken(created.id);
       res.json({ user_id: created.id, token, is_new: true, email: created.email, verified: created.verified, fraise_chat_email: created.fraise_chat_email, display_name: created.display_name });
       return;

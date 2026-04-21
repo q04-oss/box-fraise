@@ -4,10 +4,10 @@ import { eq, sql, and, inArray } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { db } from '../db';
-import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, fundContributions, earningsLedger, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits, personalToilets, gifts, creditTransactions } from '../db/schema';
+import { orders, varieties, timeSlots, popupRsvps, popupRequests, campaignCommissions, users, businesses, memberships, fundContributions, earningsLedger, portalAccess, tokens, seasonPatronages, patronTokens, greenhouses, greenhouseFunding, provenanceTokens, locationFunding, messages, collectifs, collectifCommitments, tournaments, tournamentEntries, adCampaigns, toiletVisits, personalToilets, gifts, creditTransactions, pendingCreditTransfers } from '../db/schema';
 import { sendPushNotification } from '../lib/push';
-import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived, sendGiftNotification, sendOutreachNotification, sendBusinessDonationNotification } from '../lib/resend';
-import { sendStickerSMS } from '../lib/twilio';
+import { sendRsvpConfirmed, sendOrderConfirmation, sendTipReceived, sendGiftNotification, sendOutreachNotification, sendBusinessDonationNotification, sendCreditNotification } from '../lib/resend';
+import { sendStickerSMS, sendCreditSMS } from '../lib/twilio';
 import { logger } from '../lib/logger';
 import { TIER_LABELS } from '../lib/membership';
 import { calculateCut } from '../lib/portal';
@@ -963,6 +963,68 @@ router.post('/webhook', async (req: Request, res: Response) => {
               }
             }
             logger.info(`Credit transfer: ${amountCents} cents from user ${fromUserId} to user ${toUserId}`);
+          }
+        }
+      } else if (type === 'credit_transfer_contact') {
+        const pendingId = parseInt(pi.metadata?.pending_transfer_id ?? '', 10);
+        if (!isNaN(pendingId)) {
+          const [pending] = await db.select().from(pendingCreditTransfers)
+            .where(eq(pendingCreditTransfers.id, pendingId)).limit(1);
+          if (pending && pending.status === 'pending') {
+            await db.update(pendingCreditTransfers)
+              .set({ status: 'paid' })
+              .where(eq(pendingCreditTransfers.id, pendingId));
+
+            const [sender] = await db.select({ display_name: users.display_name, email: users.email })
+              .from(users).where(eq(users.id, pending.from_user_id)).limit(1);
+            const senderName = sender?.display_name ?? sender?.email?.split('@')[0] ?? 'Someone';
+            const amountDollars = (pending.amount_cents / 100).toFixed(2);
+
+            if (pending.recipient_phone) {
+              sendCreditSMS({
+                to: pending.recipient_phone,
+                senderName,
+                amountDollars,
+                claimToken: pending.claim_token,
+                note: pending.note ?? undefined,
+              }).catch(err => logger.error('Credit SMS failed:', err));
+            } else if (pending.recipient_email) {
+              sendCreditNotification({
+                to: pending.recipient_email,
+                senderName,
+                amountDollars,
+                claimToken: pending.claim_token,
+                note: pending.note ?? undefined,
+              }).catch(err => logger.error('Credit email failed:', err));
+            }
+
+            // If recipient already has an account, credit them immediately
+            const matchField = pending.recipient_email
+              ? eq(users.email, pending.recipient_email)
+              : eq(users.push_token, pending.recipient_phone!); // fallback — phone not stored on users, skip
+            if (pending.recipient_email) {
+              const [existing] = await db.select({ id: users.id, platform_credit_cents: users.platform_credit_cents, push_token: users.push_token })
+                .from(users).where(eq(users.email, pending.recipient_email)).limit(1);
+              if (existing) {
+                await db.update(pendingCreditTransfers).set({ status: 'claimed' }).where(eq(pendingCreditTransfers.id, pendingId));
+                await db.update(users)
+                  .set({ platform_credit_cents: (existing.platform_credit_cents ?? 0) + pending.amount_cents })
+                  .where(eq(users.id, existing.id));
+                await db.insert(creditTransactions).values({
+                  from_user_id: pending.from_user_id,
+                  to_user_id: existing.id,
+                  amount_cents: pending.amount_cents,
+                  type: 'transfer',
+                  stripe_payment_intent_id: pi.id,
+                  note: pending.note,
+                });
+                if (existing.push_token) {
+                  sendPushNotification(existing.push_token, `CA$${amountDollars} from ${senderName}`, pending.note ?? 'Added to your platform credit.').catch(() => {});
+                }
+                logger.info(`Credit transfer (contact, existing user): ${pending.amount_cents} cents → user ${existing.id}`);
+              }
+            }
+            logger.info(`Credit transfer (contact): ${pending.amount_cents} cents, notified via ${pending.recipient_phone ? 'SMS' : 'email'}`);
           }
         }
       } else if (type === 'business_donation') {

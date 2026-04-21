@@ -640,6 +640,54 @@ export async function sendOutreachNotification(params: {
 
 // @final-audit
 
+export async function sendCreditNotification(params: {
+  to: string;
+  senderName: string;
+  amountDollars: string;
+  claimToken: string;
+  note?: string;
+}) {
+  const { to, senderName, amountDollars, claimToken, note } = params;
+  const TESTFLIGHT = 'https://testflight.apple.com/join/zJG1Wc5Y';
+  const claimUrl = `https://fraise.box/claim-credit/${claimToken}`;
+
+  const noteHtml = note
+    ? `<p style="margin:0 0 24px;font-size:15px;color:rgba(242,242,247,0.45);font-style:italic;line-height:1.75;font-family:Georgia,'Times New Roman',serif;">"${note}"</p>`
+    : '';
+
+  const content = `
+    <p style="margin:0 0 24px;font-size:16px;color:rgba(242,242,247,0.65);line-height:1.75;font-family:Georgia,'Times New Roman',serif;">
+      <strong style="color:#F2F2F7;">${senderName}</strong> sent you <strong style="color:#F2F2F7;">CA$${amountDollars}</strong> in Box Fraise credit.
+    </p>
+
+    ${noteHtml}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="background:#C9973A;border-radius:12px;padding:20px 24px;">
+          <p style="margin:0 0 6px;font-size:10px;color:rgba(12,12,14,0.55);letter-spacing:2px;text-transform:uppercase;font-family:'Courier New',Courier,monospace;">Your claim code</p>
+          <p style="margin:0;font-size:28px;color:#0C0C0E;font-family:'Courier New',Courier,monospace;letter-spacing:4px;">${claimToken}</p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 16px;font-size:14px;color:rgba(242,242,247,0.45);line-height:1.75;font-family:'Courier New',Courier,monospace;">
+      Credit applies automatically toward orders, stickers, and more in the app.
+    </p>
+
+    <a href="${TESTFLIGHT}" style="display:inline-block;background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:12px 24px;font-family:'Courier New',Courier,monospace;font-size:11px;color:rgba(242,242,247,0.6);text-decoration:none;letter-spacing:1.5px;text-transform:uppercase;">Get the app →</a>
+    <p style="margin:16px 0 0;font-size:12px;color:rgba(242,242,247,0.25);font-family:'Courier New',Courier,monospace;">Or claim at: ${claimUrl}</p>
+  `;
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    replyTo: REPLY_TO,
+    subject: `${senderName} sent you CA$${amountDollars} on Box Fraise`,
+    html: baseTemplate(content, `CA$${amountDollars} is waiting for you.`),
+  });
+}
+
 export async function sendBusinessDonationNotification(params: {
   to: string;
   businessName: string;

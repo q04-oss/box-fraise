@@ -1,39 +1,58 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
-  TextInput, Keyboard, KeyboardAvoidingView, Platform,
+  TextInput, Keyboard, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as Haptics from 'expo-haptics';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { searchUsers, createCreditTransferIntent } from '../../lib/api';
+import { searchUsers, createCreditTransferIntent, createCreditContactIntent } from '../../lib/api';
 
 const PRESETS = [300, 500, 1000, 2500];
+
+type Mode = 'member' | 'contact';
 
 export default function SendCreditPanel() {
   const { goBack } = usePanel();
   const c = useColors();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
+  const [mode, setMode] = useState<Mode>('member');
+
+  // Member search
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ id: number; display_name: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [recipient, setRecipient] = useState<{ id: number; display_name: string } | null>(null);
 
+  // Contact (phone/email)
+  const [contact, setContact] = useState('');
+
+  // Amount
   const [selected, setSelected] = useState<number | null>(500);
   const [customInput, setCustomInput] = useState('');
-  const [note, setNote] = useState('');
   const customRef = useRef<TextInput>(null);
+
+  // Note
+  const [note, setNote] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [doneName, setDoneName] = useState('');
 
   const activeCents = (() => {
     if (selected !== null) return selected;
     const n = Math.round(parseFloat(customInput) * 100);
     return isNaN(n) ? 0 : n;
   })();
+
+  const isPhone = (s: string) => /^\+?[1-9]\d{7,14}$/.test(s.replace(/\s/g, ''));
+  const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+  const contactValid = mode === 'member'
+    ? recipient !== null
+    : (isPhone(contact) || isEmail(contact));
 
   const handleSearch = async (text: string) => {
     setQuery(text);
@@ -47,11 +66,27 @@ export default function SendCreditPanel() {
   };
 
   const handlePay = async () => {
-    if (!recipient || activeCents < 100) return;
+    if (!contactValid || activeCents < 100) return;
     Keyboard.dismiss();
     setLoading(true);
     try {
-      const { client_secret } = await createCreditTransferIntent(recipient.id, activeCents, note || undefined);
+      let client_secret: string;
+      let displayName: string;
+
+      if (mode === 'member' && recipient) {
+        const res = await createCreditTransferIntent(recipient.id, activeCents, note || undefined);
+        client_secret = res.client_secret;
+        displayName = recipient.display_name;
+      } else {
+        const trimmed = contact.trim().replace(/\s/g, '');
+        const params = isPhone(trimmed)
+          ? { recipient_phone: trimmed.startsWith('+') ? trimmed : `+1${trimmed}`, amount_cents: activeCents, note: note || undefined }
+          : { recipient_email: trimmed, amount_cents: activeCents, note: note || undefined };
+        const res = await createCreditContactIntent(params);
+        client_secret = res.client_secret;
+        displayName = trimmed;
+      }
+
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: client_secret,
         merchantDisplayName: 'Box Fraise',
@@ -60,6 +95,7 @@ export default function SendCreditPanel() {
       const { error: presentError } = await presentPaymentSheet();
       if (!presentError) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setDoneName(displayName);
         setDone(true);
       }
     } catch { /* silent */ }
@@ -73,7 +109,7 @@ export default function SendCreditPanel() {
           <Text style={styles.confirmEmoji}>🍓</Text>
           <Text style={[styles.confirmTitle, { color: c.text }]}>Sent.</Text>
           <Text style={[styles.confirmSub, { color: c.muted }]}>
-            CA${(activeCents / 100).toFixed(2)} added to {recipient?.display_name ?? 'their'} credit.
+            CA${(activeCents / 100).toFixed(2)} on its way to {doneName}.
           </Text>
         </View>
       </View>
@@ -82,7 +118,12 @@ export default function SendCreditPanel() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.wrap, { backgroundColor: c.background }]}>
+      <ScrollView
+        style={[styles.wrap, { backgroundColor: c.background }]}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={goBack} activeOpacity={0.7}>
             <Text style={[styles.back, { color: c.muted }]}>← back</Text>
@@ -90,42 +131,73 @@ export default function SendCreditPanel() {
           <Text style={[styles.title, { color: c.text }]}>send credit</Text>
         </View>
 
-        {/* Recipient search */}
-        {!recipient ? (
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: c.muted }]}>WHO</Text>
+        {/* Mode toggle */}
+        <View style={[styles.toggle, { borderColor: c.border }]}>
+          {(['member', 'contact'] as Mode[]).map(m => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.toggleBtn, mode === m && { backgroundColor: c.text }]}
+              onPress={() => { setMode(m); setRecipient(null); setContact(''); setResults([]); setQuery(''); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.toggleText, { color: mode === m ? c.background : c.muted }]}>
+                {m === 'member' ? 'Member' : 'Phone / Email'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Recipient */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: c.muted }]}>TO</Text>
+
+          {mode === 'member' ? (
+            !recipient ? (
+              <>
+                <TextInput
+                  style={[styles.input, { color: c.text, borderColor: c.border }]}
+                  placeholder="Search by name…"
+                  placeholderTextColor={c.muted}
+                  value={query}
+                  onChangeText={handleSearch}
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {searching && <ActivityIndicator size="small" color={c.muted} style={{ marginTop: 8 }} />}
+                {results.map(u => (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={[styles.resultRow, { borderBottomColor: c.border }]}
+                    onPress={() => { setRecipient(u); setResults([]); setQuery(''); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.resultName, { color: c.text }]}>{u.display_name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : (
+              <View style={styles.recipientRow}>
+                <Text style={[styles.recipientName, { color: c.text }]}>{recipient.display_name}</Text>
+                <TouchableOpacity onPress={() => setRecipient(null)} activeOpacity={0.7}>
+                  <Text style={[styles.changeBtn, { color: c.muted }]}>change</Text>
+                </TouchableOpacity>
+              </View>
+            )
+          ) : (
             <TextInput
-              style={[styles.searchInput, { color: c.text, borderColor: c.border }]}
-              placeholder="Search by name…"
+              style={[styles.input, { color: c.text, borderColor: c.border }]}
+              placeholder="+1 555 000 0000 or email"
               placeholderTextColor={c.muted}
-              value={query}
-              onChangeText={handleSearch}
+              value={contact}
+              onChangeText={setContact}
+              keyboardType="email-address"
               autoCorrect={false}
-              returnKeyType="search"
+              autoCapitalize="none"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
-            {searching && <ActivityIndicator size="small" color={c.muted} style={{ marginTop: 8 }} />}
-            {results.map(u => (
-              <TouchableOpacity
-                key={u.id}
-                style={[styles.resultRow, { borderBottomColor: c.border }]}
-                onPress={() => { setRecipient(u); setResults([]); setQuery(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.resultName, { color: c.text }]}>{u.display_name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <Text style={[styles.label, { color: c.muted }]}>TO</Text>
-            <View style={styles.recipientRow}>
-              <Text style={[styles.recipientName, { color: c.text }]}>{recipient.display_name}</Text>
-              <TouchableOpacity onPress={() => setRecipient(null)} activeOpacity={0.7}>
-                <Text style={[styles.changeBtn, { color: c.muted }]}>change</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Amount */}
         <View style={styles.section}>
@@ -164,7 +236,7 @@ export default function SendCreditPanel() {
         <View style={styles.section}>
           <Text style={[styles.label, { color: c.muted }]}>NOTE (optional)</Text>
           <TextInput
-            style={[styles.noteInput, { color: c.text, borderColor: c.border }]}
+            style={[styles.input, { color: c.text, borderColor: c.border }]}
             placeholder="Add a note…"
             placeholderTextColor={c.muted}
             value={note}
@@ -177,10 +249,10 @@ export default function SendCreditPanel() {
         <TouchableOpacity
           style={[
             styles.payBtn,
-            { backgroundColor: c.text, opacity: (!recipient || activeCents < 100 || loading) ? 0.3 : 1 },
+            { backgroundColor: c.text, opacity: (!contactValid || activeCents < 100 || loading) ? 0.3 : 1 },
           ]}
           onPress={handlePay}
-          disabled={!recipient || activeCents < 100 || loading}
+          disabled={!contactValid || activeCents < 100 || loading}
           activeOpacity={0.85}
         >
           {loading ? (
@@ -191,19 +263,23 @@ export default function SendCreditPanel() {
             </Text>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, paddingHorizontal: SPACING.md },
+  wrap: { flex: 1 },
+  content: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xl },
   header: { paddingTop: SPACING.lg, paddingBottom: SPACING.md, gap: 4 },
   back: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
   title: { fontFamily: fonts.playfair, fontSize: 28 },
+  toggle: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, overflow: 'hidden', marginBottom: SPACING.lg },
+  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+  toggleText: { fontFamily: fonts.dmMono, fontSize: 11, letterSpacing: 0.5 },
   section: { marginBottom: SPACING.lg },
   label: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 1.5, marginBottom: 10 },
-  searchInput: { fontFamily: fonts.body, fontSize: 15, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  input: { fontFamily: fonts.body, fontSize: 15, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   resultRow: { borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 12 },
   resultName: { fontFamily: fonts.body, fontSize: 15 },
   recipientRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -215,7 +291,6 @@ const styles = StyleSheet.create({
   customRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 12 },
   currencyPrefix: { fontFamily: fonts.dmMono, fontSize: 13, marginRight: 4 },
   customInput: { flex: 1, fontFamily: fonts.body, fontSize: 15, paddingVertical: 10 },
-  noteInput: { fontFamily: fonts.body, fontSize: 15, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   payBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   payBtnText: { fontFamily: fonts.dmMono, fontSize: 13, letterSpacing: 1 },
   confirmWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
