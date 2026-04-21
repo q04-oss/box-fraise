@@ -572,6 +572,9 @@ export default function MapScreen() {
                   {!!b.neighbourhood && (
                     <Text style={[styles.calloutMetaText, { color: c.muted }]}>{b.neighbourhood}</Text>
                   )}
+                  {!!b.hours && (
+                    <Text style={[styles.calloutMetaText, { color: c.muted }]}>{b.hours}</Text>
+                  )}
                   {!!formatDistance(b.lat, b.lng) && (
                     <Text style={[styles.calloutMetaText, { color: c.muted }]}>{formatDistance(b.lat, b.lng)}</Text>
                   )}
