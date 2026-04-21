@@ -41,11 +41,9 @@ router.post('/generate/:business_id', requireUser, async (req: any, res: Respons
     const [biz] = await db.select().from(businesses).where(eq(businesses.id, bizId)).limit(1);
     if (!biz) { res.status(404).json({ error: 'not_found' }); return; }
 
-    const parts = [
-      biz.name,
-      biz.neighbourhood ?? null,
-      biz.description ?? null,
-    ].filter(Boolean).join(', ');
+    const parts = [biz.name, biz.neighbourhood, biz.description]
+      .filter((v): v is string => v != null && v !== '')
+      .join(', ');
 
     const imagePrompt = `Die-cut vinyl sticker of ${parts}. White background, bold graphic illustration, clean thick white border, collectible sticker style, no text.`;
 
