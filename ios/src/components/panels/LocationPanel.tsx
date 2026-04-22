@@ -113,6 +113,15 @@ export default function LocationPanel() {
               </Text>
               <Text style={[styles.foodMenuArrow, { color: '#fff' }]}>→</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.foodMenuBtn, { backgroundColor: 'transparent', borderWidth: StyleSheet.hairlineWidth, borderColor: c.border }]}
+              onPress={() => showPanel('popup-merch', { popupId: activeLocation.id, popupName: activeLocation.name })}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.foodMenuBtnText, { color: c.text }]}>merch</Text>
+              <Text style={[styles.foodMenuArrow, { color: c.muted }]}>→</Text>
+            </TouchableOpacity>
           </View>
         )}
 

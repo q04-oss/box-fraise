@@ -229,6 +229,35 @@ export async function ensureSchema(): Promise<void> {
   await run('businesses.min_orders_to_confirm', sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS min_orders_to_confirm integer`);
   await run('businesses.confirmed_at', sql`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS confirmed_at timestamptz`);
 
+  // ── Popup merch ──────────────────────────────────────────────────────────────
+  await run('popup_merch_items', sql`CREATE TABLE IF NOT EXISTS popup_merch_items (
+    id SERIAL PRIMARY KEY,
+    popup_id INTEGER NOT NULL REFERENCES businesses(id),
+    name TEXT NOT NULL,
+    description TEXT,
+    price_cents INTEGER NOT NULL,
+    image_url TEXT,
+    sizes TEXT[] NOT NULL DEFAULT '{}',
+    stock_remaining INTEGER NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT true,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`);
+
+  await run('popup_merch_orders', sql`CREATE TABLE IF NOT EXISTS popup_merch_orders (
+    id SERIAL PRIMARY KEY,
+    popup_id INTEGER NOT NULL REFERENCES businesses(id),
+    item_id INTEGER NOT NULL REFERENCES popup_merch_items(id),
+    buyer_user_id INTEGER NOT NULL REFERENCES users(id),
+    recipient_user_id INTEGER REFERENCES users(id),
+    donated BOOLEAN NOT NULL DEFAULT false,
+    size TEXT,
+    total_cents INTEGER NOT NULL,
+    stripe_payment_intent_id TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`);
+
   // ── Popup food orders ────────────────────────────────────────────────────────
   await run('popup_food_orders', sql`CREATE TABLE IF NOT EXISTS popup_food_orders (
     id SERIAL PRIMARY KEY,

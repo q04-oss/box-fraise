@@ -496,6 +496,34 @@ export const popupCheckins = pgTable('popup_checkins', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const popupMerchItems = pgTable('popup_merch_items', {
+  id: serial('id').primaryKey(),
+  popup_id: integer('popup_id').notNull().references(() => businesses.id),
+  name: text('name').notNull(),
+  description: text('description'),
+  price_cents: integer('price_cents').notNull(),
+  image_url: text('image_url'),
+  sizes: text('sizes').array().notNull().default([]), // e.g. ['XS','S','M','L','XL']
+  stock_remaining: integer('stock_remaining').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  sort_order: integer('sort_order').notNull().default(0),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const popupMerchOrders = pgTable('popup_merch_orders', {
+  id: serial('id').primaryKey(),
+  popup_id: integer('popup_id').notNull().references(() => businesses.id),
+  item_id: integer('item_id').notNull().references(() => popupMerchItems.id),
+  buyer_user_id: integer('buyer_user_id').notNull().references(() => users.id),
+  recipient_user_id: integer('recipient_user_id').references(() => users.id), // null = donate
+  donated: boolean('donated').notNull().default(false),
+  size: text('size'),
+  total_cents: integer('total_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id').unique(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid' | 'cancelled'
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const popupFoodOrders = pgTable('popup_food_orders', {
   id: serial('id').primaryKey(),
   popup_id: integer('popup_id').notNull().references(() => businesses.id),

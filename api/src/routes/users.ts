@@ -4,7 +4,7 @@ import { db } from '../db';
 import {
   users, legitimacyEvents, businesses, popupRsvps, djOffers, popupNominations,
   employmentContracts, orders, varieties, timeSlots, userFollows, notifications,
-  referralCodes, memberships,
+  referralCodes, memberships, popupMerchOrders, popupMerchItems,
 } from '../db/schema';
 import { requireUser } from '../lib/auth';
 import { MIN_QUANTITY } from '../lib/batchTrigger';
@@ -1046,6 +1046,55 @@ router.patch('/me/notification-prefs', requireUser, async (req: Request, res: Re
     const [updated] = await db.update(users).set({ notification_prefs: prefs }).where(eq(users.id, user_id)).returning({ notification_prefs: users.notification_prefs });
     if (!updated) { res.status(404).json({ error: 'User not found' }); return; }
     res.json(updated.notification_prefs);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/me/merch-history
+router.get('/me/merch-history', requireUser, async (req: Request, res: Response) => {
+  const user_id = (req as any).userId as number;
+  try {
+    const sent = await db
+      .select({
+        id: popupMerchOrders.id,
+        popup_id: popupMerchOrders.popup_id,
+        item_id: popupMerchOrders.item_id,
+        item_name: popupMerchItems.name,
+        size: popupMerchOrders.size,
+        total_cents: popupMerchOrders.total_cents,
+        status: popupMerchOrders.status,
+        donated: popupMerchOrders.donated,
+        recipient_user_id: popupMerchOrders.recipient_user_id,
+        recipient_name: sql<string | null>`(SELECT name FROM users WHERE id = ${popupMerchOrders.recipient_user_id})`,
+        recipient_code: sql<string | null>`(SELECT referral_code FROM users WHERE id = ${popupMerchOrders.recipient_user_id})`,
+        created_at: popupMerchOrders.created_at,
+      })
+      .from(popupMerchOrders)
+      .innerJoin(popupMerchItems, eq(popupMerchOrders.item_id, popupMerchItems.id))
+      .where(eq(popupMerchOrders.buyer_user_id, user_id))
+      .orderBy(desc(popupMerchOrders.created_at));
+
+    const received = await db
+      .select({
+        id: popupMerchOrders.id,
+        popup_id: popupMerchOrders.popup_id,
+        item_id: popupMerchOrders.item_id,
+        item_name: popupMerchItems.name,
+        size: popupMerchOrders.size,
+        total_cents: popupMerchOrders.total_cents,
+        status: popupMerchOrders.status,
+        buyer_user_id: popupMerchOrders.buyer_user_id,
+        buyer_name: sql<string>`(SELECT name FROM users WHERE id = ${popupMerchOrders.buyer_user_id})`,
+        buyer_code: sql<string>`(SELECT referral_code FROM users WHERE id = ${popupMerchOrders.buyer_user_id})`,
+        created_at: popupMerchOrders.created_at,
+      })
+      .from(popupMerchOrders)
+      .innerJoin(popupMerchItems, eq(popupMerchOrders.item_id, popupMerchItems.id))
+      .where(and(eq(popupMerchOrders.recipient_user_id, user_id), eq(popupMerchOrders.status, 'paid')))
+      .orderBy(desc(popupMerchOrders.created_at));
+
+    res.json({ sent, received });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
