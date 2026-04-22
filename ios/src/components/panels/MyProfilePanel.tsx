@@ -19,6 +19,7 @@ import {
   fetchMySaves, fetchMyFollowers, fetchFeedVisibility, setFeedVisibility,
   fetchPresenceFeed, fetchMyBusinessProposals,
   fetchMyBeacons, registerBeacon, deactivateBeacon,
+  fetchMerchHistory, PopupMerchOrder,
 } from '../../lib/api';
 
 function timeAgo(isoDate: string): string {
@@ -63,6 +64,8 @@ export default function MyProfilePanel() {
   const [togglingFeed, setTogglingFeed] = useState(false);
   const [feedEntries, setFeedEntries] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [merchSent, setMerchSent] = useState<PopupMerchOrder[]>([]);
+  const [merchReceived, setMerchReceived] = useState<PopupMerchOrder[]>([]);
 
   useEffect(() => {
     AsyncStorage.multiGet(['user_db_id', 'is_shop']).then(([idEntry, shopEntry]) => {
@@ -87,6 +90,7 @@ export default function MyProfilePanel() {
     fetchFeedVisibility().then(v => setFeedVisibleState(v)).catch(() => {});
     fetchPresenceFeed().then(e => setFeedEntries(e)).catch(() => {});
     fetchMyBusinessProposals().then(p => setProposals(p)).catch(() => {});
+    fetchMerchHistory().then(h => { setMerchSent(h.sent); setMerchReceived(h.received); }).catch(() => {});
     if (shop) fetchMyBeacons().then(b => setMyBeacons(b)).catch(() => {});
   };
 
@@ -497,6 +501,32 @@ export default function MyProfilePanel() {
             )}
           </View>
 
+          {/* Merch */}
+          {(merchSent.filter(o => o.status === 'paid').length > 0 || merchReceived.length > 0) && (
+            <View style={[styles.section, { borderBottomColor: c.border }]}>
+              <Text style={[styles.sectionLabel, { color: c.muted }]}>MERCH</Text>
+              {merchSent.filter(o => o.status === 'paid').map(o => (
+                <View key={o.id} style={[styles.merchRow, { borderTopColor: c.border }]}>
+                  <Text style={[styles.merchItem, { color: c.text }]}>{o.item_name}{o.size ? ` · ${o.size}` : ''}</Text>
+                  <Text style={[styles.merchMeta, { color: c.muted }]}>
+                    {o.donated ? 'donated' : o.recipient_user_id ? `gifted to ${o.recipient_name ?? 'someone'}` : 'kept'}
+                  </Text>
+                </View>
+              ))}
+              {merchReceived.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: c.muted, marginTop: 10 }]}>RECEIVED</Text>
+                  {merchReceived.map(o => (
+                    <View key={o.id} style={[styles.merchRow, { borderTopColor: c.border }]}>
+                      <Text style={[styles.merchItem, { color: c.text }]}>{o.item_name}{o.size ? ` · ${o.size}` : ''}</Text>
+                      <Text style={[styles.merchMeta, { color: c.muted }]}>from {o.buyer_name ?? 'someone'}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+
           {/* Nominations */}
           {proposals.length > 0 && (
             <View style={[styles.section, { borderBottomColor: c.border }]}>
@@ -626,6 +656,11 @@ const styles = StyleSheet.create({
   feedName: { fontFamily: fonts.playfair, fontSize: 14 },
   feedPlace: { fontFamily: fonts.dmSans, fontSize: 12 },
   feedWhen: { fontFamily: fonts.dmMono, fontSize: 9, letterSpacing: 0.5, marginTop: 2 },
+
+  // Merch
+  merchRow: { paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 6, gap: 2 },
+  merchItem: { fontFamily: fonts.dmSans, fontSize: 14 },
+  merchMeta: { fontFamily: fonts.dmMono, fontSize: 10, letterSpacing: 0.5 },
 
   // Nominations
   proposalRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 6 },

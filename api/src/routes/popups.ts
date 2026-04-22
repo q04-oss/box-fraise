@@ -5,6 +5,7 @@ import {
   businesses, users, popupRsvps, popupCheckins,
   popupNominations, djOffers, legitimacyEvents,
   popupFoodOrders, businessMenuItems,
+  popupMerchItems, popupMerchOrders,
 } from '../db/schema';
 import { isNull, isNotNull } from 'drizzle-orm';
 import { stripe } from '../lib/stripe';
@@ -738,6 +739,137 @@ router.post('/:id/food-orders/:orderId/claim', requireUser, async (req: Request,
     }
     res.json({ claimed: true });
   } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ─── Popup merch ──────────────────────────────────────────────────────────────
+
+// GET /api/popups/:id/merch
+router.get('/:id/merch', async (req: Request, res: Response) => {
+  const popup_id = parseInt(req.params.id, 10);
+  if (isNaN(popup_id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const items = await db
+      .select()
+      .from(popupMerchItems)
+      .where(and(eq(popupMerchItems.popup_id, popup_id), eq(popupMerchItems.active, true)))
+      .orderBy(popupMerchItems.sort_order);
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/popups/:id/merch-orders — my sent + my received
+router.get('/:id/merch-orders', requireUser, async (req: Request, res: Response) => {
+  const popup_id = parseInt(req.params.id, 10);
+  const user_id: number = (req as any).userId;
+  if (isNaN(popup_id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const sent = await db
+      .select({
+        id: popupMerchOrders.id,
+        item_id: popupMerchOrders.item_id,
+        item_name: popupMerchItems.name,
+        recipient_user_id: popupMerchOrders.recipient_user_id,
+        recipient_name: users.display_name,
+        recipient_code: users.user_code,
+        donated: popupMerchOrders.donated,
+        size: popupMerchOrders.size,
+        total_cents: popupMerchOrders.total_cents,
+        status: popupMerchOrders.status,
+        created_at: popupMerchOrders.created_at,
+      })
+      .from(popupMerchOrders)
+      .innerJoin(popupMerchItems, eq(popupMerchOrders.item_id, popupMerchItems.id))
+      .leftJoin(users, eq(popupMerchOrders.recipient_user_id, users.id))
+      .where(and(eq(popupMerchOrders.popup_id, popup_id), eq(popupMerchOrders.buyer_user_id, user_id), eq(popupMerchOrders.status, 'paid')));
+
+    const received = await db
+      .select({
+        id: popupMerchOrders.id,
+        item_id: popupMerchOrders.item_id,
+        item_name: popupMerchItems.name,
+        buyer_user_id: popupMerchOrders.buyer_user_id,
+        buyer_name: users.display_name,
+        buyer_code: users.user_code,
+        size: popupMerchOrders.size,
+        total_cents: popupMerchOrders.total_cents,
+        created_at: popupMerchOrders.created_at,
+      })
+      .from(popupMerchOrders)
+      .innerJoin(popupMerchItems, eq(popupMerchOrders.item_id, popupMerchItems.id))
+      .innerJoin(users, eq(popupMerchOrders.buyer_user_id, users.id))
+      .where(and(
+        eq(popupMerchOrders.popup_id, popup_id),
+        eq(popupMerchOrders.recipient_user_id, user_id),
+        eq(popupMerchOrders.status, 'paid'),
+        sql`${popupMerchOrders.buyer_user_id} != ${user_id}`,
+      ));
+
+    res.json({ sent, received });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/popups/:id/merch-orders — purchase merch
+router.post('/:id/merch-orders', requireUser, async (req: Request, res: Response) => {
+  const popup_id = parseInt(req.params.id, 10);
+  const user_id: number = (req as any).userId;
+  if (isNaN(popup_id)) { res.status(400).json({ error: 'Invalid id' }); return; }
+
+  const { item_id, size, recipient_user_id, donate } = req.body;
+  if (!item_id) { res.status(400).json({ error: 'item_id required' }); return; }
+
+  try {
+    const [item] = await db
+      .select()
+      .from(popupMerchItems)
+      .where(and(eq(popupMerchItems.id, parseInt(String(item_id), 10)), eq(popupMerchItems.popup_id, popup_id)));
+    if (!item) { res.status(404).json({ error: 'Item not found' }); return; }
+    if (item.stock_remaining <= 0) { res.status(409).json({ error: 'Out of stock' }); return; }
+
+    const isDonate = !!donate;
+    const recipient: number | null = isDonate
+      ? null
+      : (recipient_user_id ? parseInt(String(recipient_user_id), 10) : user_id);
+
+    const [popup] = await db.select({ name: businesses.name }).from(businesses).where(eq(businesses.id, popup_id));
+
+    const pi = await stripe.paymentIntents.create({
+      amount: item.price_cents,
+      currency: 'cad',
+      metadata: {
+        type: 'popup_merch_order',
+        popup_id: String(popup_id),
+        buyer_user_id: String(user_id),
+        item_id: String(item.id),
+        donate: isDonate ? 'true' : 'false',
+        recipient_user_id: recipient !== null ? String(recipient) : '',
+        popup_name: popup?.name ?? '',
+      },
+    });
+
+    const [order] = await db
+      .insert(popupMerchOrders)
+      .values({
+        popup_id,
+        item_id: item.id,
+        buyer_user_id: user_id,
+        recipient_user_id: recipient,
+        donated: isDonate,
+        size: size ?? null,
+        total_cents: item.price_cents,
+        stripe_payment_intent_id: pi.id,
+        status: 'pending',
+      })
+      .returning();
+
+    res.status(201).json({ id: order.id, client_secret: pi.client_secret });
+  } catch (err) {
+    logger.error('Popup merch order error', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

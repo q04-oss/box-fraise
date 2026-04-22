@@ -27,7 +27,8 @@ export type PanelId =
   | 'memory-prompt'
   | 'conversations'
   | 'chat-thread'
-  | 'popup-food';
+  | 'popup-food'
+  | 'popup-merch';
 
 export interface OrderState {
   variety_id: number | null;

@@ -318,6 +318,72 @@ export async function createPopupRsvp(popupId: number) {
   return res.json() as Promise<{ id: number; client_secret: string }>;
 }
 
+export interface PopupMerchItem {
+  id: number;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  image_url: string | null;
+  sizes: string[];
+  stock_remaining: number;
+}
+
+export interface PopupMerchOrder {
+  id: number;
+  item_id: number;
+  item_name: string;
+  recipient_user_id?: number | null;
+  recipient_name?: string | null;
+  recipient_code?: string | null;
+  buyer_user_id?: number;
+  buyer_name?: string | null;
+  buyer_code?: string | null;
+  donated: boolean;
+  size: string | null;
+  total_cents: number;
+  status: string;
+  created_at: string;
+}
+
+export async function fetchPopupMerch(popupId: number): Promise<PopupMerchItem[]> {
+  const res = await fetch(`${BASE_URL}/api/popups/${popupId}/merch`);
+  if (!res.ok) throw new Error('Failed to fetch merch');
+  return res.json();
+}
+
+export async function fetchPopupMerchOrders(popupId: number): Promise<{ sent: PopupMerchOrder[]; received: PopupMerchOrder[] }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/popups/${popupId}/merch-orders`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch merch orders');
+  return res.json();
+}
+
+export async function createPopupMerchOrder(popupId: number, body: {
+  item_id: number;
+  size?: string;
+  recipient_user_id?: number;
+  donate?: boolean;
+}): Promise<{ id: number; client_secret: string }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/popups/${popupId}/merch-orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to create merch order');
+  }
+  return res.json();
+}
+
+export async function fetchMerchHistory(): Promise<{ sent: PopupMerchOrder[]; received: PopupMerchOrder[] }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/users/me/merch-history`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch merch history');
+  return res.json();
+}
+
 export interface PopupMenuItem {
   id: number;
   name: string;

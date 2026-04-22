@@ -307,6 +307,30 @@ router.post('/webhook', async (req: Request, res: Response) => {
             }
           }).catch(() => {});
         }
+      } else if (type === 'popup_merch_order') {
+        const [merchOrder] = await db
+          .select({ id: sql<number>`id`, status: sql<string>`status`, item_id: sql<number>`item_id` })
+          .from(sql`popup_merch_orders`)
+          .where(sql`stripe_payment_intent_id = ${pi.id}`);
+        if (merchOrder && merchOrder.status === 'pending') {
+          await db.execute(sql`UPDATE popup_merch_orders SET status = 'paid' WHERE id = ${merchOrder.id}`);
+          await db.execute(sql`UPDATE popup_merch_items SET stock_remaining = stock_remaining - 1 WHERE id = ${merchOrder.item_id} AND stock_remaining > 0`);
+          logger.info(`Popup merch order ${merchOrder.id} paid`);
+
+          // Notify recipient if gifted to another user
+          const recipientId = parseInt(pi.metadata?.recipient_user_id ?? '', 10);
+          const isDonate = pi.metadata?.donate === 'true';
+          if (!isDonate && !isNaN(recipientId) && recipientId !== parseInt(pi.metadata?.buyer_user_id ?? '', 10)) {
+            const [recipient] = await db.select({ push_token: users.push_token }).from(users).where(eq(users.id, recipientId));
+            if (recipient?.push_token) {
+              sendPushNotification(recipient.push_token, {
+                title: 'Someone got you something',
+                body: `A piece from ${pi.metadata?.popup_name ?? 'a popup'} is on your profile.`,
+                data: { screen: 'profile' },
+              }).catch(() => {});
+            }
+          }
+        }
       } else if (type === 'popup_food_order') {
         const [foodOrder] = await db
           .select({ id: sql<number>`id`, status: sql<string>`status`, popup_id: sql<number>`popup_id` })
