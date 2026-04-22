@@ -129,15 +129,39 @@
     }
 
     @media (max-width: 560px) {
+      main {
+        padding-inline: 1.5rem;
+        justify-content: flex-start;
+        padding-block: 3rem;
+      }
+
       .layout {
-        flex-direction: column-reverse;
-        align-items: flex-start;
-        gap: 2rem;
+        flex-direction: column;
+        align-items: center;
+        gap: 2.5rem;
+      }
+
+      .left {
+        align-items: center;
+        text-align: center;
+      }
+
+      .left header {
+        text-align: center;
+      }
+
+      nav {
+        align-items: center;
+      }
+
+      .btn {
+        align-self: center;
       }
 
       .right {
-        width: clamp(120px, 50vw, 180px);
-        align-self: center;
+        width: 75vw;
+        max-width: 300px;
+        order: -1;
       }
     }
   </style>
