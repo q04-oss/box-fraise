@@ -37,18 +37,33 @@
       flex-direction: column;
       justify-content: center;
       width: 100%;
-      max-width: 680px;
+      max-width: 960px;
       margin-inline: auto;
       padding-inline: clamp(2rem, 6vw, 5rem);
       padding-block: clamp(3rem, 8vw, 6rem);
     }
 
-    .content {
+    .layout {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: clamp(3rem, 8vw, 6rem);
+    }
+
+    .left {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       gap: 2.5rem;
+      min-width: 0;
+    }
+
+    .right {
+      flex: 0 0 auto;
+      width: clamp(180px, 30vw, 280px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     h1 {
@@ -62,7 +77,6 @@
       color: var(--muted);
       font-size: 1rem;
       line-height: 1.6;
-      max-width: 42ch;
     }
 
     nav {
@@ -94,7 +108,6 @@
 
     .device-render {
       width: 100%;
-      max-width: 320px;
       height: auto;
       display: block;
       mix-blend-mode: multiply;
@@ -114,28 +127,44 @@
     footer a:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 560px) {
+      .layout {
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: 2rem;
+      }
+
+      .right {
+        width: clamp(120px, 50vw, 180px);
+        align-self: center;
+      }
+    }
   </style>
 </head>
 <body>
   <main>
-    <div class="content">
-      <header>
-        <h1>box fraise</h1>
-        <p class="subtitle">Better taste.</p>
-        <a href="/shop" style="font-size: 2.5rem; line-height: 1; text-decoration: none; cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; gap: 0.4rem; transition: transform 0.15s ease;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🍓<span style="font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: inherit;">stickers</span></a>
-      </header>
+    <div class="layout">
+      <div class="left">
+        <header>
+          <h1>box fraise</h1>
+          <p class="subtitle">Better taste.</p>
+        </header>
 
-      <img src="/device.png" alt="box fraise device" class="device-render" />
+        <nav>
+          <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn btn-primary">Download beta</a>
+          <a href="/shop" class="btn btn-secondary">Stickers</a>
+          <a href="/support" class="btn btn-secondary">Support</a>
+        </nav>
+      </div>
 
-      <nav>
-        <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn btn-primary">Download beta</a>
-        <a href="/shop" class="btn btn-secondary">Stickers</a>
-        <a href="/support" class="btn btn-secondary">Support</a>
-      </nav>
+      <div class="right">
+        <img src="/device.png" alt="box fraise device" class="device-render" />
+      </div>
     </div>
 
     <footer>
-<a href="/paper">Working Paper No. 1 →</a>
+      <a href="/paper">Working Paper No. 1 →</a>
     </footer>
   </main>
 </body>
