@@ -615,7 +615,7 @@ export async function updateDisplayName(display_name: string): Promise<void> {
 
 export async function searchUsers(q: string): Promise<{ id: number; display_name: string; portrait_url: string | null; verified: boolean; save_count: number }[]> {
   const res = await fetch(`${BASE_URL}/api/search?q=${encodeURIComponent(q)}`);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error('Search failed');
   const data = await res.json();
   return data.users ?? [];
 }

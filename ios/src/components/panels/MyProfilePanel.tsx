@@ -395,7 +395,7 @@ export default function MyProfilePanel() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sectionLabel, { color: c.muted }]}>SHARE MY VISITS</Text>
                 <Text style={[styles.subLine, { color: c.muted, marginTop: 4 }]}>
-                  Let people you save see where you've been
+                  Let people who save you see where you've been
                 </Text>
               </View>
               <Switch

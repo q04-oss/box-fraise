@@ -48,9 +48,11 @@ export default function UserProfilePanel() {
       if (saved) {
         await unsaveUser(userId);
         setSaved(false);
+        setSaveCount(c => Math.max(0, c - 1));
       } else {
         await saveUser(userId);
         setSaved(true);
+        setSaveCount(c => c + 1);
       }
     } catch {
       Alert.alert('Something went wrong', 'Try again.');

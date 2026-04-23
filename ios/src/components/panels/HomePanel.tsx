@@ -186,7 +186,7 @@ export default function HomePanel() {
 
   // ── Discover / search ──
   const [searchQuery, setSearchQuery] = useState('');
-  const [userResults, setUserResults] = useState<{ id: number; display_name: string; portrait_url: string | null; verified: boolean }[]>([]);
+  const [userResults, setUserResults] = useState<{ id: number; display_name: string; portrait_url: string | null; verified: boolean; save_count: number }[]>([]);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

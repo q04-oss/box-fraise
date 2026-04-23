@@ -6,41 +6,53 @@ import { requireUser } from '../lib/auth';
 const router = Router();
 
 // ─── Boot-time migrations ─────────────────────────────────────────────────────
-db.execute(sql`
-  CREATE TABLE IF NOT EXISTS user_maps (
-    id serial PRIMARY KEY,
-    user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name text NOT NULL,
-    description text,
-    created_at timestamptz NOT NULL DEFAULT now()
-  )
-`).catch(() => {});
+import { logger } from '../lib/logger';
 
-db.execute(sql`
-  CREATE TABLE IF NOT EXISTS user_map_entries (
-    id serial PRIMARY KEY,
-    map_id integer NOT NULL REFERENCES user_maps(id) ON DELETE CASCADE,
-    business_id integer NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-    note text,
-    sort_order integer NOT NULL DEFAULT 0,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (map_id, business_id)
-  )
-`).catch(() => {});
+async function runMigration(name: string, statement: ReturnType<typeof sql>) {
+  try {
+    await db.execute(statement);
+  } catch (err) {
+    logger.error(`[maps] migration failed: ${name}`, err);
+    throw err;
+  }
+}
 
-db.execute(sql`
-  CREATE TABLE IF NOT EXISTS user_saves (
-    id serial PRIMARY KEY,
-    saver_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    saved_user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (saver_id, saved_user_id)
-  )
-`).catch(() => {});
-
-db.execute(sql`
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS feed_visible boolean NOT NULL DEFAULT false
-`).catch(() => {});
+Promise.all([
+  runMigration('user_maps', sql`
+    CREATE TABLE IF NOT EXISTS user_maps (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      description text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `),
+  runMigration('user_map_entries', sql`
+    CREATE TABLE IF NOT EXISTS user_map_entries (
+      id serial PRIMARY KEY,
+      map_id integer NOT NULL REFERENCES user_maps(id) ON DELETE CASCADE,
+      business_id integer NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      note text,
+      sort_order integer NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (map_id, business_id)
+    )
+  `),
+  runMigration('user_saves', sql`
+    CREATE TABLE IF NOT EXISTS user_saves (
+      id serial PRIMARY KEY,
+      saver_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      saved_user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (saver_id, saved_user_id)
+    )
+  `),
+  runMigration('users_feed_visible', sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS feed_visible boolean NOT NULL DEFAULT false
+  `),
+]).catch((err) => {
+  logger.error('[maps] startup migration failed — map features may be unavailable', err);
+});
 
 // ─── Maps ─────────────────────────────────────────────────────────────────────
 
@@ -131,7 +143,8 @@ router.post('/', requireUser, async (req: Request, res: Response) => {
       VALUES (${userId}, ${name.trim()}, ${description ?? null})
       RETURNING id, name, description, created_at
     `);
-    res.json(((rows as any).rows ?? rows)[0]);
+    const newMap = ((rows as any).rows ?? rows)[0] as any;
+    res.json({ ...newMap, entry_count: 0 });
   } catch { res.status(500).json({ error: 'internal_error' }); }
 });
 
@@ -298,7 +311,7 @@ router.get('/feed', requireUser, async (req: Request, res: Response) => {
         u.portrait_url
       FROM user_saves s
       JOIN users u ON u.id = s.saved_user_id AND u.feed_visible = true
-      JOIN orders o ON o.apple_id = u.apple_user_id AND o.status IN ('collected', 'paid', 'ready')
+      JOIN orders o ON o.apple_id = u.apple_user_id AND o.status = 'collected'
       JOIN businesses b ON b.id = o.location_id
       WHERE s.saver_id = ${userId}
         AND o.created_at > NOW() - INTERVAL '30 days'

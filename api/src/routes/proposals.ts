@@ -9,6 +9,17 @@ const router = Router();
 
 const FROM = 'Box Fraise <hello@fraise.chat>';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+const CLAIM_TOKEN_EXPIRY_DAYS = 30;
+
 // ─── Boot-time migration ──────────────────────────────────────────────────────
 db.execute(sql`
   CREATE TABLE IF NOT EXISTS business_proposals (
@@ -96,13 +107,18 @@ router.get('/claim/:token', async (req: Request, res: Response) => {
   try {
     const rows = await db.execute(sql`
       SELECT bp.id, bp.business_name, bp.business_address, bp.proposed_by_name,
-             bp.note, bp.status, bp.instagram_handle
+             bp.note, bp.status, bp.instagram_handle, bp.created_at, bp.claim_token
       FROM business_proposals bp
       WHERE bp.claim_token = ${token}
       LIMIT 1
     `);
     const proposal = ((rows as any).rows ?? rows)[0] as any;
     if (!proposal) { res.status(404).send('<h1>Not found</h1>'); return; }
+
+    const ageMs = Date.now() - new Date(proposal.created_at).getTime();
+    if (ageMs > CLAIM_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000 && proposal.status === 'pending') {
+      res.status(410).send('<h1>This invitation has expired.</h1>'); return;
+    }
 
     res.send(claimPage(proposal));
   } catch { res.status(500).send('<h1>Error</h1>'); }
@@ -126,10 +142,10 @@ router.post('/claim/:token', async (req: Request, res: Response) => {
     await resend.emails.send({
       from: FROM,
       to: 'hello@fraise.chat',
-      subject: `${updated.business_name} is interested in Box Fraise`,
-      html: `<p><strong>${updated.business_name}</strong> clicked the claim link from ${updated.proposed_by_name}'s proposal.</p>
-             ${contact_name ? `<p>Contact: ${contact_name}</p>` : ''}
-             ${contact_email ? `<p>Email: ${contact_email}</p>` : ''}`,
+      subject: `${escapeHtml(updated.business_name)} is interested in Box Fraise`,
+      html: `<p><strong>${escapeHtml(updated.business_name)}</strong> clicked the claim link from ${escapeHtml(updated.proposed_by_name)}'s proposal.</p>
+             ${contact_name ? `<p>Contact: ${escapeHtml(String(contact_name))}</p>` : ''}
+             ${contact_email ? `<p>Email: ${escapeHtml(String(contact_email))}</p>` : ''}`,
     }).catch(() => {});
 
     res.json({ ok: true });
@@ -156,25 +172,25 @@ function proposalEmail({ proposerName, businessName, note, claimUrl }: {
     <p style="margin:0 0 48px;font-size:12px;letter-spacing:2px;color:#8A8A8E;font-family:'Courier New',Courier,monospace;text-transform:uppercase;">Box Fraise</p>
 
     <h1 style="margin:0 0 24px;font-size:28px;font-weight:normal;color:#1C1C1E;line-height:1.3;">
-      ${proposerName} thinks ${businessName} belongs here.
+      ${escapeHtml(proposerName)} thinks ${escapeHtml(businessName)} belongs here.
     </h1>
 
     <p style="margin:0 0 20px;font-size:16px;color:#3A3A3C;line-height:1.7;">
       Box Fraise is a platform for independent businesses that have something worth tasting. We connect curious people with places that care about what they make.
     </p>
 
-    ${note ? `<p style="margin:0 0 20px;font-size:15px;color:#6A6A6E;line-height:1.7;font-style:italic;border-left:2px solid #E5E1DA;padding-left:16px;">"${note}"<br><span style="font-size:12px;font-family:'Courier New',Courier,monospace;font-style:normal;">— ${proposerName}</span></p>` : ''}
+    ${note ? `<p style="margin:0 0 20px;font-size:15px;color:#6A6A6E;line-height:1.7;font-style:italic;border-left:2px solid #E5E1DA;padding-left:16px;">"${escapeHtml(note)}"<br><span style="font-size:12px;font-family:'Courier New',Courier,monospace;font-style:normal;">— ${escapeHtml(proposerName)}</span></p>` : ''}
 
     <p style="margin:0 0 32px;font-size:16px;color:#3A3A3C;line-height:1.7;">
       Being on Box Fraise starts with the social layer — your business appears on the map, people can save you to their curated city guides, and your regulars can show you off to their network.
     </p>
 
-    <a href="${claimUrl}" style="display:inline-block;background:#1C1C1E;color:#FAF9F7;text-decoration:none;padding:14px 28px;font-size:12px;letter-spacing:1.5px;font-family:'Courier New',Courier,monospace;text-transform:uppercase;">
-      See what this means for ${businessName}
+    <a href="${escapeHtml(claimUrl)}" style="display:inline-block;background:#1C1C1E;color:#FAF9F7;text-decoration:none;padding:14px 28px;font-size:12px;letter-spacing:1.5px;font-family:'Courier New',Courier,monospace;text-transform:uppercase;">
+      See what this means for ${escapeHtml(businessName)}
     </a>
 
     <p style="margin:48px 0 0;font-size:12px;color:#8A8A8E;line-height:1.6;">
-      You received this because ${proposerName} nominated you. No obligation — this is just an introduction.<br>
+      You received this because ${escapeHtml(proposerName)} nominated you. No obligation — this is just an introduction.<br>
       Questions? Reply to this email or write to <a href="mailto:hello@fraise.chat" style="color:#8A8A8E;">hello@fraise.chat</a>
     </p>
   </div>
@@ -191,7 +207,7 @@ function claimPage(proposal: any): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${proposal.business_name} — Box Fraise</title>
+  <title>${escapeHtml(proposal.business_name)} — Box Fraise</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Georgia,serif;background:#FAF9F7;color:#1C1C1E;padding:0 24px}
@@ -211,13 +227,14 @@ function claimPage(proposal: any): string {
 <body>
 <div class="wrap">
   <div class="brand">Box Fraise</div>
-  <h1>${proposal.business_name}</h1>
+  <h1>${escapeHtml(proposal.business_name)}</h1>
   ${claimed
     ? `<div class="done">We've received your response and will be in touch shortly. Thank you.</div>`
-    : `<p class="sub">${proposal.proposed_by_name} nominated you for Box Fraise — a platform for independent businesses worth discovering.</p>
-       ${proposal.note ? `<p class="note">"${proposal.note}"<span>— ${proposal.proposed_by_name}</span></p>` : ''}
+    : `<p class="sub">${escapeHtml(proposal.proposed_by_name)} nominated you for Box Fraise — a platform for independent businesses worth discovering.</p>
+       ${proposal.note ? `<p class="note">"${escapeHtml(proposal.note)}"<span>— ${escapeHtml(proposal.proposed_by_name)}</span></p>` : ''}
        <p class="sub">If you're interested in being on the map, leave your details and we'll reach out.</p>
        <form method="POST">
+         <input type="hidden" name="_csrf" value="${escapeHtml(proposal.claim_token)}" />
          <label>Your name</label>
          <input type="text" name="contact_name" placeholder="Name" />
          <label>Best email to reach you</label>
