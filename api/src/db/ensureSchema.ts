@@ -285,6 +285,7 @@ export async function ensureSchema(): Promise<void> {
   )`);
   await run('community_fund_seed', sql`INSERT INTO community_fund (id, balance_cents, total_raised_cents, threshold_cents, popup_count)
     VALUES (1, 0, 0, 110000, 0) ON CONFLICT (id) DO NOTHING`);
+  await run('community_fund.threshold_1100_backfill', sql`UPDATE community_fund SET threshold_cents = 110000 WHERE id = 1 AND threshold_cents < 110000`);
 
   await run('community_fund_contributions', sql`CREATE TABLE IF NOT EXISTS community_fund_contributions (
     id SERIAL PRIMARY KEY,

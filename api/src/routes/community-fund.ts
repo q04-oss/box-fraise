@@ -19,7 +19,7 @@ function requirePin(req: Request, res: Response, next: NextFunction): void {
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const [fund] = await db.select().from(communityFund).where(eq(communityFund.id, 1));
-    if (!fund) { res.json({ balance_cents: 0, threshold_cents: 50000, total_raised_cents: 0, popup_count: 0 }); return; }
+    if (!fund) { res.json({ balance_cents: 0, threshold_cents: 110000, total_raised_cents: 0, popup_count: 0 }); return; }
     res.json({
       balance_cents: fund.balance_cents,
       threshold_cents: fund.threshold_cents,
@@ -68,28 +68,34 @@ router.post('/complete-event', requirePin, async (req: Request, res: Response) =
   }
   try {
 
-    const [fund] = await db.select().from(communityFund).where(eq(communityFund.id, 1));
-    if (!fund) { res.status(500).json({ error: 'Fund not initialised' }); return; }
+    await db.transaction(async (tx) => {
+      const [fund] = await tx.select().from(communityFund).where(eq(communityFund.id, 1));
+      if (!fund) throw new Error('Fund not initialised');
 
-    // Record the event
-    await db.insert(communityEvents).values({
-      event_date,
-      operator_names,
-      people_fed: people_fed ?? 0,
-      location: location ?? null,
-      description: description ?? null,
-      photo_url: photo_url ?? null,
-      fund_raised_cents: fund.balance_cents,
+      // Idempotency: reject duplicate events for the same date + operator
+      const [existing] = await tx.select({ id: communityEvents.id })
+        .from(communityEvents)
+        .where(sql`${communityEvents.event_date} = ${event_date} AND ${communityEvents.operator_names} = ${operator_names}`);
+      if (existing) throw new Error('Event already recorded');
+
+      await tx.insert(communityEvents).values({
+        event_date,
+        operator_names,
+        people_fed: people_fed ?? 0,
+        location: location ?? null,
+        description: description ?? null,
+        photo_url: photo_url ?? null,
+        fund_raised_cents: fund.balance_cents,
+      });
+
+      await tx.update(communityFund)
+        .set({
+          balance_cents: 0,
+          popup_count: sql`popup_count + 1`,
+          updated_at: new Date(),
+        })
+        .where(eq(communityFund.id, 1));
     });
-
-    // Reset balance, increment popup_count
-    await db.update(communityFund)
-      .set({
-        balance_cents: 0,
-        popup_count: sql`popup_count + 1`,
-        updated_at: new Date(),
-      })
-      .where(eq(communityFund.id, 1));
 
     // Push to all users who contributed
     const contributors = await db
@@ -109,7 +115,9 @@ router.post('/complete-event', requirePin, async (req: Request, res: Response) =
     ));
 
     res.json({ ok: true, pushed: uniqueTokens.length });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'Event already recorded') { res.status(409).json({ error: 'Event already recorded' }); return; }
+    if (err?.message === 'Fund not initialised') { res.status(500).json({ error: 'Fund not initialised' }); return; }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -119,30 +127,31 @@ router.post('/interest', requireUser, async (req: Request, res: Response) => {
   const user_id = (req as any).userId as number;
   const { concept, note, business_id } = req.body;
   try {
-    // One active entry per user — if already pending, update it
-    const [existing] = await db
-      .select({ id: communityPopupInterest.id })
-      .from(communityPopupInterest)
-      .where(eq(communityPopupInterest.user_id, user_id))
-      .orderBy(desc(communityPopupInterest.created_at))
-      .limit(1);
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: communityPopupInterest.id })
+        .from(communityPopupInterest)
+        .where(eq(communityPopupInterest.user_id, user_id))
+        .orderBy(desc(communityPopupInterest.created_at))
+        .limit(1);
 
-    if (existing) {
-      await db.update(communityPopupInterest)
-        .set({ concept: concept ?? null, note: note ?? null, business_id: business_id ?? null, status: 'pending' })
-        .where(eq(communityPopupInterest.id, existing.id));
-      res.json({ updated: true });
-      return;
-    }
+      if (existing) {
+        await tx.update(communityPopupInterest)
+          .set({ concept: concept ?? null, note: note ?? null, business_id: business_id ?? null, status: 'pending' })
+          .where(eq(communityPopupInterest.id, existing.id));
+        res.json({ updated: true });
+        return;
+      }
 
-    await db.insert(communityPopupInterest).values({
-      user_id,
-      business_id: business_id ?? null,
-      concept: concept ?? null,
-      note: note ?? null,
-      status: 'pending',
+      await tx.insert(communityPopupInterest).values({
+        user_id,
+        business_id: business_id ?? null,
+        concept: concept ?? null,
+        note: note ?? null,
+        status: 'pending',
+      });
+      res.status(201).json({ created: true });
     });
-    res.status(201).json({ created: true });
   } catch {
     res.status(500).json({ error: 'Internal server error' });
   }
