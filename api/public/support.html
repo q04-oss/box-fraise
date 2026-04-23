@@ -4,49 +4,96 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>box fraise — support</title>
-  <meta name="description" content="Support Box Fraise." />
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root { --bg: #FFFFFF; --text: #111111; --muted: #666666; --border: #DDDDDD; }
-    html { background: var(--bg); color: var(--text); font-family: 'Lora', 'Times New Roman', Georgia, serif; font-size: 17px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+    :root {
+      --bg:     #FFFFFF;
+      --text:   #1C1C1E;
+      --muted:  #8E8E93;
+      --border: #E5E1DA;
+      --card:   #F7F5F2;
+    }
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
     body { min-height: 100dvh; }
-    main { width: 100%; max-width: 680px; margin-inline: auto; padding-inline: clamp(2rem, 6vw, 5rem); padding-block: clamp(3rem, 8vw, 6rem); }
-    nav { margin-bottom: 2rem; }
-    nav a { font-size: 0.8125rem; letter-spacing: 0.04em; text-decoration: none; color: var(--muted); }
-    h1 { font-size: clamp(1.4rem, 3vw, 1.75rem); font-weight: 400; line-height: 1.3; }
-    .meta { font-size: 0.8125rem; color: var(--muted); letter-spacing: 0.03em; margin-top: 0.75rem; }
-    hr { border: none; border-top: 1px solid var(--border); margin-block: 2.5rem; }
-    p { color: var(--muted); line-height: 1.75; max-width: 48ch; }
-    .btn { display: inline-block; font-size: 0.8125rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--text); padding: 0.6rem 1.25rem; color: var(--text); margin-top: 2rem; }
-    footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); }
-    footer p { font-size: 0.8125rem; color: var(--muted); }
+    main {
+      width: 100%;
+      max-width: 580px;
+      margin-inline: auto;
+      padding-inline: clamp(1.5rem, 6vw, 4rem);
+      padding-block: clamp(3rem, 8vw, 5rem);
+    }
+    nav { margin-bottom: 3rem; }
+    nav a {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      color: var(--muted);
+    }
+    nav a:hover { color: var(--text); }
+    h1 {
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      margin-bottom: 2.5rem;
+    }
+    hr { border: none; border-top: 1px solid var(--border); margin-block: 2rem; }
+    p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 48ch;
+      margin-bottom: 1rem;
+    }
+    .btn {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 0.55rem 1.25rem;
+      color: var(--text);
+      margin-top: 1.5rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn:hover {
+      border-color: var(--text);
+      background: var(--card);
+    }
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
   <main>
-    <header style="margin-bottom: 3rem;">
-      <nav><a href="/">← box fraise</a></nav>
-      <h1>support</h1>
-      <p class="meta">Independent, local, and built from scratch.</p>
-    </header>
+    <nav><a href="/">← box fraise</a></nav>
+
+    <h1>support</h1>
 
     <hr />
 
-    <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem;">
-      <p>
-        Box Fraise is a small platform built to support local businesses, cooperative ownership, and community commerce.
-        If you believe in what we're building, a contribution helps keep it going.
-      </p>
-      <p>
-        Donations are made through the app. You can also support a specific business directly from their page.
-      </p>
-      <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn">Get the app →</a>
-    </div>
+    <p>box fraise is a small platform built to support local businesses, cooperative ownership, and community commerce. if you believe in what we're building, a contribution helps keep it going.</p>
+    <p>donations are made through the app. you can also support a specific business directly from their page.</p>
 
-    <footer>
-      <p>box fraise — fraise.box — 2026</p>
-    </footer>
+    <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn">get the app →</a>
+
+    <footer>box fraise &nbsp;·&nbsp; fraise.box &nbsp;·&nbsp; 2026</footer>
   </main>
 </body>
 </html>

@@ -3,364 +3,224 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy Policy — box fraise</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <title>box fraise — privacy policy</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:      #0C0C0E;
-      --bg2:     #0A0A0C;
-      --card:    rgba(28,28,30,0.88);
-      --amber:   #C9973A;
-      --text:    #F2F2F7;
-      --muted:   rgba(242,242,247,0.42);
-      --border:  rgba(255,255,255,0.08);
-      --border2: rgba(255,255,255,0.13);
+      --bg:     #FFFFFF;
+      --text:   #1C1C1E;
+      --muted:  #8E8E93;
+      --border: #E5E1DA;
+      --card:   #F7F5F2;
     }
-
-    body {
-      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    html {
       background: var(--bg);
       color: var(--text);
-    }
-
-    /* ── NAV ── */
-    nav {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 100;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 18px 40px;
-      background: rgba(10,10,12,0.82);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav-logo {
-      font-family: 'Playfair Display', serif;
-      font-style: italic;
-      font-size: 20px;
-      color: var(--text);
-      text-decoration: none;
-    }
-
-    .nav-back {
       font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 1.8px;
+      font-size: 14px;
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { min-height: 100dvh; }
+    main {
+      width: 100%;
+      max-width: 640px;
+      margin-inline: auto;
+      padding-inline: clamp(1.5rem, 6vw, 4rem);
+      padding-block: clamp(3rem, 8vw, 5rem);
+    }
+    nav { margin-bottom: 3rem; }
+    nav a {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      color: var(--muted);
+    }
+    nav a:hover { color: var(--text); }
+    .eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--muted);
-      text-decoration: none;
-      transition: color 0.2s;
+      margin-bottom: 0.5rem;
     }
-    .nav-back:hover { color: var(--text); }
-
-    /* ── HEADER ── */
-    .page-header {
-      padding: 140px 40px 80px;
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .page-header::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 80% 20%, rgba(201,151,58,0.08) 0%, transparent 60%);
-    }
-
-    .page-eyebrow {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 2.5px;
-      text-transform: uppercase;
-      color: var(--amber);
-      margin-bottom: 16px;
-      position: relative;
-    }
-
-    .page-title {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(40px, 6vw, 64px);
-      color: var(--text);
-      line-height: 1.08;
-      position: relative;
-    }
-
-    .page-date {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 18px;
-      letter-spacing: 0.5px;
-      position: relative;
-    }
-
-    /* ── CONTENT ── */
-    .content {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 80px 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 56px;
-    }
-
-    .intro {
-      font-size: 15px;
-      color: var(--muted);
-      line-height: 1.85;
-    }
-
-    .intro strong {
-      color: rgba(242,242,247,0.75);
+    h1 {
+      font-size: 1rem;
       font-weight: 500;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4rem;
     }
-
-    .section { border-top: 1px solid var(--border); padding-top: 48px; }
-
-    .section-heading {
-      font-family: 'Playfair Display', serif;
-      font-size: 24px;
-      color: var(--text);
-      margin-bottom: 20px;
-    }
-
-    p {
-      font-size: 15px;
+    .meta {
+      font-size: 0.65rem;
       color: var(--muted);
-      line-height: 1.85;
-      margin-bottom: 12px;
+      letter-spacing: 0.06em;
+      margin-bottom: 3rem;
+    }
+    section { margin-bottom: 2.5rem; }
+    h2 {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+    p {
+      font-size: 0.85rem;
+      margin-bottom: 0.9rem;
+      max-width: 62ch;
+      line-height: 1.8;
     }
     p:last-child { margin-bottom: 0; }
-
-    a { color: var(--amber); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
+    strong { font-weight: 500; color: var(--text); }
+    a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
     ul {
-      padding-left: 0;
+      list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      list-style: none;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
     }
-
     li {
-      font-size: 15px;
-      color: var(--muted);
-      line-height: 1.75;
-      padding-left: 18px;
+      font-size: 0.85rem;
+      padding-left: 1.2rem;
       position: relative;
+      line-height: 1.75;
     }
-
     li::before {
       content: '—';
       position: absolute;
       left: 0;
-      color: rgba(201,151,58,0.45);
-      font-family: 'DM Mono', monospace;
+      color: var(--muted);
     }
-
-    li strong {
-      color: rgba(242,242,247,0.75);
-      font-weight: 500;
-    }
-
-    /* ── FOOTER ── */
     footer {
-      background: var(--bg2);
+      margin-top: 4rem;
+      padding-top: 2rem;
       border-top: 1px solid var(--border);
-      padding: 60px 40px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
       display: flex;
       justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 24px;
+      gap: 1rem;
     }
-
-    .footer-logo {
-      font-family: 'Playfair Display', serif;
-      font-style: italic;
-      font-size: 22px;
-      color: var(--text);
-    }
-
-    .footer-sub {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
+    footer a {
       color: var(--muted);
-      margin-top: 6px;
-      letter-spacing: 1.2px;
-    }
-
-    .footer-links { display: flex; gap: 24px; }
-    .footer-links a {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      color: rgba(242,242,247,0.22);
       text-decoration: none;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
-      transition: color 0.2s;
     }
-    .footer-links a:hover { color: var(--amber); }
-
-    @media (max-width: 640px) {
-      nav { padding: 16px 20px; }
-      .page-header { padding: 110px 20px 56px; }
-      .content { padding: 56px 20px; }
-      footer { padding: 40px 20px; flex-direction: column; align-items: flex-start; }
-    }
+    footer a:hover { color: var(--text); }
   </style>
 </head>
 <body>
+  <main>
+    <nav><a href="/">← box fraise</a></nav>
 
-<nav>
-  <a href="/" class="nav-logo">box fraise</a>
-  <a href="/" class="nav-back">← Back</a>
-</nav>
+    <div class="eyebrow">legal</div>
+    <h1>privacy policy</h1>
+    <p class="meta">effective date: April 11, 2026</p>
 
-<div class="page-header">
-  <p class="page-eyebrow">Legal</p>
-  <h1 class="page-title">Privacy Policy</h1>
-  <p class="page-date">Effective date: April 11, 2026</p>
-</div>
+    <p>box fraise ("we", "us", "our") is operated by Rajzyngier Research and comprises the box fraise iOS application and the website at fraise.box. This policy explains what information we collect across the full platform — including ordering, membership, the social layer, NFC contact exchange, token activity, and the editorial portal — how we use it, and your rights with respect to it.</p>
+    <p><strong>We collect only what is necessary to operate the platform. We do not sell your data. We do not use it for advertising.</strong></p>
 
-<div class="content">
+    <section>
+      <h2>information we collect</h2>
+      <p><strong>When you place an order:</strong></p>
+      <ul>
+        <li><strong>Email address</strong> — to send your order confirmation and pickup notification.</li>
+        <li><strong>Order details</strong> — variety, chocolate, finish, quantity, collection time. Stored to fulfil your order and display your order history.</li>
+        <li><strong>Payment information</strong> — handled entirely by Stripe. We never see or store your card number.</li>
+        <li><strong>Push notification token</strong> — if you grant permission, stored to notify you when your order is ready. Revocable at any time in iOS Settings.</li>
+      </ul>
 
-  <div class="intro">
-    <p>
-      box fraise ("we", "us", "our") is operated by Rajzyngier Research and comprises the box fraise iOS application
-      and the website at <strong>fraise.maison</strong>. This policy explains what information we collect across the full platform —
-      including ordering, membership, the social layer, NFC contact exchange, token activity, and the editorial portal —
-      how we use it, and your rights with respect to it.
-    </p>
-    <p>
-      <strong>We collect only what is necessary to operate the platform. We do not sell your data. We do not use it for advertising.</strong>
-    </p>
-  </div>
+      <p><strong>When you create an account or sign in with Apple:</strong></p>
+      <ul>
+        <li><strong>Apple user identifier</strong> — a stable, anonymised identifier issued by Apple. We do not receive your real Apple ID email unless you choose to share it.</li>
+        <li><strong>Display name</strong> — if provided during Apple Sign In.</li>
+      </ul>
 
-  <div class="section">
-    <div class="section-heading">Information we collect</div>
+      <p><strong>When you engage with the social platform:</strong></p>
+      <ul>
+        <li><strong>NFC tap records</strong> — each box tap logs the variety tapped, timestamp, and the resulting time credit.</li>
+        <li><strong>Social tier</strong> — Standard, Reserve, or Estate — derived from your time bank balance.</li>
+        <li><strong>Lifetime credit score</strong> — the running total of all time credits ever earned. Never decreases.</li>
+        <li><strong>NFC contact exchanges</strong> — when you exchange a 6-character NFC code with another member, both parties' identifiers are logged as a permanent contact record. This record cannot be deleted.</li>
+      </ul>
 
-    <p><strong style="color:rgba(242,242,247,0.75);font-weight:500;">When you place an order:</strong></p>
-    <ul>
-      <li><strong>Email address</strong> — to send your order confirmation and pickup notification.</li>
-      <li><strong>Order details</strong> — variety, chocolate, finish, quantity, collection time. Stored to fulfil your order and display your order history.</li>
-      <li><strong>Payment information</strong> — handled entirely by Stripe. We never see or store your card number. Stripe's privacy policy applies to payment data.</li>
-      <li><strong>Push notification token</strong> — if you grant permission, we store a device token to notify you when your order is ready. Revocable at any time in iOS Settings.</li>
-    </ul>
+      <p><strong>When you use the editorial or portal features:</strong></p>
+      <ul>
+        <li><strong>Submitted content</strong> — text, photos, and video stored on Cloudinary. You retain ownership; we hold a licence to display it within the platform.</li>
+        <li><strong>Portrait photos</strong> — photos assigned to your member profile by platform operators.</li>
+      </ul>
 
-    <p style="margin-top:24px;"><strong style="color:rgba(242,242,247,0.75);font-weight:500;">When you create an account or sign in with Apple:</strong></p>
-    <ul>
-      <li><strong>Apple user identifier</strong> — a stable, anonymised identifier issued by Apple, used to link your account across sessions. We do not receive your real Apple ID email unless you choose to share it.</li>
-      <li><strong>Display name</strong> — if provided during Apple Sign In.</li>
-    </ul>
+      <p><strong>When you hold or trade tokens:</strong></p>
+      <ul>
+        <li><strong>Token records</strong> — each strawberry token is permanently linked to the variety and harvest it came from, and to the member account that received it. Transfer history is logged and cannot be deleted.</li>
+      </ul>
+    </section>
 
-    <p style="margin-top:24px;"><strong style="color:rgba(242,242,247,0.75);font-weight:500;">When you engage with the social platform:</strong></p>
-    <ul>
-      <li><strong>NFC tap records</strong> — each box tap logs the variety tapped, timestamp, and the resulting time credit. This forms your time bank balance and social tier.</li>
-      <li><strong>Social tier</strong> — Standard, Reserve, or Estate — derived from your time bank balance. Visible to platform staff and, in aggregate, on the leaderboard.</li>
-      <li><strong>Lifetime credit score</strong> — the running total of all time credits ever earned. Used for the platform leaderboard. Never decreases.</li>
-      <li><strong>NFC contact exchanges</strong> — when you exchange a 6-character NFC code with another member, both parties' identifiers are logged as a permanent contact record. This record cannot be deleted.</li>
-    </ul>
+    <section>
+      <h2>how we use your information</h2>
+      <ul>
+        <li>To process and fulfil your orders.</li>
+        <li>To send transactional emails and push notifications related to your orders and account.</li>
+        <li>To calculate and maintain your time bank balance and social tier.</li>
+        <li>To display your order history, token holdings, and contact log in the app.</li>
+        <li>To operate the platform leaderboard using lifetime credit scores.</li>
+        <li>To moderate platform content and enforce community standards.</li>
+        <li>To issue and track Fraise (FRS) tokens and strawberry variety tokens.</li>
+      </ul>
+      <p>We do not use your information for marketing, behavioural profiling, or any purpose beyond operating the platform.</p>
+    </section>
 
-    <p style="margin-top:24px;"><strong style="color:rgba(242,242,247,0.75);font-weight:500;">When you use the editorial or portal features:</strong></p>
-    <ul>
-      <li><strong>Submitted content</strong> — text, photos, and video you submit to the editorial feed or the explicit portal. Content is stored on Cloudinary. You retain ownership; we hold a licence to display it within the platform.</li>
-      <li><strong>Portrait photos</strong> — photos assigned to your member profile by platform operators, stored on Cloudinary.</li>
-    </ul>
+    <section>
+      <h2>third-party services</h2>
+      <ul>
+        <li><strong>Stripe</strong> — payment processing. <a href="https://stripe.com/privacy" target="_blank" rel="noopener">stripe.com/privacy</a></li>
+        <li><strong>Resend</strong> — transactional email delivery. <a href="https://resend.com/privacy" target="_blank" rel="noopener">resend.com/privacy</a></li>
+        <li><strong>Expo</strong> — push notification infrastructure. <a href="https://expo.dev/privacy" target="_blank" rel="noopener">expo.dev/privacy</a></li>
+        <li><strong>Railway</strong> — server and database hosting. <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
+        <li><strong>Cloudinary</strong> — image and video storage. <a href="https://cloudinary.com/privacy" target="_blank" rel="noopener">cloudinary.com/privacy</a></li>
+        <li><strong>Apple</strong> — Sign In with Apple identity services. <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">apple.com/legal/privacy</a></li>
+      </ul>
+    </section>
 
-    <p style="margin-top:24px;"><strong style="color:rgba(242,242,247,0.75);font-weight:500;">When you hold or trade tokens:</strong></p>
-    <ul>
-      <li><strong>Token records</strong> — each strawberry token is permanently linked to the variety and harvest it came from, and to the member account that received it. Transfer history is logged and cannot be deleted, as it forms the provenance chain.</li>
-    </ul>
-  </div>
+    <section>
+      <h2>permanent records</h2>
+      <ul>
+        <li><strong>NFC contact exchange logs</strong> — once two members exchange codes, the contact record is permanent on both sides.</li>
+        <li><strong>Token provenance chains</strong> — transfer history for strawberry tokens is permanently retained. On account deletion, your identity within the chain is anonymised, but the chain itself is preserved.</li>
+      </ul>
+    </section>
 
-  <div class="section">
-    <div class="section-heading">How we use your information</div>
-    <ul>
-      <li>To process and fulfil your orders.</li>
-      <li>To send transactional emails and push notifications related to your orders and account.</li>
-      <li>To calculate and maintain your time bank balance and social tier.</li>
-      <li>To display your order history, token holdings, and contact log in the app.</li>
-      <li>To operate the platform leaderboard using lifetime credit scores.</li>
-      <li>To moderate platform content and enforce community standards.</li>
-      <li>To issue and track Fraise (FRS) tokens and strawberry variety tokens.</li>
-    </ul>
-    <p style="margin-top:16px;">We do not use your information for marketing, behavioural profiling, or any purpose beyond operating the platform.</p>
-  </div>
+    <section>
+      <h2>data retention</h2>
+      <p>Order records and account data are retained for business and legal purposes. If you would like your account and associated data deleted, contact us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a> and we will process the request within 30 days, subject to the permanent record exceptions noted above.</p>
+    </section>
 
-  <div class="section">
-    <div class="section-heading">Third-party services</div>
-    <ul>
-      <li><strong>Stripe</strong> — payment processing. <a href="https://stripe.com/privacy" target="_blank" rel="noopener">stripe.com/privacy</a></li>
-      <li><strong>Resend</strong> — transactional email delivery. <a href="https://resend.com/privacy" target="_blank" rel="noopener">resend.com/privacy</a></li>
-      <li><strong>Expo</strong> — push notification infrastructure. <a href="https://expo.dev/privacy" target="_blank" rel="noopener">expo.dev/privacy</a></li>
-      <li><strong>Railway</strong> — server and database hosting. <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app/legal/privacy</a></li>
-      <li><strong>Cloudinary</strong> — image and video storage for editorial content, portraits, and portal uploads. <a href="https://cloudinary.com/privacy" target="_blank" rel="noopener">cloudinary.com/privacy</a></li>
-      <li><strong>Apple</strong> — Sign In with Apple identity services. <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">apple.com/legal/privacy</a></li>
-    </ul>
-  </div>
+    <section>
+      <h2>children</h2>
+      <p>The box fraise app and platform are not directed at children under 13. We do not knowingly collect information from children.</p>
+    </section>
 
-  <div class="section">
-    <div class="section-heading">Permanent records</div>
-    <p>
-      Certain records within the platform are by design permanent and cannot be deleted:
-    </p>
-    <ul>
-      <li><strong>NFC contact exchange logs</strong> — once two members exchange codes, the contact record is permanent on both sides.</li>
-      <li><strong>Token provenance chains</strong> — transfer history for strawberry tokens is permanently retained as part of the harvest ledger. On account deletion, your identity within the chain is anonymised, but the chain itself is preserved.</li>
-    </ul>
-  </div>
+    <section>
+      <h2>changes to this policy</h2>
+      <p>If we make material changes to this policy, we will update the effective date above. Continued use of the app or platform after changes constitutes acceptance.</p>
+    </section>
 
-  <div class="section">
-    <div class="section-heading">Data retention</div>
-    <p>
-      Order records and account data are retained for business and legal purposes.
-      If you would like your account and associated data deleted, contact us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a>
-      and we will process the request within 30 days, subject to the permanent record exceptions noted above.
-    </p>
-  </div>
+    <section>
+      <h2>contact</h2>
+      <p>Questions about this policy? Email us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a>.</p>
+    </section>
 
-  <div class="section">
-    <div class="section-heading">Children</div>
-    <p>The box fraise app and platform are not directed at children under 13. We do not knowingly collect information from children.</p>
-  </div>
-
-  <div class="section">
-    <div class="section-heading">Changes to this policy</div>
-    <p>
-      If we make material changes to this policy, we will update the effective date above.
-      Continued use of the app or platform after changes constitutes acceptance.
-    </p>
-  </div>
-
-  <div class="section">
-    <div class="section-heading">Contact</div>
-    <p>
-      Questions about this policy? Email us at <a href="mailto:austin@fraise.maison">austin@fraise.maison</a>.
-    </p>
-  </div>
-
-</div>
-
-<footer>
-  <div>
-    <div class="footer-logo">box fraise</div>
-    <div class="footer-sub">Montréal · Est. 2026</div>
-  </div>
-  <div class="footer-links">
-    <a href="/privacy">Privacy</a>
-    <a href="/support">Support</a>
-  </div>
-</footer>
-
+    <footer>
+      <span>box fraise &nbsp;·&nbsp; fraise.box &nbsp;·&nbsp; 2026</span>
+      <span><a href="/support">support</a></span>
+    </footer>
+  </main>
 </body>
 </html>

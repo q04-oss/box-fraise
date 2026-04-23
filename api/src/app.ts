@@ -353,25 +353,26 @@ app.get('/device', (_req, res) => {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Leaving fraise.box</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400&family=Lora:ital@0;1&display=swap" rel="stylesheet"/>
+  <title>leaving fraise.box</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff;font-family:'DM Mono',monospace;padding:2rem;gap:1.5rem}
-    .back{position:fixed;top:1.25rem;left:1.5rem;font-size:.75rem;color:#aaa;text-decoration:none;letter-spacing:.03em}
-    .back:hover{color:#4a1519}
-    .domain{font-family:'Lora',serif;font-size:1.5rem;font-weight:400;color:#111;text-align:center;word-break:break-all}
-    .grade{display:flex;align-items:center;gap:.6rem;font-size:.8rem;letter-spacing:.04em}
-    .dot{width:10px;height:10px;border-radius:50%;background:${gradeColor};flex-shrink:0}
+    :root{--bg:#FFFFFF;--text:#1C1C1E;--muted:#8E8E93;--border:#E5E1DA;--card:#F7F5F2}
+    body{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);font-family:'DM Mono',monospace;padding:2rem;gap:1.25rem}
+    .back{position:fixed;top:1.25rem;left:1.5rem;font-size:.7rem;color:var(--muted);text-decoration:none;letter-spacing:.05em}
+    .back:hover{color:var(--text)}
+    .domain{font-size:1.1rem;font-weight:500;color:var(--text);text-align:center;word-break:break-all;letter-spacing:.01em}
+    .grade{display:flex;align-items:center;gap:.6rem;font-size:.75rem;letter-spacing:.05em;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%;background:${gradeColor};flex-shrink:0}
     .grade-label{color:${gradeColor}}
-    .detail{font-size:.7rem;color:#999;text-align:center;max-width:380px;line-height:1.7}
-    .actions{display:flex;gap:.75rem;margin-top:.5rem}
-    .btn{padding:.55rem 1.5rem;border-radius:9999px;font-family:'DM Mono',monospace;font-size:.8rem;letter-spacing:.04em;cursor:pointer;text-decoration:none;border:1px solid}
-    .btn-go{background:#111;color:#fff;border-color:#111}
-    .btn-go:hover{background:#4a1519;border-color:#4a1519}
-    .btn-back{background:#fff;color:#888;border-color:#e0e0e0}
-    .btn-back:hover{border-color:#4a1519;color:#4a1519}
-    .note{font-size:.65rem;color:#ccc;letter-spacing:.03em}
+    .detail{font-size:.72rem;color:var(--muted);text-align:center;max-width:38ch;line-height:1.75}
+    .actions{display:flex;gap:.6rem;margin-top:.25rem}
+    .btn{padding:.5rem 1.25rem;border-radius:9999px;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;text-decoration:none;border:1px solid;transition:background .15s,border-color .15s,color .15s}
+    .btn-go{background:var(--text);color:var(--bg);border-color:var(--text)}
+    .btn-go:hover{opacity:.85}
+    .btn-back{background:var(--bg);color:var(--muted);border-color:var(--border)}
+    .btn-back:hover{border-color:var(--text);color:var(--text);background:var(--card)}
+    .note{font-size:.62rem;color:var(--border);letter-spacing:.05em;text-transform:uppercase}
   </style>
 </head>
 <body>
@@ -383,14 +384,14 @@ app.get('/device', (_req, res) => {
   </div>
   <p class="detail">
     ${grade === 'clean'
-      ? 'This domain does not appear in any known tracker list. That doesn\'t guarantee it won\'t collect data — but it\'s a good sign.'
+      ? 'this domain does not appear in any known tracker list.'
       : grade === 'moderate'
-      ? 'This domain or its subdomains appear in tracker blocklists. It may collect analytics or advertising data.'
-      : 'This domain runs multiple known trackers. It is likely collecting detailed analytics, ad targeting data, or both.'}
+      ? 'this domain appears in tracker blocklists. it may collect analytics or advertising data.'
+      : 'this domain runs multiple known trackers. it is likely collecting detailed analytics and ad targeting data.'}
   </p>
   <div class="actions">
-    <a class="btn btn-back" href="/">Go back</a>
-    <a class="btn btn-go" href="${dest}" rel="noopener">Continue anyway</a>
+    <a class="btn btn-back" href="/">go back</a>
+    <a class="btn btn-go" href="${dest}" rel="noopener">continue anyway</a>
   </div>
   <p class="note">fraise.box did not log this request.</p>
 </body>
