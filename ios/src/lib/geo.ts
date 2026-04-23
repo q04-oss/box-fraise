@@ -30,7 +30,22 @@ export function getOpenStatus(hours: string | null | undefined): { label: string
   const today = dayNames[now.getDay()];
   const lc = hours.toLowerCase();
   const hasDays = /mon|tue|wed|thu|fri|sat|sun/.test(lc);
-  if (hasDays && !lc.includes(today)) return { label: 'closed today', open: false };
+  if (hasDays) {
+    const todayIdx = dayNames.indexOf(today);
+    // Check for a day range like "Mon–Fri", "Mon-Sat", "Mon to Fri"
+    const rangeMatch = lc.match(/(mon|tue|wed|thu|fri|sat|sun)\s*(?:–|-|to)\s*(mon|tue|wed|thu|fri|sat|sun)/);
+    if (rangeMatch) {
+      const startIdx = dayNames.indexOf(rangeMatch[1]);
+      const endIdx = dayNames.indexOf(rangeMatch[2]);
+      const inRange = startIdx <= endIdx
+        ? todayIdx >= startIdx && todayIdx <= endIdx
+        : todayIdx >= startIdx || todayIdx <= endIdx; // wraps e.g. Fri–Mon
+      if (!inRange) return { label: 'closed today', open: false };
+    } else if (!lc.includes(today)) {
+      // Individual days listed — check for today explicitly
+      return { label: 'closed today', open: false };
+    }
+  }
   const timeMatch = lc.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*[–\-to]+\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
   if (!timeMatch) return null;
   const toMin = (h: string, m: string, meridiem: string) => {
