@@ -1707,4 +1707,43 @@ export const communityPopupInterest = pgTable('community_popup_interest', {
   created_at: timestamp('created_at').notNull().defaultNow(),
 });
 
+// ─── Table (classes & workshops) ─────────────────────────────────────────────
+
+export const tableInstructors = pgTable('table_instructors', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  bio: text('bio'),
+  photo_url: text('photo_url'),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const tableEvents = pgTable('table_events', {
+  id: serial('id').primaryKey(),
+  instructor_id: integer('instructor_id').notNull().references(() => tableInstructors.id),
+  title: text('title').notNull(),
+  venue_name: text('venue_name').notNull(),
+  venue_address: text('venue_address'),
+  event_date: timestamp('event_date').notNull(),
+  duration_minutes: integer('duration_minutes').notNull().default(120),
+  price_cents: integer('price_cents').notNull(),
+  capacity: integer('capacity').notNull().default(12),
+  seats_taken: integer('seats_taken').notNull().default(0),
+  description: text('description'),
+  stripe_price_id: text('stripe_price_id'),
+  active: boolean('active').notNull().default(true),
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const tableBookings = pgTable('table_bookings', {
+  id: serial('id').primaryKey(),
+  event_id: integer('event_id').notNull().references(() => tableEvents.id),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
+  seats: integer('seats').notNull().default(1),
+  total_cents: integer('total_cents').notNull(),
+  stripe_payment_intent_id: text('stripe_payment_intent_id').unique(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'confirmed' | 'cancelled'
+  created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
 // @final-audit
