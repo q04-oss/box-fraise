@@ -37,18 +37,33 @@
       flex-direction: column;
       justify-content: center;
       width: 100%;
-      max-width: 680px;
+      max-width: 960px;
       margin-inline: auto;
       padding-inline: clamp(2rem, 6vw, 5rem);
       padding-block: clamp(3rem, 8vw, 6rem);
     }
 
-    .content {
+    .layout {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: clamp(3rem, 8vw, 6rem);
+    }
+
+    .left {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       gap: 2.5rem;
+      min-width: 0;
+    }
+
+    .right {
+      flex: 0 0 auto;
+      width: clamp(240px, 40vw, 420px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     h1 {
@@ -62,7 +77,6 @@
       color: var(--muted);
       font-size: 1rem;
       line-height: 1.6;
-      max-width: 42ch;
     }
 
     nav {
@@ -92,6 +106,46 @@
       color: var(--muted);
     }
 
+    .device-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .device-render {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+    }
+
+    .device-specs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .device-caption {
+      font-size: 0.6875rem;
+      font-family: 'Lora', serif;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .device-specs span {
+      font-size: 0.75rem;
+      font-family: 'Lora', serif;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .device-specs span::before {
+      content: '— ';
+    }
+
     footer {
       padding-top: 3rem;
     }
@@ -106,26 +160,76 @@
     footer a:hover {
       text-decoration: underline;
     }
+
+    @media (max-width: 560px) {
+      main {
+        padding-inline: 1.5rem;
+        justify-content: flex-start;
+        padding-block: 3rem;
+      }
+
+      .layout {
+        flex-direction: column;
+        align-items: center;
+        gap: 2.5rem;
+      }
+
+      .left {
+        align-items: center;
+        text-align: center;
+      }
+
+      .left header {
+        text-align: center;
+      }
+
+      nav {
+        align-items: center;
+      }
+
+      .btn {
+        align-self: center;
+      }
+
+      .right {
+        width: 75vw;
+        max-width: 300px;
+      }
+    }
   </style>
 </head>
 <body>
   <main>
-    <div class="content">
-      <header>
-        <h1>box fraise</h1>
-        <p class="subtitle">Better taste.</p>
-        <a href="/shop" style="font-size: 2.5rem; line-height: 1; text-decoration: none; cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; gap: 0.4rem; transition: transform 0.15s ease;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🍓<span style="font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: inherit;">stickers</span></a>
-      </header>
+    <div class="layout">
+      <div class="left">
+        <header>
+          <h1>box fraise</h1>
+          <p class="subtitle">Better taste.</p>
+        </header>
 
-      <nav>
-        <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn btn-primary">Download beta</a>
-        <a href="/shop" class="btn btn-secondary">Stickers</a>
-        <a href="/support" class="btn btn-secondary">Support</a>
-      </nav>
+        <nav>
+          <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="btn btn-primary">Download beta</a>
+          <a href="/shop" class="btn btn-secondary">Stickers</a>
+          <a href="/support" class="btn btn-secondary">Support</a>
+        </nav>
+      </div>
+
+      <div class="right">
+        <div class="device-wrap">
+          <img src="/device.png" alt="box fraise device" class="device-render" />
+          <div class="device-specs">
+            <p class="device-caption">Concept render · v1</p>
+            <span>Reflective monochrome display</span>
+            <span>Bluetooth LE</span>
+            <span>Secure enclave</span>
+            <span>In-person issuance</span>
+            <span>First-party apps only</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <footer>
-      <p style="font-size: 0.8125rem; color: var(--muted); letter-spacing: 0.03em; font-style: italic; margin-bottom: 1rem;">We have better taste. They have a bitter taste.</p>
       <a href="/paper">Working Paper No. 1 →</a>
     </footer>
   </main>
