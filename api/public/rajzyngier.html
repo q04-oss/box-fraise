@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rajzyngier Research</title>
+  <meta name="description" content="Rajzyngier Research is an independent research and technology company." />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF; --text: #1C1C1E; --muted: #8E8E93; --border: #E5E1DA;
+    }
+    html {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+    .wrap { width: 100%; max-width: 480px; }
+
+    .eyebrow {
+      font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.5rem;
+    }
+    h1 { font-size: 1rem; font-weight: 500; margin-bottom: 2rem; line-height: 1.5; }
+
+    p {
+      font-size: 0.82rem; line-height: 1.9; color: var(--text); margin-bottom: 1rem;
+    }
+    p:last-of-type { margin-bottom: 0; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+    .project {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 0.9rem 0; border-bottom: 1px solid var(--border);
+    }
+    .project:first-of-type { border-top: 1px solid var(--border); }
+    .project-name { font-size: 0.82rem; font-weight: 500; }
+    .project-link a {
+      font-size: 0.72rem; color: var(--muted); text-decoration: none; letter-spacing: 0.04em;
+    }
+    .project-link a:hover { color: var(--text); }
+
+    .contact {
+      margin-top: 2.5rem; font-size: 0.72rem; color: var(--muted); line-height: 1.8;
+    }
+    .contact a { color: var(--text); text-decoration: none; }
+    .contact a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+    footer {
+      margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+      font-size: 0.65rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow">Edmonton, Alberta</div>
+    <h1>Rajzyngier Research</h1>
+
+    <p>Rajzyngier Research is a technology research lab based in Edmonton, Alberta. Box fraise is our first platform — built to replace usernames and passwords with a new standard of user identity for the internet.</p>
+
+    <hr class="divider" />
+
+    <div class="project">
+      <div class="project-name">box fraise</div>
+      <div class="project-link"><a href="https://fraise.box" target="_blank" rel="noopener">fraise.box ↗</a></div>
+    </div>
+
+    <div class="contact">
+      <a href="mailto:austin@rajzyngier.co">austin@rajzyngier.co</a>
+    </div>
+
+    <footer>© 2026 Rajzyngier Research</footer>
+  </div>
+</body>
+</html>

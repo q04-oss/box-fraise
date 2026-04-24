@@ -290,6 +290,16 @@ app.post('/api/upload', express.json({ limit: '50mb' }), requireUser, async (req
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+// Rajzyngier Research — serve when request comes from rajzyngier.co
+app.use((req, res, next) => {
+  const host = req.hostname;
+  if (host === 'rajzyngier.co' || host === 'www.rajzyngier.co') {
+    res.sendFile(path.join(__dirname, '../public/rajzyngier.html'));
+    return;
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/shop', (_req, res) => {
@@ -314,6 +324,10 @@ app.get('/search', (_req, res) => {
 
 app.get('/join', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/claim.html'));
+});
+
+app.get('/reset-password', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/reset-password.html'));
 });
 
 app.get('/account', (_req, res) => {

@@ -2,11 +2,13 @@ import { Router, Request, Response } from 'express';
 import appleSignin from 'apple-signin-auth';
 import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { db } from '../db';
 import { users, tableBookings, tableEvents } from '../db/schema';
 import { logger } from '../lib/logger';
 import { signToken, requireUser } from '../lib/auth';
 import { autoClaimPendingCredits } from './credits';
+import { sendPasswordReset } from '../lib/resend';
 
 // ─── Boot-time migration: social time-bank columns ───────────────────────────
 db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS social_time_bank_seconds integer NOT NULL DEFAULT 0`).catch(() => {});
@@ -34,6 +36,10 @@ async function uniqueUserCode(): Promise<string> {
   }
   return code;
 }
+
+// Self-healing: password reset columns
+db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token text`).catch(() => {});
+db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at timestamptz`).catch(() => {});
 
 // Self-healing: ensure columns added in later migrations exist
 db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_dorotka boolean NOT NULL DEFAULT false`).catch(() => {});
@@ -396,6 +402,82 @@ router.patch('/display-name', requireUser, async (req: Request, res: Response) =
   try {
     await db.update(users).set({ display_name: display_name.trim() }).where(eq(users.id, userId));
     res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/auth/forgot-password — send password reset email
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) { res.status(400).json({ error: 'email required' }); return; }
+  try {
+    const [user] = await db.select({ id: users.id, email: users.email, password_hash: users.password_hash })
+      .from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
+
+    // Always respond 200 — don't reveal whether the email exists
+    if (!user || !user.password_hash) { res.json({ sent: true }); return; }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.execute(sql`UPDATE users SET reset_token = ${token}, reset_token_expires_at = ${expires.toISOString()} WHERE id = ${user.id}`);
+
+    const baseUrl = process.env.BASE_URL ?? process.env.API_BASE_URL ?? 'https://fraise.box';
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+    await sendPasswordReset({ to: user.email, resetUrl });
+
+    res.json({ sent: true });
+  } catch (err) {
+    logger.error('Forgot password error: ' + String(err));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/auth/reset-password — set new password using token
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const { token, password } = req.body;
+  if (!token || !password) { res.status(400).json({ error: 'token and password required' }); return; }
+  if (password.length < 8) { res.status(400).json({ error: 'password must be at least 8 characters' }); return; }
+  try {
+    const result = await db.execute<{ id: number; reset_token_expires_at: string }>(
+      sql`SELECT id, reset_token_expires_at FROM users WHERE reset_token = ${token} LIMIT 1`
+    );
+    const rows = (result as any).rows ?? result;
+    if (!rows.length) { res.status(400).json({ error: 'invalid or expired token' }); return; }
+    const row = rows[0];
+    if (new Date(row.reset_token_expires_at) < new Date()) {
+      res.status(400).json({ error: 'invalid or expired token' }); return;
+    }
+    const password_hash = await bcrypt.hash(password, 10);
+    await db.execute(sql`UPDATE users SET password_hash = ${password_hash}, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ${row.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Reset password error: ' + String(err));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/auth/claim-booking — link a booking email to get table_verified
+// Used when Apple ID email differs from the email used to book a table session
+router.post('/claim-booking', requireUser, async (req: Request, res: Response) => {
+  const { booking_email } = req.body;
+  const userId = (req as any).userId as number;
+  if (!booking_email || typeof booking_email !== 'string') {
+    res.status(400).json({ error: 'booking_email is required' }); return;
+  }
+  const email = booking_email.trim().toLowerCase();
+  try {
+    const [booking] = await db
+      .select({ id: tableBookings.id })
+      .from(tableBookings)
+      .where(eq(tableBookings.email, email))
+      .limit(1);
+    if (!booking) {
+      res.status(404).json({ error: 'no confirmed booking found for that email' }); return;
+    }
+    await db.update(users).set({ table_verified: true }).where(eq(users.id, userId));
+    res.json({ success: true, table_verified: true });
   } catch {
     res.status(500).json({ error: 'internal' });
   }

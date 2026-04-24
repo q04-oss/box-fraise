@@ -19,6 +19,7 @@ export async function resolveEmailAddress(appleEmail: string): Promise<string> {
 
 const FROM = 'Box Fraise <orders@fraise.chat>';
 const REPLY_TO = 'hello@fraise.chat';
+const TABLE_REPLY_TO = 'table@fraise.box';
 
 const CHOCOLATE_LABELS: Record<string, string> = {
   guanaja_70: 'Guanaja 70%',
@@ -823,7 +824,7 @@ export async function sendTableBookingConfirmation(params: {
   await resend.emails.send({
     from: 'box fraise <orders@fraise.chat>',
     to,
-    replyTo: REPLY_TO,
+    replyTo: TABLE_REPLY_TO,
     subject: waitlisted ? `waitlist confirmed — ${eventTitle.toLowerCase()}` : `confirmed — ${eventTitle.toLowerCase()}`,
     html: tableTemplate(content, heading),
   });
@@ -845,8 +846,58 @@ export async function sendTableClaimEmail(params: {
   await resend.emails.send({
     from: 'box fraise <orders@fraise.chat>',
     to,
-    replyTo: REPLY_TO,
+    replyTo: TABLE_REPLY_TO,
     subject: `your box fraise account — ${eventTitle.toLowerCase()}`,
     html: tableTemplate(content, 'welcome to box fraise.'),
+  });
+}
+
+export async function sendTableDateConfirmed(params: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  venueName: string;
+  eventDate: Date;
+  seats: number;
+}) {
+  const { to, name, eventTitle, venueName, eventDate, seats } = params;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dateStr = `${days[eventDate.getDay()]}, ${months[eventDate.getMonth()]} ${eventDate.getDate()}`;
+
+  const content =
+    tableP(`hi ${name} — your session has a date.`) +
+    `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${tableRow('event', eventTitle.toLowerCase())}
+      ${tableRow('venue', venueName.toLowerCase())}
+      ${tableRow('date', dateStr)}
+      ${tableRow('seats', String(seats))}
+    </table>` +
+    tableMuted('if this date no longer works for you, you can cancel your booking from your account at fraise.box/account.');
+
+  await resend.emails.send({
+    from: 'box fraise <orders@fraise.chat>',
+    to,
+    replyTo: TABLE_REPLY_TO,
+    subject: `your session is confirmed — ${dateStr}`,
+    html: tableTemplate(content, 'date confirmed.'),
+  });
+}
+
+export async function sendPasswordReset(params: { to: string; resetUrl: string }) {
+  const { to, resetUrl } = params;
+  const content =
+    tableP('you requested a password reset for your box fraise account.') +
+    `<p style="margin:0 0 1.25rem;font-size:0.85rem;line-height:1.7;font-family:'DM Mono',monospace;">
+      <a href="${resetUrl}" style="display:inline-block;background:#1C1C1E;color:#FFFFFF;font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;padding:0.65rem 1.5rem;border-radius:9999px;text-decoration:none;">reset password</a>
+    </p>` +
+    tableMuted('this link expires in 1 hour. if you didn\'t request a reset, ignore this email.');
+
+  await resend.emails.send({
+    from: 'box fraise <orders@fraise.chat>',
+    to,
+    replyTo: TABLE_REPLY_TO,
+    subject: 'reset your password — box fraise',
+    html: tableTemplate(content, 'password reset.'),
   });
 }

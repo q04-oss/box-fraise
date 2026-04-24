@@ -1,9 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
-import { tableEvents, tableInstructors, tableBookings } from '../db/schema';
+import { tableEvents, tableInstructors, tableBookings, users } from '../db/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
 import { stripe } from '../lib/stripe';
-import { sendTableBookingConfirmation, sendTableClaimEmail } from '../lib/resend';
+import { sendTableBookingConfirmation, sendTableClaimEmail, sendTableDateConfirmed } from '../lib/resend';
+import { requireUser } from '../lib/auth';
 
 function requirePin(req: Request, res: Response, next: NextFunction): void {
   const pin = req.headers['x-admin-pin'];
@@ -247,6 +248,46 @@ export async function handleTablePayment(paymentIntentId: string) {
   }
 }
 
+// POST /api/table/bookings/:id/cancel — authenticated user cancels their own booking
+router.post('/bookings/:id/cancel', requireUser, async (req: any, res: any) => {
+  const id = parseInt(req.params.id);
+  const userId = req.userId as number;
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+
+  try {
+    // Get the user's email
+    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    const [booking] = await db.select().from(tableBookings).where(eq(tableBookings.id, id)).limit(1);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    // Verify ownership — booking email must match user's email
+    if (booking.email.toLowerCase() !== user.email.toLowerCase()) {
+      return res.status(403).json({ error: 'Not your booking' });
+    }
+
+    if (booking.status === 'refunded') return res.status(400).json({ error: 'Already refunded' });
+    if (!['confirmed', 'waitlisted'].includes(booking.status)) {
+      return res.status(400).json({ error: 'Booking cannot be cancelled at this stage' });
+    }
+    if (!booking.stripe_payment_intent_id) return res.status(400).json({ error: 'No payment to refund' });
+
+    await stripe.refunds.create({ payment_intent: booking.stripe_payment_intent_id });
+    await db.update(tableBookings).set({ status: 'refunded' }).where(eq(tableBookings.id, booking.id));
+
+    if (booking.status === 'confirmed') {
+      await db.update(tableEvents)
+        .set({ seats_taken: sql`${tableEvents.seats_taken} - ${booking.seats}` })
+        .where(eq(tableEvents.id, booking.event_id));
+    }
+
+    res.json({ cancelled: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'Cancellation failed' });
+  }
+});
+
 // Admin: GET /api/table/instructors
 router.get('/instructors', requirePin, async (_req: any, res: any) => {
   const instructors = await db.select().from(tableInstructors).orderBy(tableInstructors.id);
@@ -303,6 +344,26 @@ router.patch('/events/:id', requirePin, async (req: any, res: any) => {
     updates.date_tbd = false;
   }
   const [event] = await db.update(tableEvents).set(updates).where(eq(tableEvents.id, id)).returning();
+
+  // If this update just confirmed a TBD date, notify all confirmed bookings
+  if (updates.event_date && updates.date_tbd === false) {
+    const bookings = await db
+      .select({ id: tableBookings.id, name: tableBookings.name, email: tableBookings.email, seats: tableBookings.seats })
+      .from(tableBookings)
+      .where(and(eq(tableBookings.event_id, id), eq(tableBookings.status, 'confirmed')));
+
+    for (const booking of bookings) {
+      sendTableDateConfirmed({
+        to: booking.email,
+        name: booking.name,
+        eventTitle: event.title,
+        venueName: event.venue_name,
+        eventDate: updates.event_date,
+        seats: booking.seats,
+      }).catch(() => {});
+    }
+  }
+
   res.json(event);
 });
 

@@ -59,8 +59,22 @@
     .booking-status.waitlisted { background: rgba(255,159,10,0.1); color: #ff9f0a; }
     .booking-status.refunded { background: rgba(142,142,147,0.1); color: var(--muted); }
     .booking-status.pending { background: rgba(142,142,147,0.1); color: var(--muted); }
+    .cancel-btn { font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 9999px; padding: 0.2rem 0.6rem; cursor: pointer; transition: all 0.15s; }
+    .cancel-btn:hover { border-color: #c0392b; color: #c0392b; }
+    .cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .empty { font-size: 0.78rem; color: var(--muted); padding-block: 1.5rem; }
+
+    /* claim booking */
+    .claim-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; }
+    .claim-row input { flex: 1; font-family: 'DM Mono', monospace; font-size: 0.82rem; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.8rem; color: var(--text); outline: none; transition: border-color 0.15s; }
+    .claim-row input:focus { border-color: var(--text); background: var(--bg); }
+    .claim-btn { font-family: 'DM Mono', monospace; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; background: var(--text); color: var(--bg); border: none; border-radius: 9999px; padding: 0.55rem 1rem; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+    .claim-btn:hover { opacity: 0.8; }
+    .claim-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .claim-note { font-size: 0.68rem; color: var(--muted); margin-top: 0.4rem; }
+    .claim-note.ok { color: #34c759; }
+    .claim-note.err { color: #c0392b; }
 
     footer { margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border); font-size: 0.65rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
   </style>
@@ -77,6 +91,16 @@
       <div class="identity-email" id="email"></div>
       <div class="badges" id="badges"></div>
     </div>
+
+    <section id="claim-section" style="display:none;">
+      <div class="section-label">link a booking</div>
+      <p class="claim-note" style="margin-bottom:0.6rem;">if you booked a session with a different email, enter it here to get table verified.</p>
+      <div class="claim-row">
+        <input type="email" id="claim-email" placeholder="booking email" autocomplete="off" />
+        <button class="claim-btn" id="claim-btn">verify</button>
+      </div>
+      <div class="claim-note" id="claim-note"></div>
+    </section>
 
     <section>
       <div class="section-label">sessions</div>
@@ -125,7 +149,7 @@
           container.innerHTML = '<div class="empty">no sessions yet. <a href="/table" style="color:var(--text);">browse table →</a></div>';
         } else {
           container.innerHTML = user.bookings.map(b => `
-            <div class="booking">
+            <div class="booking" id="booking-${b.id}">
               <div>
                 <div class="booking-title">${b.event_title.toLowerCase()}</div>
                 <div class="booking-meta">
@@ -137,14 +161,69 @@
               <div class="booking-right">
                 <div class="booking-price">${formatPrice(b.total_cents)}</div>
                 <span class="booking-status ${b.status}">${b.status}</span>
+                ${['confirmed', 'waitlisted'].includes(b.status) ? `<button class="cancel-btn" onclick="cancelBooking(${b.id}, this)">cancel</button>` : ''}
               </div>
             </div>
           `).join('');
         }
 
+        if (!user.table_verified) {
+          document.getElementById('claim-section').style.display = 'block';
+        }
+
         document.getElementById('main').style.display = 'block';
       } catch {
         window.location.href = '/join';
+      }
+    }
+
+    document.getElementById('claim-btn').addEventListener('click', async () => {
+      const email = document.getElementById('claim-email').value.trim();
+      const note = document.getElementById('claim-note');
+      const btn = document.getElementById('claim-btn');
+      note.className = 'claim-note';
+      if (!email) { note.textContent = 'enter your booking email.'; note.classList.add('err'); return; }
+      btn.disabled = true; btn.textContent = 'checking —';
+      try {
+        const res = await fetch('/api/auth/claim-booking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ booking_email: email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'not found');
+        note.textContent = 'verified. your account is now table verified.';
+        note.classList.add('ok');
+        document.getElementById('claim-section').style.display = 'none';
+        const badges = document.getElementById('badges');
+        if (!badges.querySelector('.badge.table')) {
+          badges.insertAdjacentHTML('afterbegin', '<span class="badge table">table verified</span>');
+        }
+      } catch (err) {
+        note.textContent = err.message ?? 'no booking found for that email.';
+        note.classList.add('err');
+        btn.disabled = false; btn.textContent = 'verify';
+      }
+    });
+
+    async function cancelBooking(bookingId, btn) {
+      if (!confirm('cancel this booking and request a refund?')) return;
+      btn.disabled = true; btn.textContent = 'cancelling —';
+      try {
+        const res = await fetch(`/api/table/bookings/${bookingId}/cancel`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'cancellation failed');
+        const row = document.getElementById(`booking-${bookingId}`);
+        const statusEl = row.querySelector('.booking-status');
+        statusEl.className = 'booking-status refunded';
+        statusEl.textContent = 'refunded';
+        btn.remove();
+      } catch (err) {
+        alert(err.message ?? 'something went wrong.');
+        btn.disabled = false; btn.textContent = 'cancel';
       }
     }
 

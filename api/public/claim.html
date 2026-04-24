@@ -103,17 +103,49 @@
 
       <div class="divider"><span>don't have an account?</span></div>
       <p class="login-link"><a onclick="showRegister()">create account</a></p>
+      <p class="login-link" style="margin-top:0.5rem;"><a onclick="showForgot()">forgot password?</a></p>
+    </div>
+
+    <div id="forgot-view" style="display:none;">
+      <div class="eyebrow">box fraise</div>
+      <h1>forgot password.</h1>
+      <p class="sub">enter your email and we'll send a reset link.</p>
+
+      <div class="form">
+        <div>
+          <label for="forgot-email">email</label>
+          <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="error" id="forgot-error"></div>
+        <button class="btn" id="forgot-btn">send reset link</button>
+      </div>
+
+      <div class="success" id="forgot-success">
+        <div class="success-mark">✓</div>
+        <div class="success-title">check your email.</div>
+        <div class="success-sub">if an account exists for that address, a reset link is on its way.</div>
+      </div>
+
+      <div class="divider"><span>remembered it?</span></div>
+      <p class="login-link"><a onclick="showLogin()">sign in</a></p>
     </div>
   </div>
 
   <script>
     function showLogin() {
       document.getElementById('register-view').style.display = 'none';
+      document.getElementById('forgot-view').style.display = 'none';
       document.getElementById('login-view').style.display = 'block';
     }
     function showRegister() {
       document.getElementById('login-view').style.display = 'none';
+      document.getElementById('forgot-view').style.display = 'none';
       document.getElementById('register-view').style.display = 'block';
+    }
+    function showForgot() {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('register-view').style.display = 'none';
+      document.getElementById('forgot-view').style.display = 'block';
     }
 
     document.getElementById('reg-btn').addEventListener('click', async () => {
@@ -173,6 +205,32 @@
         errEl.textContent = err.message ?? 'something went wrong.';
         errEl.classList.add('visible');
         btn.disabled = false; btn.textContent = 'sign in';
+      }
+    });
+
+    document.getElementById('forgot-btn').addEventListener('click', async () => {
+      const email = document.getElementById('forgot-email').value.trim();
+      const errEl = document.getElementById('forgot-error');
+      errEl.classList.remove('visible');
+
+      if (!email) { errEl.textContent = 'email is required.'; errEl.classList.add('visible'); return; }
+
+      const btn = document.getElementById('forgot-btn');
+      btn.disabled = true; btn.textContent = 'sending —';
+
+      try {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        // Always show success — don't reveal if email exists
+        document.getElementById('forgot-form') && (document.querySelector('#forgot-view .form').style.display = 'none');
+        document.getElementById('forgot-success').classList.add('visible');
+      } catch {
+        errEl.textContent = 'something went wrong.';
+        errEl.classList.add('visible');
+        btn.disabled = false; btn.textContent = 'send reset link';
       }
     });
 
