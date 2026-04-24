@@ -1730,6 +1730,8 @@ export const tableEvents = pgTable('table_events', {
   capacity: integer('capacity').notNull().default(12),
   seats_taken: integer('seats_taken').notNull().default(0),
   description: text('description'),
+  venue_slug: text('venue_slug'),
+  event_type: text('event_type').notNull().default('group'), // 'group' | 'private'
   stripe_price_id: text('stripe_price_id'),
   active: boolean('active').notNull().default(true),
   parent_event_id: integer('parent_event_id'),

@@ -51,10 +51,7 @@
       letter-spacing: 0.02em;
       margin-bottom: 2.5rem;
     }
-
-    section {
-      margin-bottom: 2.5rem;
-    }
+    section { margin-bottom: 2.5rem; }
     .section-title {
       font-size: 0.65rem;
       letter-spacing: 0.12em;
@@ -79,9 +76,10 @@
     }
     .split-table td {
       font-size: 0.78rem;
-      padding: 0.55rem 0;
+      padding: 0.6rem 0;
       border-bottom: 1px solid var(--border);
-      line-height: 1.4;
+      line-height: 1.5;
+      vertical-align: top;
     }
     .split-table td:last-child {
       text-align: right;
@@ -94,9 +92,33 @@
       border-radius: 10px;
       padding: 1.25rem 1.5rem;
       font-size: 0.8rem;
-      line-height: 1.8;
+      line-height: 1.9;
       color: var(--text);
-      margin-top: 1rem;
+      margin-top: 0.75rem;
+    }
+
+    .format-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    .format-card {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+    }
+    .format-card .format-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .format-card p {
+      font-size: 0.75rem;
+      margin: 0;
+      line-height: 1.7;
     }
 
     footer {
@@ -119,70 +141,84 @@
     <nav><a href="/table">← table</a></nav>
 
     <div class="eyebrow">concept paper — april 2026</div>
-    <h1>table · a venue-hosted skills program</h1>
+    <h1>table · a venue-hosted experience program</h1>
 
     <section>
       <div class="section-title">premise</div>
-      <p>Table is a ticketed workshop and class program operated through box fraise. It places skilled instructors — chefs, fermenters, butchers, foragers, winemakers, baristas — inside working food and beverage venues in Edmonton, turning those venues into temporary schools.</p>
-      <p>The premise is simple: the people who are best at something rarely teach it, and the places best suited to teaching it are already operating as businesses. Table connects the two, handles ticketing, payment, and logistics, and takes a small cut for doing so.</p>
+      <p>Table is a small-group experience program that lives inside box fraise, a platform built around taste. It turns your venue into an intimate classroom — not by bringing in outside instructors, but by letting your own staff lead.</p>
+      <p>Your team already knows how to do things most people never will. Table creates a structured way to share that knowledge with guests who want to learn it, in small groups, in the space where the work actually happens.</p>
     </section>
 
     <section>
-      <div class="section-title">how it works for venues</div>
-      <p>A venue agrees to host a session during off-peak hours — a Sunday morning, a Tuesday evening, a closed Monday. They provide the space, the equipment, and the atmosphere that makes the learning feel real. They do not need to source an instructor, market the event, or handle payment.</p>
-      <p>box fraise lists the event, collects payment from attendees, and deposits the venue's share directly. The venue earns revenue from a space that would otherwise sit idle, with no operational overhead beyond opening the door.</p>
-      <p>Sessions are capped — typically ten to fourteen people. Small enough to be intimate. Large enough to be worth the venue's time.</p>
+      <div class="section-title">format</div>
+      <p>Sessions are deliberately small. Intimacy is the product.</p>
+      <div class="format-grid">
+        <div class="format-card">
+          <div class="format-label">group</div>
+          <p>up to 4 guests<br>2 per staff member<br>max 2 staff<br>standard pricing</p>
+        </div>
+        <div class="format-card">
+          <div class="format-label">private</div>
+          <p>2 guests<br>1 staff member<br>exclusive session<br>premium pricing</p>
+        </div>
+      </div>
+      <p style="margin-top:1rem;">The private format is designed for couples or pairs who want the full attention of one person. It commands a higher price and runs as a standalone booking — no shared session, no strangers at the counter.</p>
     </section>
 
     <section>
-      <div class="section-title">demand confirmation model</div>
-      <p>Table does not require a venue to commit to a date before knowing whether demand exists. Events are listed without a fixed date. Attendees pay to reserve a spot, knowing the date will be confirmed once the session fills. If the date ultimately doesn't work for them, they receive a full refund — no questions.</p>
-      <p>This removes risk from all parties. The venue doesn't open for three people. The instructor doesn't prepare for an empty room. Attendees who pay are genuinely committed. The session only happens when it makes sense for everyone.</p>
-      <p>If a session fills and demand continues, the excess is carried forward automatically. Those on the waitlist are confirmed into the next run at the same venue — no re-booking required.</p>
+      <div class="section-title">how booking works</div>
+      <p>A card sits on your counter with a QR code. A customer scans it, lands on your venue's page inside the box fraise platform, and pays to reserve a spot. No app required. No account needed. Just a phone and a card.</p>
+      <p>Events are listed without a fixed date. The date is confirmed once seats fill. If a guest can't make the confirmed date, they get a full refund. If demand exceeds capacity, the overflow carries forward automatically into the next run — guests who paid are already confirmed, with no re-booking required.</p>
+      <p>The cycle is indefinite. As long as guests keep scanning the QR code, sessions keep running.</p>
     </section>
 
     <section>
-      <div class="section-title">revenue split</div>
-      <p>Payment is collected by box fraise at checkout and distributed as follows:</p>
+      <div class="section-title">revenue</div>
+      <p>box fraise collects payment at checkout and distributes as follows:</p>
       <table class="split-table">
-        <tr><td>instructor</td><td>65%</td></tr>
-        <tr><td>venue</td><td>20%</td></tr>
-        <tr><td>box fraise</td><td>15%</td></tr>
+        <tr>
+          <td>your business</td>
+          <td>85%</td>
+        </tr>
+        <tr>
+          <td>box fraise</td>
+          <td>15%</td>
+        </tr>
       </table>
-      <p style="margin-top:1rem;">The venue's share is paid per session, per seat. A twelve-person session priced at CA$120 generates CA$288 for the venue. A venue running two sessions per month generates approximately CA$576 in passive revenue from space they already own.</p>
+      <p style="margin-top:1rem;">Of your 85%, the intended structure is: <strong>65% to the employee who led the session</strong>, 20% retained by the business as a venue fee. How you compensate your staff for their time is your decision — but that is the split this program is designed around, and what we communicate to participating businesses.</p>
+      <p>A group session priced at CA$150 with 4 guests generates CA$510 in gross revenue: CA$433 to your business (of which CA$390 is intended for the employee), CA$77 to fraise.</p>
     </section>
 
     <section>
-      <div class="section-title">what we ask of venues</div>
+      <div class="section-title">what we ask of you</div>
       <div class="callout">
-        — access to the space for the duration of the session<br>
-        — relevant equipment already present (knives, stoves, fermentation vessels, tasting glasses — whatever the format requires)<br>
-        — a point of contact for day-of logistics<br>
-        — a willingness to be listed publicly as the host venue
+        — a willing staff member who is genuinely skilled at something<br>
+        — space and equipment appropriate to the session<br>
+        — a QR code card on your counter (we provide the artwork)<br>
+        — a point of contact for day-of logistics
       </div>
     </section>
 
     <section>
       <div class="section-title">what we handle</div>
       <div class="callout">
-        — instructor sourcing and vetting<br>
-        — public listing on fraise.box/table<br>
+        — your venue's page on fraise.box/table<br>
         — payment collection and distribution<br>
-        — waitlist management and rollover<br>
-        — attendee communication<br>
-        — refunds where applicable
+        — booking, waitlist, and rollover management<br>
+        — refunds where applicable<br>
+        — the QR code artwork for your counter card
       </div>
     </section>
 
     <section>
       <div class="section-title">the broader context</div>
-      <p>box fraise is a platform built around taste — food, objects, craft, and the people who make things well. Table is one expression of that. It is not a class marketplace. It is not an events listing. It is a curation of people worth learning from, hosted in places worth being in, for people who want to understand how things are made.</p>
-      <p>Edmonton has the infrastructure. It has the talent. What it has lacked is the connective tissue. Table is that tissue.</p>
+      <p>box fraise is a platform for people who care about how things are made — food, objects, craft. Table is one feature inside that platform. It is not a marketplace, not an events listing, not a class aggregator. It is a specific program with a specific structure, built for venues that already have something worth sharing.</p>
+      <p>Edmonton has those venues. This is the mechanism.</p>
     </section>
 
     <section>
       <div class="section-title">next steps</div>
-      <p>If you are interested in hosting a session, we would like to understand your space, your peak and off-peak schedule, and whether there are instructors you already have a relationship with. We handle the rest.</p>
+      <p>If you are interested, we would like to understand your venue, your team, and what a session might look like in your space. The setup takes less than a day.</p>
       <p>Contact: <a href="mailto:table@fraise.box" style="color:var(--text);text-decoration:underline;text-underline-offset:3px;">table@fraise.box</a></p>
     </section>
 

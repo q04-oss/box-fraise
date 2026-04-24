@@ -483,6 +483,10 @@
     let currentEvent = null;
     let allEvents = [];
 
+    // Detect venue slug from URL path (/table/:slug)
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const venueSlug = pathParts.length === 2 && pathParts[0] === 'table' ? pathParts[1] : null;
+
     function formatDate(iso) {
       const d = new Date(iso);
       const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -496,8 +500,20 @@
 
     async function loadEvents() {
       try {
-        const res = await fetch('/api/table/events');
+        const url = venueSlug ? `/api/table/events?slug=${venueSlug}` : '/api/table/events';
+        const res = await fetch(url);
         allEvents = await res.json();
+
+        // If venue-specific page, update the header
+        if (venueSlug && allEvents.length) {
+          document.querySelector('h1').textContent = allEvents[0].venue_name.toLowerCase();
+          document.querySelector('.tagline').textContent = 'sessions at this venue. pay now, date confirmed once seats fill.';
+          document.querySelector('.eyebrow').style.display = 'none';
+        } else if (venueSlug) {
+          document.querySelector('h1').textContent = venueSlug;
+          document.querySelector('.tagline').textContent = 'no upcoming sessions at this venue.';
+        }
+
         renderEvents(allEvents);
         setupRefundPanel(allEvents);
       } catch {

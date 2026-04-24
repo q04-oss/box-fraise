@@ -971,6 +971,26 @@
           <button type="submit" class="pin-btn" style="padding:10px;">Add Instructor</button>
         </form>
 
+        ${(() => {
+          const slugs = [...new Set(events.map(e => e.venue_slug).filter(Boolean))];
+          if (!slugs.length) return '';
+          return `
+            <div class="section-label" style="margin-top:0;">Venue QR Codes</div>
+            <div style="margin-bottom:24px;display:flex;flex-wrap:wrap;gap:20px;">
+              ${slugs.map(slug => {
+                const venueName = events.find(e => e.venue_slug === slug)?.venue_name ?? slug;
+                const url = `https://fraise.box/table/${slug}`;
+                return `
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=8&data=${encodeURIComponent(url)}" width="120" height="120" style="border-radius:8px;border:1px solid var(--border);" />
+                    <div style="font-size:10px;color:var(--muted);letter-spacing:0.05em;text-align:center;">${venueName.toLowerCase()}<br>${url}</div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        })()}
+
         <div class="section-label">Events</div>
         <div style="margin-bottom:12px;">
           ${events.length === 0 ? '<div class="empty">No events yet.</div>' : events.map(e => `
@@ -978,7 +998,7 @@
               <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-family:'DM Mono',monospace;">${e.title}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px;">${formatDate(e.event_date)} · ${e.venue_name} · ${e.instructor_name}</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:1px;">CA$${(e.price_cents/100).toFixed(0)} · ${e.seats_taken}/${e.capacity} seats${e.waitlist_count > 0 ? ` · <span style="color:var(--yellow,#f0a500)">${e.waitlist_count} waitlisted</span>` : ''}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:1px;">CA$${(e.price_cents/100).toFixed(0)} · ${e.seats_taken}/${e.capacity} seats · ${e.event_type === 'private' ? 'private' : 'group'}${e.waitlist_count > 0 ? ` · <span style="color:var(--yellow,#f0a500)">${e.waitlist_count} waitlisted</span>` : ''}</div>
                 ${e.date_tbd ? `
                   <form onsubmit="confirmEventDate(event, ${e.id})" style="display:flex;gap:6px;margin-top:8px;">
                     <input type="datetime-local" id="confirm-date-${e.id}" class="pin-input" style="font-size:11px;letter-spacing:0;text-align:left;padding:6px 8px;flex:1;" required />
@@ -1014,6 +1034,10 @@
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="title (e.g. knife skills)" id="e-title" required />
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="venue name" id="e-venue" required />
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="venue address (optional)" id="e-address" />
+          <select id="e-type" class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;cursor:pointer;">
+            <option value="group">group (max 4 guests / 2 staff)</option>
+            <option value="private">private — couples (2 guests / 1 staff, premium)</option>
+          </select>
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="date & time — leave blank for TBD" id="e-date" type="datetime-local" />
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="price in CAD (e.g. 120)" id="e-price" type="number" min="1" required />
           <input class="pin-input" style="font-size:13px;letter-spacing:0;text-align:left;padding:10px 12px;" placeholder="capacity (default 12)" id="e-capacity" type="number" min="1" value="12" />
@@ -1063,16 +1087,17 @@
         const title = document.getElementById('e-title').value.trim();
         const venue_name = document.getElementById('e-venue').value.trim();
         const venue_address = document.getElementById('e-address').value.trim();
+        const event_type = document.getElementById('e-type').value;
         const event_date = document.getElementById('e-date').value;
         const price_cents = Math.round(parseFloat(document.getElementById('e-price').value) * 100);
-        const capacity = parseInt(document.getElementById('e-capacity').value) || 12;
-        const duration_minutes = parseInt(document.getElementById('e-duration').value) || 120;
+        const capacity = parseInt(document.getElementById('e-capacity').value) || (event_type === 'private' ? 2 : 4);
+        const duration_minutes = parseInt(document.getElementById('e-duration').value) || 90;
         const description = document.getElementById('e-desc').value.trim();
         if (!instructor_id || !title || !venue_name || !price_cents) return alert('Fill in required fields.');
         const res = await fetch(`${BASE}/api/table/events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Admin-PIN': currentPin },
-          body: JSON.stringify({ instructor_id, title, venue_name, venue_address: venue_address || null, event_date: event_date || null, price_cents, capacity, duration_minutes, description: description || null }),
+          body: JSON.stringify({ instructor_id, title, venue_name, venue_address: venue_address || null, event_type, event_date: event_date || null, price_cents, capacity, duration_minutes, description: description || null }),
         });
         if (res.ok) renderTableTab();
         else alert('Failed to add event.');

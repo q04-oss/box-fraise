@@ -13,20 +13,31 @@ function requirePin(req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 const router = Router();
 
 const FRAISE_CUT = 0.15;
 const VENUE_CUT = 0.20;
+const EMPLOYEE_CUT = 0.65; // passes through business to employee
 
-// GET /api/table/events — all active events with instructor + waitlist count
-router.get('/events', async (_req, res: any) => {
+// GET /api/table/events — all active events, optional ?slug= filter
+router.get('/events', async (req: any, res: any) => {
+  const slug = req.query.slug as string | undefined;
   try {
+    const where = slug
+      ? and(eq(tableEvents.active, true), eq(tableEvents.venue_slug, slug))
+      : eq(tableEvents.active, true);
+
     const events = await db
       .select({
         id: tableEvents.id,
         title: tableEvents.title,
         venue_name: tableEvents.venue_name,
         venue_address: tableEvents.venue_address,
+        venue_slug: tableEvents.venue_slug,
         event_date: tableEvents.event_date,
         date_tbd: tableEvents.date_tbd,
         duration_minutes: tableEvents.duration_minutes,
@@ -35,6 +46,7 @@ router.get('/events', async (_req, res: any) => {
         seats_taken: tableEvents.seats_taken,
         description: tableEvents.description,
         active: tableEvents.active,
+        event_type: tableEvents.event_type,
         parent_event_id: tableEvents.parent_event_id,
         instructor_name: tableInstructors.name,
         instructor_bio: tableInstructors.bio,
@@ -42,7 +54,7 @@ router.get('/events', async (_req, res: any) => {
       })
       .from(tableEvents)
       .innerJoin(tableInstructors, eq(tableEvents.instructor_id, tableInstructors.id))
-      .where(eq(tableEvents.active, true));
+      .where(where);
 
     // Attach waitlist counts
     const eventIds = events.map(e => e.id);
@@ -221,21 +233,27 @@ router.post('/instructors', requirePin, async (req: any, res: any) => {
 
 // Admin: POST /api/table/events
 router.post('/events', requirePin, async (req: any, res: any) => {
-  const { instructor_id, title, venue_name, venue_address, event_date, duration_minutes, price_cents, capacity, description } = req.body;
+  const { instructor_id, title, venue_name, venue_address, event_date, duration_minutes, price_cents, capacity, description, event_type } = req.body;
   if (!instructor_id || !title || !venue_name || !price_cents) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
+  const type = event_type === 'private' ? 'private' : 'group';
+  // group: max 4 seats (2 per employee, up to 2 employees)
+  // private: exactly 2 seats (couple + 1 employee)
+  const defaultCapacity = type === 'private' ? 2 : 4;
   const [event] = await db.insert(tableEvents).values({
     instructor_id,
     title,
     venue_name,
     venue_address,
+    venue_slug: toSlug(venue_name),
     event_date: event_date ? new Date(event_date) : null,
     date_tbd: !event_date,
-    duration_minutes: duration_minutes ?? 120,
+    duration_minutes: duration_minutes ?? 90,
     price_cents,
-    capacity: capacity ?? 12,
+    capacity: capacity ?? defaultCapacity,
     description,
+    event_type: type,
   }).returning();
   res.json(event);
 });
