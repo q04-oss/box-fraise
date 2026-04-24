@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import appleSignin from 'apple-signin-auth';
 import { eq, sql } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 import { db } from '../db';
-import { users } from '../db/schema';
+import { users, tableBookings } from '../db/schema';
 import { logger } from '../lib/logger';
 import { signToken, requireUser } from '../lib/auth';
 import { autoClaimPendingCredits } from './credits';
@@ -243,6 +244,62 @@ router.post('/demo', async (req: Request, res: Response) => {
     res.json({ user_id: userId, token: signToken(userId), is_new: false });
   } catch (e) {
     logger.error('Demo login error: ' + String(e));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/auth/register — email + password signup (web/table flow)
+router.post('/register', async (req: Request, res: Response) => {
+  const { email, password, display_name } = req.body;
+  if (!email || !password) { res.status(400).json({ error: 'email and password required' }); return; }
+  if (password.length < 8) { res.status(400).json({ error: 'password must be at least 8 characters' }); return; }
+
+  try {
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (existing) { res.status(409).json({ error: 'an account with that email already exists' }); return; }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const user_code = await uniqueUserCode();
+
+    // Check if this email has a confirmed table booking — if so, auto-verify
+    const [tableBooking] = await db
+      .select({ id: tableBookings.id })
+      .from(tableBookings)
+      .where(eq(tableBookings.email, email))
+      .limit(1);
+    const table_verified = !!tableBooking;
+
+    const [user] = await db.insert(users).values({
+      email,
+      display_name: display_name ?? email.split('@')[0],
+      user_code,
+      password_hash,
+      table_verified,
+    } as any).returning();
+
+    const token = signToken(user.id);
+    res.json({ user_id: user.id, token, table_verified });
+  } catch (err) {
+    logger.error('Register error: ' + String(err));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+// POST /api/auth/login — email + password login
+router.post('/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) { res.status(400).json({ error: 'email and password required' }); return; }
+
+  try {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user || !user.password_hash) { res.status(401).json({ error: 'invalid credentials' }); return; }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) { res.status(401).json({ error: 'invalid credentials' }); return; }
+
+    const token = signToken(user.id);
+    res.json({ user_id: user.id, token, table_verified: user.table_verified ?? false });
+  } catch (err) {
     res.status(500).json({ error: 'internal' });
   }
 });

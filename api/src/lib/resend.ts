@@ -839,7 +839,7 @@ export async function sendTableClaimEmail(params: {
 
   const content =
     tableP(`hi ${name} — thanks for coming to <strong>${eventTitle.toLowerCase()}</strong> at ${venueName.toLowerCase()}.`) +
-    tableP(`you now have a box fraise account waiting for you. sign up at <a href="https://fraise.box" style="color:#1C1C1E;">fraise.box</a> using this email address and your account will be verified — no extra steps.`) +
+    tableP(`you now have a box fraise account waiting for you. <a href="https://fraise.box/join" style="color:#1C1C1E;font-weight:500;">create your account</a> using this email address and your account will be verified automatically — no extra steps.`) +
     tableMuted('verified accounts on box fraise reflect real presence. yours is tied to a session you actually attended.');
 
   await resend.emails.send({

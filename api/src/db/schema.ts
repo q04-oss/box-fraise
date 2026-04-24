@@ -176,6 +176,8 @@ export const users: any = pgTable('users', {
   banned: boolean('banned').notNull().default(false),
   ban_reason: text('ban_reason'),
   is_shop: boolean('is_shop').notNull().default(false),
+  password_hash: text('password_hash'),
+  table_verified: boolean('table_verified').notNull().default(false),
   is_dorotka: boolean('is_dorotka').notNull().default(false),
   business_id: integer('business_id').references(() => businesses.id),
   stripe_connect_account_id: text('stripe_connect_account_id'),

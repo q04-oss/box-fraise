@@ -312,6 +312,10 @@ app.get('/search', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/search.html'));
 });
 
+app.get('/join', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/claim.html'));
+});
+
 app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });

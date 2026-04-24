@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>box fraise — join</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF; --text: #1C1C1E; --muted: #8E8E93;
+      --border: #E5E1DA; --card: #F7F5F2; --input: #F0EDE8;
+    }
+    html { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; -webkit-font-smoothing: antialiased; }
+    body { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+    .wrap { width: 100%; max-width: 380px; }
+    nav { margin-bottom: 2.5rem; }
+    nav a { font-size: 0.75rem; color: var(--muted); text-decoration: none; letter-spacing: 0.05em; }
+    nav a:hover { color: var(--text); }
+    .eyebrow { font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; }
+    h1 { font-size: 1rem; font-weight: 500; margin-bottom: 0.5rem; }
+    .sub { font-size: 0.78rem; color: var(--muted); line-height: 1.7; margin-bottom: 2rem; }
+    .form { display: flex; flex-direction: column; gap: 0.75rem; }
+    label { font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+    input { width: 100%; font-family: 'DM Mono', monospace; font-size: 0.85rem; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.9rem; color: var(--text); outline: none; transition: border-color 0.15s; }
+    input:focus { border-color: var(--text); background: var(--bg); }
+    .btn { width: 100%; font-family: 'DM Mono', monospace; font-size: 0.8rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: var(--text); color: var(--bg); border: none; border-radius: 9999px; padding: 0.75rem; cursor: pointer; transition: opacity 0.15s; margin-top: 0.25rem; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .error { font-size: 0.72rem; color: #c0392b; display: none; }
+    .error.visible { display: block; }
+    .success { display: none; flex-direction: column; gap: 0.75rem; }
+    .success.visible { display: flex; }
+    .success-mark { font-size: 1.25rem; }
+    .success-title { font-size: 0.9rem; font-weight: 500; }
+    .success-sub { font-size: 0.75rem; color: var(--muted); line-height: 1.7; }
+    .divider { display: flex; align-items: center; gap: 0.75rem; margin-block: 0.5rem; }
+    .divider span { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.06em; white-space: nowrap; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+    .login-link { font-size: 0.72rem; color: var(--muted); text-align: center; }
+    .login-link a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav><a href="/">← box fraise</a></nav>
+
+    <div id="register-view">
+      <div class="eyebrow">box fraise</div>
+      <h1>create your account.</h1>
+      <p class="sub">use the same email you booked with and your account will be verified automatically.</p>
+
+      <div class="form" id="register-form">
+        <div>
+          <label for="reg-email">email</label>
+          <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div>
+          <label for="reg-name">display name</label>
+          <input type="text" id="reg-name" placeholder="how you appear on the platform" autocomplete="name" />
+        </div>
+        <div>
+          <label for="reg-password">password</label>
+          <input type="password" id="reg-password" placeholder="at least 8 characters" autocomplete="new-password" />
+        </div>
+        <div class="error" id="reg-error"></div>
+        <button class="btn" id="reg-btn">create account</button>
+      </div>
+
+      <div class="success" id="reg-success">
+        <div class="success-mark">✓</div>
+        <div class="success-title" id="reg-success-title">you're in.</div>
+        <div class="success-sub" id="reg-success-sub"></div>
+      </div>
+
+      <div class="divider" id="reg-divider"><span>already have an account?</span></div>
+      <p class="login-link" id="reg-login-link"><a onclick="showLogin()">sign in</a></p>
+    </div>
+
+    <div id="login-view" style="display:none;">
+      <div class="eyebrow">box fraise</div>
+      <h1>sign in.</h1>
+      <p class="sub">use your email and password.</p>
+
+      <div class="form">
+        <div>
+          <label for="login-email">email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div>
+          <label for="login-password">password</label>
+          <input type="password" id="login-password" placeholder="password" autocomplete="current-password" />
+        </div>
+        <div class="error" id="login-error"></div>
+        <button class="btn" id="login-btn">sign in</button>
+      </div>
+
+      <div class="success" id="login-success">
+        <div class="success-mark">✓</div>
+        <div class="success-title">welcome back.</div>
+        <div class="success-sub" id="login-success-sub"></div>
+      </div>
+
+      <div class="divider"><span>don't have an account?</span></div>
+      <p class="login-link"><a onclick="showRegister()">create account</a></p>
+    </div>
+  </div>
+
+  <script>
+    function showLogin() {
+      document.getElementById('register-view').style.display = 'none';
+      document.getElementById('login-view').style.display = 'block';
+    }
+    function showRegister() {
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('register-view').style.display = 'block';
+    }
+
+    document.getElementById('reg-btn').addEventListener('click', async () => {
+      const email = document.getElementById('reg-email').value.trim();
+      const display_name = document.getElementById('reg-name').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const errEl = document.getElementById('reg-error');
+      errEl.classList.remove('visible');
+
+      if (!email || !password) { errEl.textContent = 'email and password are required.'; errEl.classList.add('visible'); return; }
+      if (password.length < 8) { errEl.textContent = 'password must be at least 8 characters.'; errEl.classList.add('visible'); return; }
+
+      const btn = document.getElementById('reg-btn');
+      btn.disabled = true; btn.textContent = 'creating —';
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, display_name: display_name || null }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Registration failed');
+
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('reg-divider').style.display = 'none';
+        document.getElementById('reg-login-link').style.display = 'none';
+        const success = document.getElementById('reg-success');
+        success.classList.add('visible');
+        document.getElementById('reg-success-title').textContent = data.table_verified ? 'account created. you\'re verified.' : 'account created.';
+        document.getElementById('reg-success-sub').textContent = data.table_verified
+          ? 'your account is verified — tied to a session you attended. welcome to box fraise.'
+          : 'your account is live. download the app or keep using the platform through your browser.';
+      } catch (err) {
+        errEl.textContent = err.message ?? 'something went wrong.';
+        errEl.classList.add('visible');
+        btn.disabled = false; btn.textContent = 'create account';
+      }
+    });
+
+    document.getElementById('login-btn').addEventListener('click', async () => {
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errEl = document.getElementById('login-error');
+      errEl.classList.remove('visible');
+
+      if (!email || !password) { errEl.textContent = 'email and password are required.'; errEl.classList.add('visible'); return; }
+
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true; btn.textContent = 'signing in —';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Sign in failed');
+
+        document.getElementById('login-btn').closest('.form').style.display = 'none';
+        const success = document.getElementById('login-success');
+        success.classList.add('visible');
+        document.getElementById('login-success-sub').textContent = data.table_verified
+          ? 'signed in. your account is verified.'
+          : 'signed in.';
+      } catch (err) {
+        errEl.textContent = err.message ?? 'something went wrong.';
+        errEl.classList.add('visible');
+        btn.disabled = false; btn.textContent = 'sign in';
+      }
+    });
+
+    // Pre-fill email from URL param if present
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
+    if (emailParam) document.getElementById('reg-email').value = emailParam;
+  </script>
+</body>
+</html>
