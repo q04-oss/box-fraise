@@ -310,6 +310,10 @@ app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });
 
+app.get('/table/abstract', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/table-abstract.html'));
+});
+
 app.get('/device', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/device.html'));
 });

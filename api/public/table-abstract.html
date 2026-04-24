@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>table — concept paper</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #FFFFFF;
+      --text:   #1C1C1E;
+      --muted:  #8E8E93;
+      --border: #E5E1DA;
+      --card:   #F7F5F2;
+    }
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { min-height: 100dvh; }
+    main {
+      width: 100%;
+      max-width: 640px;
+      margin-inline: auto;
+      padding-inline: clamp(1.5rem, 6vw, 4rem);
+      padding-block: clamp(3rem, 8vw, 5rem);
+    }
+    nav { margin-bottom: 3rem; }
+    nav a {
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      color: var(--muted);
+    }
+    nav a:hover { color: var(--text); }
+
+    .eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      margin-bottom: 2.5rem;
+    }
+
+    section {
+      margin-bottom: 2.5rem;
+    }
+    .section-title {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    p {
+      font-size: 0.82rem;
+      line-height: 1.85;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+    p:last-child { margin-bottom: 0; }
+
+    .split-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+    .split-table td {
+      font-size: 0.78rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid var(--border);
+      line-height: 1.4;
+    }
+    .split-table td:last-child {
+      text-align: right;
+      color: var(--muted);
+    }
+    .split-table tr:last-child td { border-bottom: none; }
+
+    .callout {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      font-size: 0.8rem;
+      line-height: 1.8;
+      color: var(--text);
+      margin-top: 1rem;
+    }
+
+    footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="/table">← table</a></nav>
+
+    <div class="eyebrow">concept paper — april 2026</div>
+    <h1>table · a venue-hosted skills program</h1>
+
+    <section>
+      <div class="section-title">premise</div>
+      <p>Table is a ticketed workshop and class program operated through box fraise. It places skilled instructors — chefs, fermenters, butchers, foragers, winemakers, baristas — inside working food and beverage venues in Edmonton, turning those venues into temporary schools.</p>
+      <p>The premise is simple: the people who are best at something rarely teach it, and the places best suited to teaching it are already operating as businesses. Table connects the two, handles ticketing, payment, and logistics, and takes a small cut for doing so.</p>
+    </section>
+
+    <section>
+      <div class="section-title">how it works for venues</div>
+      <p>A venue agrees to host a session during off-peak hours — a Sunday morning, a Tuesday evening, a closed Monday. They provide the space, the equipment, and the atmosphere that makes the learning feel real. They do not need to source an instructor, market the event, or handle payment.</p>
+      <p>box fraise lists the event, collects payment from attendees, and deposits the venue's share directly. The venue earns revenue from a space that would otherwise sit idle, with no operational overhead beyond opening the door.</p>
+      <p>Sessions are capped — typically ten to fourteen people. Small enough to be intimate. Large enough to be worth the venue's time.</p>
+    </section>
+
+    <section>
+      <div class="section-title">demand confirmation model</div>
+      <p>Table does not require a venue to commit to a date before knowing whether demand exists. Events are listed without a fixed date. Attendees pay to reserve a spot, knowing the date will be confirmed once the session fills. If the date ultimately doesn't work for them, they receive a full refund — no questions.</p>
+      <p>This removes risk from all parties. The venue doesn't open for three people. The instructor doesn't prepare for an empty room. Attendees who pay are genuinely committed. The session only happens when it makes sense for everyone.</p>
+      <p>If a session fills and demand continues, the excess is carried forward automatically. Those on the waitlist are confirmed into the next run at the same venue — no re-booking required.</p>
+    </section>
+
+    <section>
+      <div class="section-title">revenue split</div>
+      <p>Payment is collected by box fraise at checkout and distributed as follows:</p>
+      <table class="split-table">
+        <tr><td>instructor</td><td>65%</td></tr>
+        <tr><td>venue</td><td>20%</td></tr>
+        <tr><td>box fraise</td><td>15%</td></tr>
+      </table>
+      <p style="margin-top:1rem;">The venue's share is paid per session, per seat. A twelve-person session priced at CA$120 generates CA$288 for the venue. A venue running two sessions per month generates approximately CA$576 in passive revenue from space they already own.</p>
+    </section>
+
+    <section>
+      <div class="section-title">what we ask of venues</div>
+      <div class="callout">
+        — access to the space for the duration of the session<br>
+        — relevant equipment already present (knives, stoves, fermentation vessels, tasting glasses — whatever the format requires)<br>
+        — a point of contact for day-of logistics<br>
+        — a willingness to be listed publicly as the host venue
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">what we handle</div>
+      <div class="callout">
+        — instructor sourcing and vetting<br>
+        — public listing on fraise.box/table<br>
+        — payment collection and distribution<br>
+        — waitlist management and rollover<br>
+        — attendee communication<br>
+        — refunds where applicable
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">the broader context</div>
+      <p>box fraise is a platform built around taste — food, objects, craft, and the people who make things well. Table is one expression of that. It is not a class marketplace. It is not an events listing. It is a curation of people worth learning from, hosted in places worth being in, for people who want to understand how things are made.</p>
+      <p>Edmonton has the infrastructure. It has the talent. What it has lacked is the connective tissue. Table is that tissue.</p>
+    </section>
+
+    <section>
+      <div class="section-title">next steps</div>
+      <p>If you are interested in hosting a session, we would like to understand your space, your peak and off-peak schedule, and whether there are instructors you already have a relationship with. We handle the rest.</p>
+      <p>Contact: <a href="mailto:table@fraise.box" style="color:var(--text);text-decoration:underline;text-underline-offset:3px;">table@fraise.box</a></p>
+    </section>
+
+    <footer>
+      <span>box fraise · fraise.box · edmonton</span>
+      <span>april 2026</span>
+    </footer>
+  </main>
+</body>
+</html>
