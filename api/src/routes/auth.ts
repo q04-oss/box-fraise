@@ -140,14 +140,30 @@ async function handleAppleSignIn(req: Request, res: Response) {
     if (appleEmail) {
       const [byEmail] = await db.select().from(users).where(eq(users.email, appleEmail));
       if (byEmail) {
-        await db.update(users).set({ apple_user_id: appleId }).where(eq(users.id, byEmail.id));
+        // Merge: link Apple ID, and carry over table_verified if not already set
+        const updates: any = { apple_user_id: appleId };
+        if (!byEmail.table_verified) {
+          const [tableBooking] = await db
+            .select({ id: tableBookings.id })
+            .from(tableBookings)
+            .where(eq(tableBookings.email, appleEmail))
+            .limit(1);
+          if (tableBooking) updates.table_verified = true;
+        }
+        await db.update(users).set(updates).where(eq(users.id, byEmail.id));
         autoClaimPendingCredits(byEmail.id, appleEmail).catch(() => {});
         const token = signToken(byEmail.id);
-        res.json({ user_id: byEmail.id, token, is_new: false, email: byEmail.email, verified: byEmail.verified, fraise_chat_email: byEmail.fraise_chat_email, display_name: byEmail.display_name });
+        res.json({ user_id: byEmail.id, token, is_new: false, email: byEmail.email, verified: byEmail.verified, table_verified: updates.table_verified ?? byEmail.table_verified ?? false, fraise_chat_email: byEmail.fraise_chat_email, display_name: byEmail.display_name });
         return;
       }
 
-      // 3. Brand new user — create account
+      // 3. Brand new Apple user — check table booking for auto-verify
+      const [tableBooking] = await db
+        .select({ id: tableBookings.id })
+        .from(tableBookings)
+        .where(eq(tableBookings.email, appleEmail))
+        .limit(1);
+
       const userCode = await uniqueUserCode();
       const [created] = await db
         .insert(users)
@@ -155,12 +171,13 @@ async function handleAppleSignIn(req: Request, res: Response) {
           email: appleEmail,
           apple_user_id: appleId,
           user_code: userCode,
+          table_verified: !!tableBooking,
           ...(displayName ? { display_name: displayName } : {}),
-        })
+        } as any)
         .returning();
       autoClaimPendingCredits(created.id, appleEmail).catch(() => {});
       const token = signToken(created.id);
-      res.json({ user_id: created.id, token, is_new: true, email: created.email, verified: created.verified, fraise_chat_email: created.fraise_chat_email, display_name: created.display_name });
+      res.json({ user_id: created.id, token, is_new: true, email: created.email, verified: created.verified, table_verified: !!tableBooking, fraise_chat_email: created.fraise_chat_email, display_name: created.display_name });
       return;
     }
 
