@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>box fraise</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #FFFFFF;
+      --text:   #1C1C1E;
+      --muted:  #8E8E93;
+      --border: #E5E1DA;
+      --card:   #F7F5F2;
+      --search: #F0EDE8;
+    }
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { min-height: 100dvh; }
+
+    /* ── Header ── */
+    .header {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      z-index: 10;
+    }
+    .header a {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text);
+      text-decoration: none;
+      letter-spacing: 0.03em;
+      flex-shrink: 0;
+    }
+    .header a:hover { color: var(--muted); }
+
+    .search-form {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--search);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 0.5rem 1rem;
+      gap: 0.6rem;
+      max-width: 560px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .search-form:focus-within {
+      border-color: var(--text);
+      background: var(--bg);
+    }
+    .search-icon {
+      flex-shrink: 0;
+      color: var(--muted);
+      width: 14px;
+      height: 14px;
+    }
+    .search-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      outline: none;
+      min-width: 0;
+    }
+    .search-input::placeholder { color: var(--muted); }
+
+    /* ── Results ── */
+    main {
+      max-width: 640px;
+      margin-inline: auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .results { display: flex; flex-direction: column; }
+
+    .result {
+      padding-block: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .result:first-child { border-top: 1px solid var(--border); }
+
+    .result-display-url {
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+    }
+    .result-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+    }
+    .result-title a {
+      color: var(--text);
+      text-decoration: none;
+    }
+    .result-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .result-description {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .status {
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding-block: 2rem;
+      letter-spacing: 0.03em;
+    }
+
+    .query-line {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <a href="/">box fraise</a>
+    <form class="search-form" id="search-form" autocomplete="off">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        class="search-input"
+        id="search-input"
+        type="text"
+        placeholder="search privately."
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      />
+    </form>
+  </header>
+
+  <main>
+    <div id="results-container">
+      <div class="status">searching —</div>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q') ?? '';
+    const input = document.getElementById('search-input');
+    input.value = q;
+
+    const internalRoutes = {
+      'device': '/device', 'paper': '/paper', 'shop': '/shop',
+      'support': '/support', 'privacy': '/privacy',
+      'beta': 'https://testflight.apple.com/join/zJG1Wc5Y',
+      'chocolatier': '/chocolatier', 'operator': '/operator', 'table': '/table',
+    };
+
+    document.getElementById('search-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+      const lower = query.toLowerCase().replace(/^\//, '');
+      if (internalRoutes[lower]) { window.location.href = internalRoutes[lower]; return; }
+      window.location.href = '/search?q=' + encodeURIComponent(query);
+    });
+
+    async function run() {
+      if (!q) {
+        document.getElementById('results-container').innerHTML = '<div class="status">no query.</div>';
+        return;
+      }
+      document.title = `${q} — box fraise`;
+
+      try {
+        const res = await fetch('/api/brave?q=' + encodeURIComponent(q));
+        const data = await res.json();
+
+        if (!res.ok || !data.results?.length) {
+          document.getElementById('results-container').innerHTML = '<div class="status">no results.</div>';
+          return;
+        }
+
+        document.getElementById('results-container').innerHTML = `
+          <div class="query-line">${data.results.length} results for "${q}"</div>
+          <div class="results">
+            ${data.results.map(r => `
+              <div class="result">
+                <div class="result-display-url">${escHtml(r.display_url)}</div>
+                <div class="result-title"><a href="${escHtml(r.url)}" target="_blank" rel="noopener noreferrer">${escHtml(r.title)}</a></div>
+                ${r.description ? `<div class="result-description">${escHtml(r.description)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch {
+        document.getElementById('results-container').innerHTML = '<div class="status">search unavailable.</div>';
+      }
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    run();
+  </script>
+</body>
+</html>

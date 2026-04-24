@@ -24,6 +24,7 @@ import popupRequestsRouter from './routes/popup-requests';
 import campaignCommissionsRouter from './routes/campaign-commissions';
 import contractsRouter from './routes/contracts';
 import searchRouter from './routes/search';
+import braveRouter from './routes/brave';
 import { membersRouter, fundRouter } from './routes/memberships';
 import editorialRouter from './routes/editorial';
 import nfcRouter, { contactsRouter } from './routes/nfc';
@@ -170,6 +171,7 @@ app.use('/api/popup-requests', popupRequestsRouter);
 app.use('/api/campaign-commissions', campaignCommissionsRouter);
 app.use('/api/contracts', contractsRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/brave', braveRouter);
 app.use('/api/members', membersRouter);
 app.use('/api/fund', fundRouter);
 app.use('/api/editorial', editorialRouter);
@@ -304,6 +306,10 @@ app.get('/operator', (_req, res) => {
 
 app.get('/chocolatier', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/chocolatier.html'));
+});
+
+app.get('/search', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/search.html'));
 });
 
 app.get('/table', (_req, res) => {
