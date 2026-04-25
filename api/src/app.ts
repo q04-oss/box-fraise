@@ -467,6 +467,38 @@ app.post('/api/kommune/press/applications/:id/reject', async (req: any, res: any
   res.json({ ok: true });
 });
 
+app.post('/api/kommune/recommend', async (req: any, res: any) => {
+  const people = Math.min(Math.max(parseInt(req.body?.people) || 1, 1), 20);
+  const mood = String(req.body?.mood ?? '').trim().slice(0, 200);
+  if (!mood) return res.status(400).json({ error: 'mood required' });
+
+  const Anthropic = (await import('@anthropic-ai/sdk')).default;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const menu = `
+PLATES: Crispy Potato Cake $16 (potato, gouda sauce, chives), Berlin Mustard Eggs $12 (smoked egg yolk, potato, horseradish), Smoked Schnitzel $25 (breaded smoked meat, lettuce, dijon), Seitan Vegan Cheeses $18 (chili, dill, gorgonzola, rye chips)
+BAKES: The Tony $14 (mortadella, provolone, dijon, brioche), The Bea $12 (eggs, bacon, spicy ketchup, aioli, brioche), Avocado Toast $12 (sourdough, tomatoes, gouda, pea shoots, +$2 egg), Almond French Toast $12.50 (sourdough, almond butter, banana, strawberries), Yogurt Bowl $10 (granola, berries, honey)
+SNACKS: Beet Hummus $11 (roasted beets, oil, dill, rye chips), Marinated Goat Feta $8 (herbed feta, rye chips), Brio Rye Bread $7 (rosemary oil, pomegranate vinegar)
+SWEETS: Flourless Chocolate Cake $9, Affogato $7 (espresso, matcha, or hojicha), Affogato Flight $12
+COFFEE: Americano $4.50, Latte $6.25, Vanilla Latte $7, Flat White $5, Espresso $3.75, Tonic $6, Cappuccino $5.75, Cortado $5.50, Macchiato $4.50, Rotating Syrups $0.75, Oat or Reg Milk $0
+FOG: London $6.50, Peppermint $6.50, Tea $4
+MATCHA (by Whisked): Regular $7, Premium $10, Maple Sea Salt $8, Apple Cinnamon $8, Pumpkin Spice $8, Earl Grey $8, Hojicha $7
+NA COCKTAILS: Dhos & Tonic $9, Kasu Yuzu & Soda $11, Coco-No-Lo $11, Coriander Crush $11, Pathfinder & Root Beer $12, The Moose is Loose $12, Not Mint to Be $11, Cheeky Boilermaker / Phony Negroni $14
+COCKTAILS: Gin & Tonic $9, Kasu Vodka Yuzu & Soda $11, Sherry Colada Lowball $13, Coriander Spritz $11, Root of All Evil $12, Old Fashioned $14, Mint to Be $11, Arandasi Picante $12, Boilermaker / Negroni $14
+BEER: Guinness Stout $9, Bent Stick Brewing $9, Establishment Afternoon Delight $9, Last Best Tokyo Drift $9, Rotating $9
+WINE: Sparkling $10–17 / $52–85, White $16 / $75–80, Skin Contact / Rosé / Rotating (ask), Red $14–15 / $60–75`;
+
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    system: `You are helping guests at Kommune, a snack bar in Edmonton, decide what to order. Given the number of people and their mood, recommend specific dishes and drinks from the menu. Be concrete — name exact items, give a rough total. Keep it to 3–5 lines. No preamble, just the recommendation.`,
+    messages: [{ role: 'user', content: `${people} ${people === 1 ? 'person' : 'people'}, mood: ${mood}\n\nMenu:\n${menu}` }],
+  });
+
+  const recommendation = (message.content[0] as any).text ?? '';
+  res.json({ recommendation });
+});
+
 app.get('/api/kommune/assignments', async (_req: any, res: any) => {
   try {
     const rows = await db.execute(sql`SELECT id, name, neighbourhood, note FROM kommune_assignments WHERE active = true ORDER BY created_at DESC`);
