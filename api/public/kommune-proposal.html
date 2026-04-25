@@ -124,6 +124,30 @@
       color: var(--muted); margin-bottom: 0.65rem; padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--border);
     }
+
+    @media (min-width: 768px) {
+      .menu-content {
+        max-width: none;
+        padding: 1.5rem 2.5rem;
+        column-count: 3;
+        column-gap: 3rem;
+      }
+      .menu-note {
+        column-span: all;
+      }
+      .prices-note {
+        column-span: all;
+      }
+      .section {
+        break-inside: avoid;
+      }
+    }
+
+    @media (min-width: 1200px) {
+      .menu-content {
+        column-count: 4;
+      }
+    }
     .item {
       display: flex; justify-content: space-between; align-items: baseline;
       padding: 0.6rem 0; border-bottom: 1px solid var(--border); gap: 1rem;
