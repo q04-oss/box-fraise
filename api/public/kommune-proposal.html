@@ -589,6 +589,16 @@
       return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    function returnToSearch() {
+      document.body.classList.remove('menu-open');
+      document.getElementById('menu-btn').textContent = 'menu →';
+      document.body.classList.add('searching');
+      const input = document.getElementById('search-input');
+      input.value = '';
+      renderShortcuts(SHORTCUTS);
+      input.focus();
+    }
+
     document.addEventListener('keydown', e => {
       const tag = document.activeElement?.tagName;
       if (e.key === '/' && tag !== 'INPUT' && !document.body.classList.contains('menu-open')) {
@@ -596,8 +606,14 @@
         openSearch();
       }
       if (e.key === 'Escape') {
-        if (document.body.classList.contains('searching')) closeSearch();
-        else if (document.body.classList.contains('menu-open')) openSearch();
+        if (document.body.classList.contains('menu-open')) {
+          returnToSearch();
+        } else if (document.body.classList.contains('searching')) {
+          const input = document.getElementById('search-input');
+          const canvas = document.getElementById('results-canvas');
+          if (!input.value && !canvas.innerHTML.trim()) closeSearch();
+          else returnToSearch();
+        }
       }
     });
 
