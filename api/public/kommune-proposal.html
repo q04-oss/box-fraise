@@ -465,6 +465,7 @@
       { cmd: 'instagram', hint: '@kommune.whisked',              action() { closeSearch(); window.open('https://instagram.com/kommune.whisked', '_blank'); } },
       { cmd: 'spotify',   hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
       { cmd: 'apply',     hint: 'work at Kommune',              action() { showApplyForm(); } },
+      { cmd: 'why',       hint: 'what is your why?',            action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">$0 oat milk.</div>'; } },
     ];
 
     function openMenu() {
