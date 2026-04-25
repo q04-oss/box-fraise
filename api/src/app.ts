@@ -338,6 +338,17 @@ app.get('/account', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/account.html'));
 });
 
+// ── Kommune proposal pages ────────────────────────────────────────────────────
+app.get('/kommune', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/kommune-proposal.html'));
+});
+app.get('/kommune/menu', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/kommune-menu.html'));
+});
+app.get('/kommune/events', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/kommune-events.html'));
+});
+
 app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });

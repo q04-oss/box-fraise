@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Menu — Kommune</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F9F7F4;
+      --text: #1A1A18;
+      --muted: #8A8880;
+      --border: #E2DDD6;
+    }
+    html {
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { padding: 4rem 1.5rem 6rem; }
+    .wrap { width: 100%; max-width: 480px; margin: 0 auto; }
+
+    .back {
+      font-size: 0.68rem; color: var(--muted); text-decoration: none;
+      letter-spacing: 0.04em; display: inline-block; margin-bottom: 2.5rem;
+      transition: color 0.15s;
+    }
+    .back:hover { color: var(--text); }
+
+    h1 { font-size: 1.5rem; font-weight: 500; margin-bottom: 0.25rem; }
+    .subtitle {
+      font-size: 0.68rem; color: var(--muted); letter-spacing: 0.04em;
+      margin-bottom: 3rem;
+    }
+
+    .section { margin-bottom: 2.5rem; }
+    .section-title {
+      font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.75rem; padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .item {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 0.65rem 0; border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
+    .item-left { flex: 1; }
+    .item-name { font-size: 0.8rem; color: var(--text); line-height: 1.4; }
+    .item-desc {
+      font-size: 0.68rem; color: var(--muted); margin-top: 0.15rem;
+      line-height: 1.5;
+    }
+    .item-price {
+      font-size: 0.75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0;
+    }
+
+    .note {
+      font-size: 0.65rem; color: var(--muted); letter-spacing: 0.03em;
+      margin-top: 2rem; line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <a href="/kommune" class="back">← Kommune</a>
+
+    <h1>Menu</h1>
+    <p class="subtitle">GF · V · VG options available throughout</p>
+
+    <!-- Bakes & Morning -->
+    <div class="section">
+      <div class="section-title">bakes & morning</div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">The Tony</div>
+          <div class="item-desc">mortadella, provolone, dijon, brioche</div>
+        </div>
+        <div class="item-price">$14</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">The Bea</div>
+          <div class="item-desc">eggs, bacon, spicy ketchup, aioli, brioche</div>
+        </div>
+        <div class="item-price">$12</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Avocado Toast</div>
+          <div class="item-desc">sourdough, tomatoes, gouda, pea shoots · +$2 egg</div>
+        </div>
+        <div class="item-price">$12</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Almond French Toast</div>
+          <div class="item-desc">sourdough, almond butter, banana, strawberries</div>
+        </div>
+        <div class="item-price">$12.50</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Yogurt Bowl</div>
+          <div class="item-desc">granola, berries, honey</div>
+        </div>
+        <div class="item-price">$10</div>
+      </div>
+    </div>
+
+    <!-- Plates -->
+    <div class="section">
+      <div class="section-title">plates</div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Crispy Potato Cake</div>
+          <div class="item-desc">potato, gouda sauce, chives</div>
+        </div>
+        <div class="item-price">$16</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Berlin Mustard Eggs</div>
+          <div class="item-desc">smoked egg yolk, potato, horseradish</div>
+        </div>
+        <div class="item-price">$12</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Smoked Schnitzel</div>
+          <div class="item-desc">breaded smoked meat, lettuce, dijon</div>
+        </div>
+        <div class="item-price">$25</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Seitan Vegan Cheeses</div>
+          <div class="item-desc">chili, dill, gorgonzola, rye chips</div>
+        </div>
+        <div class="item-price">$18</div>
+      </div>
+    </div>
+
+    <!-- Snacks -->
+    <div class="section">
+      <div class="section-title">snacks</div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Beet Hummus</div>
+          <div class="item-desc">roasted beets, oil, dill, rye chips</div>
+        </div>
+        <div class="item-price">$11</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Marinated Goat Feta</div>
+          <div class="item-desc">herbed feta, rye chips</div>
+        </div>
+        <div class="item-price">$8</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Brio Rye Bread</div>
+          <div class="item-desc">rosemary oil, pomegranate vinegar</div>
+        </div>
+        <div class="item-price">$7</div>
+      </div>
+    </div>
+
+    <!-- Sweets -->
+    <div class="section">
+      <div class="section-title">sweets</div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Flourless Chocolate Cake</div>
+        </div>
+        <div class="item-price">$9</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Affogato</div>
+          <div class="item-desc">espresso, matcha, or hojicha</div>
+        </div>
+        <div class="item-price">$7</div>
+      </div>
+
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Affogato Flight</div>
+        </div>
+        <div class="item-price">$12</div>
+      </div>
+    </div>
+
+    <!-- Cocktails -->
+    <div class="section">
+      <div class="section-title">cocktails</div>
+
+      <div class="item">
+        <div class="item-left"><div class="item-name">Gin & Tonic</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Kasu Vodka Yuzu & Soda</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Sherry Colada Lowball</div></div>
+        <div class="item-price">$13</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Coriander Spritz</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Root of All Evil</div></div>
+        <div class="item-price">$12</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Old Fashioned</div></div>
+        <div class="item-price">$14</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Mint to Be</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Arandasi Picante</div></div>
+        <div class="item-price">$12</div>
+      </div>
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Boilermaker · Negroni</div>
+          <div class="item-desc">industry favourites</div>
+        </div>
+        <div class="item-price">$14</div>
+      </div>
+    </div>
+
+    <!-- NA Cocktails -->
+    <div class="section">
+      <div class="section-title">na cocktails</div>
+
+      <div class="item">
+        <div class="item-left"><div class="item-name">Dhos & Tonic</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Kasu Yuzu & Soda</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Coco-No-Lo</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Coriander Crush</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Pathfinder & Root Beer</div></div>
+        <div class="item-price">$12</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">The Moose is Loose</div></div>
+        <div class="item-price">$12</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Not Mint to Be</div></div>
+        <div class="item-price">$11</div>
+      </div>
+      <div class="item">
+        <div class="item-left">
+          <div class="item-name">Cheeky Boilermaker · Phony Negroni</div>
+          <div class="item-desc">na industry favourites</div>
+        </div>
+        <div class="item-price">$14</div>
+      </div>
+    </div>
+
+    <!-- Beer -->
+    <div class="section">
+      <div class="section-title">beer</div>
+
+      <div class="item">
+        <div class="item-left"><div class="item-name">Guinness Stout</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Bent Stick Brewing</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Establishment Afternoon Delight</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Last Best Tokyo Drift</div></div>
+        <div class="item-price">$9</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Rotating</div></div>
+        <div class="item-price">$9</div>
+      </div>
+    </div>
+
+    <!-- Wine -->
+    <div class="section">
+      <div class="section-title">wine</div>
+
+      <div class="item">
+        <div class="item-left"><div class="item-name">Sparkling</div></div>
+        <div class="item-price">$10–17 · $52–85</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">White</div></div>
+        <div class="item-price">$16 · $75–80</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Skin Contact · Rosé · Rotating</div></div>
+        <div class="item-price">ask</div>
+      </div>
+      <div class="item">
+        <div class="item-left"><div class="item-name">Red</div></div>
+        <div class="item-price">$14–15 · $60–75</div>
+      </div>
+    </div>
+
+    <p class="note">prices in CAD · menu subject to change</p>
+
+  </div>
+</body>
+</html>
