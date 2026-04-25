@@ -649,6 +649,14 @@
         e.preventDefault();
         openSearch();
       }
+      const canvas = document.getElementById('results-canvas');
+      if (e.key === '/' && tag === 'INPUT' && canvas.dataset.mode === 'results') {
+        e.preventDefault();
+        const input = document.getElementById('search-input');
+        savedResults = { query: input.value, html: canvas.innerHTML };
+        input.value = '/';
+        renderShortcuts(SHORTCUTS);
+      }
       if (e.key === 'Escape') {
         if (document.body.classList.contains('menu-open')) {
           returnToSearch();
