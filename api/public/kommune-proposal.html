@@ -748,12 +748,12 @@
         const name = nameEl.textContent.trim();
         item.querySelector('.item-rating')?.remove();
         const r = ratingsCache[name];
-        if (!r || r.total < 1) return;
+        if (!r || r.total < 3) return;
         const priceEl = item.querySelector('.item-price');
         if (!priceEl) return;
         const el = document.createElement('div');
         el.className = 'item-rating';
-        el.textContent = String(r.avg_rating);
+        el.textContent = `${r.avg_rating} (${r.total})`;
         item.insertBefore(el, priceEl);
       });
     }
