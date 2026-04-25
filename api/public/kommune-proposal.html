@@ -239,6 +239,19 @@
       font-size: 0.72rem; color: var(--muted); padding: 0.75rem 0;
     }
 
+    /* ── Slash shortcuts ── */
+    .shortcut {
+      display: flex; justify-content: space-between; align-items: baseline;
+      width: 100%; padding: 0.45rem 0;
+      border: none; border-bottom: 1px solid var(--border);
+      background: none; cursor: pointer;
+      font-family: 'DM Mono', monospace; text-align: left; gap: 1rem;
+    }
+    .shortcut:first-child { border-top: 1px solid var(--border); }
+    .shortcut-cmd { font-size: 0.78rem; color: var(--text); }
+    .shortcut-hint { font-size: 0.78rem; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .shortcut:hover .shortcut-cmd { text-decoration: underline; text-underline-offset: 3px; }
+
     @media (max-width: 480px) {
       .header-top { flex-direction: column; gap: 0.3rem; }
       .foot-name { font-size: 1.2rem; }
@@ -424,6 +437,19 @@
   </div>
 
   <script>
+    const SHORTCUTS = [
+      { cmd: 'menu',      hint: 'browse the full menu',         action() { closeSearch(); openMenu(); } },
+      { cmd: 'reserve',   hint: 'hello@kommunesnackbar.ca',      action() { closeSearch(); window.location.href = 'mailto:hello@kommunesnackbar.ca'; } },
+      { cmd: 'wifi',      hint: 'Kommune@1 — copy to clipboard', action() { navigator.clipboard?.writeText('Kommune@1'); closeSearch(); } },
+      { cmd: 'instagram', hint: '@kommune.whisked',              action() { closeSearch(); window.open('https://instagram.com/kommune.whisked', '_blank'); } },
+      { cmd: 'spotify',   hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
+    ];
+
+    function openMenu() {
+      document.body.classList.add('menu-open');
+      document.getElementById('menu-btn').textContent = '← close';
+    }
+
     function toggleMenu() {
       closeSearch();
       const open = document.body.classList.toggle('menu-open');
@@ -443,16 +469,55 @@
       document.getElementById('results-canvas').innerHTML = '';
     }
 
+    function renderShortcuts(matches) {
+      const canvas = document.getElementById('results-canvas');
+      if (!matches.length) {
+        canvas.innerHTML = '<div class="result-state">no shortcuts match</div>';
+        return;
+      }
+      canvas.innerHTML = matches.map(s => `
+        <button class="shortcut" data-cmd="${esc(s.cmd)}">
+          <span class="shortcut-cmd">/${esc(s.cmd)}</span>
+          <span class="shortcut-hint">${esc(s.hint)}</span>
+        </button>
+      `).join('');
+      canvas.querySelectorAll('.shortcut').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const s = SHORTCUTS.find(x => x.cmd === btn.dataset.cmd);
+          if (s) s.action();
+        });
+      });
+    }
+
+    document.getElementById('search-input').addEventListener('input', function() {
+      const val = this.value;
+      if (val === '/') {
+        renderShortcuts(SHORTCUTS);
+      } else if (val.startsWith('/')) {
+        const q = val.slice(1).toLowerCase();
+        renderShortcuts(SHORTCUTS.filter(s => s.cmd.startsWith(q)));
+      } else if (!val) {
+        document.getElementById('results-canvas').innerHTML = '';
+      }
+    });
+
     async function doSearch(e) {
       e.preventDefault();
-      const q = document.getElementById('search-input').value.trim();
-      if (!q) return;
+      const val = document.getElementById('search-input').value.trim();
+      if (!val) return;
+
+      // Slash command — execute best match
+      if (val.startsWith('/')) {
+        const q = val.slice(1).toLowerCase();
+        const s = SHORTCUTS.find(x => x.cmd === q) ?? SHORTCUTS.find(x => x.cmd.startsWith(q));
+        if (s) { s.action(); return; }
+      }
 
       const canvas = document.getElementById('results-canvas');
       canvas.innerHTML = '<div class="result-state">searching…</div>';
 
       try {
-        const res = await fetch('/api/brave?q=' + encodeURIComponent(q));
+        const res = await fetch('/api/brave?q=' + encodeURIComponent(val));
         const data = await res.json();
         const results = data.results ?? [];
 
@@ -488,7 +553,6 @@
       }
     });
 
-    // Tap outside search area to close on mobile
     document.addEventListener('click', e => {
       if (!document.body.classList.contains('searching')) return;
       if (e.target.closest('.header') || e.target.closest('.results-canvas')) return;
