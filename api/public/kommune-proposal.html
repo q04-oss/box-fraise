@@ -481,6 +481,7 @@
       { cmd: 'playlist',  hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
       { cmd: 'btw',        hint: 'ask anything',                 action() { showBtwForm(); } },
       { cmd: 'press',     hint: 'become a cold.press reviewer',   action() { showPressFlow(); } },
+      { cmd: 'owner',     hint: 'manage cold.press assignments',  action() { showOwnerPanel(); } },
       { cmd: 'why',       hint: 'what is your why?',            action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">$0 oat milk.</div>'; } },
     ];
 
@@ -620,11 +621,6 @@
 
     const PRESS_CODE = 'coldpress'; // owner shares this in person with verified reviewers
 
-    const ASSIGNMENTS = [
-      // owner populates this list
-      // { name: 'Café Name', neighbourhood: 'Oliver', note: 'try the cortado' },
-    ];
-
     function showPressFlow() {
       const canvas = document.getElementById('results-canvas');
       canvas.dataset.mode = 'press';
@@ -679,26 +675,109 @@
       closeSearch();
     }
 
-    function showAssignmentBoard(canvas) {
-      if (!ASSIGNMENTS.length) {
+    async function showAssignmentBoard(canvas) {
+      canvas.innerHTML = '<div class="result-state">loading…</div>';
+      try {
+        const res = await fetch('/api/kommune/assignments');
+        const data = await res.json();
+        const list = data.assignments ?? [];
+        if (!list.length) {
+          canvas.innerHTML = `<div class="result-state" style="line-height:1.8;">you're verified.<br/>no assignments yet — check back soon.</div>`;
+          return;
+        }
         canvas.innerHTML = `
-          <div class="result-state" style="line-height:1.8;">
-            you're verified.<br/>
-            no assignments yet — check back soon.
-          </div>
+          <div class="result-state" style="margin-bottom:0.75rem;font-size:0.62rem;">your assignments</div>
+          ${list.map(a => `
+            <div class="result">
+              <div class="result-title">${esc(a.name)}</div>
+              <div class="result-url">${esc(a.neighbourhood)}</div>
+              ${a.note ? `<div class="result-desc">${esc(a.note)}</div>` : ''}
+            </div>
+          `).join('')}
         `;
+      } catch {
+        canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
+      }
+    }
+
+    let ownerPassword = null;
+
+    function showOwnerPanel() {
+      const canvas = document.getElementById('results-canvas');
+      canvas.dataset.mode = 'owner';
+      if (!ownerPassword) {
+        canvas.innerHTML = `
+          <form class="apply-form" onsubmit="submitOwnerAuth(event)">
+            <div class="apply-field"><input type="password" id="owner-pw" placeholder="owner password" autocomplete="off" /></div>
+            <button type="submit" class="apply-submit">enter →</button>
+          </form>
+        `;
+        setTimeout(() => document.getElementById('owner-pw')?.focus(), 50);
         return;
       }
-      canvas.innerHTML = `
-        <div class="result-state" style="margin-bottom:0.75rem;font-size:0.62rem;">your assignments</div>
-        ${ASSIGNMENTS.map(a => `
-          <div class="result">
-            <div class="result-title">${esc(a.name)}</div>
-            <div class="result-url">${esc(a.neighbourhood)}</div>
-            ${a.note ? `<div class="result-desc">${esc(a.note)}</div>` : ''}
-          </div>
-        `).join('')}
-      `;
+      renderOwnerBoard(canvas);
+    }
+
+    function submitOwnerAuth(e) {
+      e.preventDefault();
+      ownerPassword = document.getElementById('owner-pw').value.trim();
+      renderOwnerBoard(document.getElementById('results-canvas'));
+    }
+
+    async function renderOwnerBoard(canvas) {
+      canvas.innerHTML = '<div class="result-state">loading…</div>';
+      try {
+        const res = await fetch('/api/kommune/assignments');
+        const data = await res.json();
+        const list = data.assignments ?? [];
+        canvas.innerHTML = `
+          <form class="apply-form" onsubmit="ownerAddAssignment(event)" style="margin-bottom:1.5rem;">
+            <div class="apply-field"><input type="text" id="oa-name" placeholder="business name" autocomplete="off" /></div>
+            <div class="apply-field"><input type="text" id="oa-neighbourhood" placeholder="neighbourhood" autocomplete="off" /></div>
+            <div class="apply-field"><input type="text" id="oa-note" placeholder="note for reviewer (optional)" autocomplete="off" /></div>
+            <button type="submit" class="apply-submit">add →</button>
+          </form>
+          ${!list.length ? '<div class="result-state" style="font-size:0.65rem;">no assignments yet</div>' : ''}
+          ${list.map(a => `
+            <div class="result" style="display:flex;justify-content:space-between;align-items:baseline;">
+              <div>
+                <div class="result-title">${esc(a.name)}</div>
+                <div class="result-url">${esc(a.neighbourhood)}${a.note ? ' · ' + esc(a.note) : ''}</div>
+              </div>
+              <button class="apply-submit" type="button" onclick="ownerRemoveAssignment(${a.id}, this)" style="flex-shrink:0;margin-left:1rem;">remove</button>
+            </div>
+          `).join('')}
+        `;
+        setTimeout(() => document.getElementById('oa-name')?.focus(), 50);
+      } catch {
+        canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
+      }
+    }
+
+    async function ownerAddAssignment(e) {
+      e.preventDefault();
+      const name = document.getElementById('oa-name').value.trim();
+      const neighbourhood = document.getElementById('oa-neighbourhood').value.trim();
+      const note = document.getElementById('oa-note').value.trim();
+      if (!name || !neighbourhood) return;
+      const res = await fetch('/api/kommune/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ownerPassword, name, neighbourhood, note }),
+      });
+      if (res.status === 401) { ownerPassword = null; showOwnerPanel(); return; }
+      renderOwnerBoard(document.getElementById('results-canvas'));
+    }
+
+    async function ownerRemoveAssignment(id, btn) {
+      btn.textContent = '…';
+      const res = await fetch('/api/kommune/assignments/' + id, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ownerPassword }),
+      });
+      if (res.status === 401) { ownerPassword = null; showOwnerPanel(); return; }
+      renderOwnerBoard(document.getElementById('results-canvas'));
     }
 
     function showFeedbackForm() {

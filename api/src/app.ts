@@ -377,6 +377,35 @@ Keep answers short — one or two sentences. If you don't know something specifi
   res.json({ answer });
 });
 
+app.get('/api/kommune/assignments', async (_req: any, res: any) => {
+  try {
+    const rows = await db.execute(sql`SELECT id, name, neighbourhood, note FROM kommune_assignments WHERE active = true ORDER BY created_at DESC`);
+    res.json({ assignments: ((rows as any).rows ?? rows) });
+  } catch {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+app.post('/api/kommune/assignments', async (req: any, res: any) => {
+  const password = String(req.body?.password ?? '');
+  if (password !== process.env.KOMMUNE_OWNER_PASSWORD) return res.status(401).json({ error: 'unauthorized' });
+  const name = String(req.body?.name ?? '').trim().slice(0, 200);
+  const neighbourhood = String(req.body?.neighbourhood ?? '').trim().slice(0, 100);
+  const note = String(req.body?.note ?? '').trim().slice(0, 300);
+  if (!name || !neighbourhood) return res.status(400).json({ error: 'name and neighbourhood required' });
+  await db.execute(sql`INSERT INTO kommune_assignments (name, neighbourhood, note) VALUES (${name}, ${neighbourhood}, ${note || null})`);
+  res.json({ ok: true });
+});
+
+app.delete('/api/kommune/assignments/:id', async (req: any, res: any) => {
+  const password = String(req.body?.password ?? '');
+  if (password !== process.env.KOMMUNE_OWNER_PASSWORD) return res.status(401).json({ error: 'unauthorized' });
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+  await db.execute(sql`UPDATE kommune_assignments SET active = false WHERE id = ${id}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/kommune/ratings', async (_req: any, res: any) => {
   try {
     const rows = await db.execute(sql`
