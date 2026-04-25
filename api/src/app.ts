@@ -343,6 +343,36 @@ app.get('/kommune', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/kommune-proposal.html'));
 });
 
+app.post('/api/kommune/ask', async (req: any, res: any) => {
+  const question = String(req.body?.question ?? '').trim();
+  if (!question) return res.status(400).json({ error: 'question required' });
+
+  const Anthropic = (await import('@anthropic-ai/sdk')).default;
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 256,
+    system: `You are a helpful presence at Kommune, a snack bar at 11931 Jasper Ave NW, Edmonton. Answer questions about the space concisely and naturally.
+
+What you know:
+- $0 oat milk on every drink. The brand is Minor Figures.
+- Whisked is an independent ceremonial matcha bar in residence. Their site: visitwhisked.ca
+- Open daily from 10am
+- WiFi: Kommune@1
+- Reservations: hello@kommunesnackbar.ca
+- Full food menu: plates, bakes, snacks, sweets
+- Drinks: coffee, fog (tea lattes), NA cocktails, cocktails, beer, wine
+- Located on Treaty 6 Territory
+
+Keep answers short — one or two sentences. If you don't know something specific, say so honestly.`,
+    messages: [{ role: 'user', content: question }],
+  });
+
+  const answer = (message.content[0] as any).text ?? '';
+  res.json({ answer });
+});
+
 app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });

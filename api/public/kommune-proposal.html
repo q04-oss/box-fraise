@@ -470,6 +470,7 @@
       { cmd: 'playlist',  hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
       { cmd: 'instagram', hint: '@kommune.whisked',              action() { closeSearch(); window.open('https://instagram.com/kommune.whisked', '_blank'); } },
       { cmd: 'gift',      hint: 'coming soon',                  action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">coming soon.</div>'; } },
+      { cmd: 'btw',        hint: 'ask anything',                 action() { showBtwForm(); } },
       { cmd: 'fraise.box', hint: 'search, privately',            action() { closeSearch(); window.open('https://fraise.box', '_blank'); } },
       { cmd: 'why',       hint: 'what is your why?',            action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">$0 oat milk.</div>'; } },
     ];
@@ -572,6 +573,37 @@
         `).join('');
       } catch {
         canvas.innerHTML = '<div class="result-state">search unavailable</div>';
+      }
+    }
+
+    function showBtwForm() {
+      const canvas = document.getElementById('results-canvas');
+      canvas.dataset.mode = 'btw';
+      canvas.innerHTML = `
+        <form class="apply-form" onsubmit="submitBtw(event)">
+          <div class="apply-field"><input type="text" id="btw-input" placeholder="ask anything" autocomplete="off" autocorrect="off" /></div>
+          <button type="submit" class="apply-submit">ask →</button>
+        </form>
+      `;
+      setTimeout(() => document.getElementById('btw-input')?.focus(), 50);
+    }
+
+    async function submitBtw(e) {
+      e.preventDefault();
+      const question = document.getElementById('btw-input').value.trim();
+      if (!question) return;
+      const canvas = document.getElementById('results-canvas');
+      canvas.innerHTML = '<div class="result-state">thinking…</div>';
+      try {
+        const res = await fetch('/api/kommune/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        });
+        const data = await res.json();
+        canvas.innerHTML = `<div class="result-state" style="white-space:pre-wrap;line-height:1.7;">${esc(data.answer)}</div>`;
+      } catch {
+        canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
       }
     }
 
