@@ -1216,7 +1216,8 @@
           body: JSON.stringify({ people, mood }),
         });
         const data = await res.json();
-        result.innerHTML = esc(data.recommendation ?? 'unavailable right now');
+        const rec = data.recommendation ?? 'unavailable right now';
+        result.innerHTML = esc(rec) + '<div style="margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);">booking a table? <button class="reserve-skip" onclick="closeRecommendPanel();showReserveFlow()">reserve</button></div>';
       } catch {
         result.textContent = 'unavailable right now';
       }
