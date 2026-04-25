@@ -57,10 +57,31 @@
       font-size: 0.75rem; color: var(--muted); white-space: nowrap; flex-shrink: 0;
     }
 
+    .oat-statement {
+      font-size: 1.5rem; font-weight: 500;
+      color: var(--text); line-height: 1.3;
+      margin-bottom: 0.4rem;
+    }
+    .oat-sub {
+      font-size: 0.68rem; color: var(--muted);
+      letter-spacing: 0.03em; margin-bottom: 3rem;
+    }
     .note {
       font-size: 0.65rem; color: var(--muted); letter-spacing: 0.03em;
       margin-top: 2rem; line-height: 1.8;
     }
+    .contact-bar {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 0.1rem;
+    }
+    .contact-bar a {
+      font-size: 0.78rem; color: var(--muted);
+      text-decoration: none; padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+    .contact-bar a:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -68,8 +89,11 @@
 
     <a href="/kommune" class="back">← Kommune</a>
 
+    <p class="oat-statement">$0 oat milk.</p>
+    <p class="oat-sub">Minor Figures, on every drink. Always.</p>
+
     <h1>Menu</h1>
-    <p class="subtitle">GF · V · VG options available throughout · oat or reg milk $0</p>
+    <p class="subtitle">GF · V · VG options available throughout</p>
 
     <!-- Coffee -->
     <div class="section">
@@ -446,6 +470,11 @@
     </div>
 
     <p class="note">prices in CAD · menu subject to change</p>
+
+    <div class="contact-bar">
+      <a href="mailto:hello@kommunesnackbar.ca">reservations · hello@kommunesnackbar.ca →</a>
+      <a href="/kommune">← back to Kommune</a>
+    </div>
 
   </div>
 </body>

@@ -76,6 +76,19 @@
     .residence-block a { font-size: 0.72rem; color: var(--text); text-decoration: none; transition: color 0.15s; }
     .residence-block a:hover { color: var(--muted); }
 
+    /* Menu link */
+    .menu-link {
+      display: inline-block;
+      font-size: 0.78rem; font-weight: 500;
+      color: var(--text); text-decoration: none;
+      padding: 0.6rem 0; letter-spacing: 0.03em;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      width: 100%; margin-bottom: 2rem;
+      transition: color 0.15s;
+    }
+    .menu-link:hover { color: var(--muted); }
+
     /* Links */
     .links { display: flex; flex-direction: column; gap: 0.1rem; }
     .links a {
@@ -151,9 +164,11 @@
       </div>
     </div>
 
+    <!-- Menu -->
+    <a href="/kommune/menu" class="menu-link">view the menu →</a>
+
     <!-- Links -->
     <div class="links" style="margin-bottom:0;">
-      <a href="/kommune/menu">menu →</a>
       <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram →</a>
     </div>
 
