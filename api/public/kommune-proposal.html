@@ -304,24 +304,30 @@
     .reserve-skip:hover { color: var(--text); }
 
     /* ── Table event choice ── */
-    .table-choice { display: flex; flex-direction: column; }
     .table-option {
       display: flex; justify-content: space-between; align-items: baseline;
-      padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+      padding: 0.5rem 0; border-bottom: 1px solid var(--border);
       cursor: pointer; gap: 1rem;
     }
     .table-option:first-child { border-top: 1px solid var(--border); }
+    .table-option-name { font-size: 0.78rem; color: var(--muted); transition: color 0.15s; }
     .table-option:hover .table-option-name { color: var(--text); }
-    .table-option-name { font-size: 0.8rem; color: var(--text); transition: color 0.15s; }
-    .table-option-right { display: flex; gap: 0.75rem; align-items: baseline; flex-shrink: 0; }
-    .table-option-price { font-size: 0.78rem; color: var(--text); }
-    .table-option-meta { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.03em; }
-    .table-just { font-size: 0.65rem; color: var(--muted); padding: 0.5rem 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-    .table-just:hover { color: var(--text); }
+    .table-option-right { display: flex; gap: 0.6rem; align-items: baseline; flex-shrink: 0; }
+    .table-option-price { font-size: 0.72rem; color: var(--text); }
+    .table-option-meta { font-size: 0.6rem; color: var(--muted); }
+    /* Naked inputs for event form */
+    .te-field {
+      width: 100%; font-family: 'DM Mono', monospace; font-size: 0.78rem;
+      color: var(--text); background: none; border: none; border-bottom: 1px solid var(--border);
+      outline: none; padding: 0.45rem 0; display: block;
+    }
+    .te-field::placeholder { color: var(--muted); }
+    .te-field:focus { border-bottom-color: var(--text); }
+    .te-row { display: flex; gap: 0; }
+    .te-row .te-field + .te-field { border-left: 1px solid var(--border); padding-left: 0.6rem; margin-left: 0.6rem; }
     /* Stripe card inside canvas */
     .table-card-wrap {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 4px; padding: 0.55rem 0.6rem; margin-bottom: 0;
+      padding: 0.45rem 0; border-bottom: 1px solid var(--border);
     }
 
     /* ── Item ratings ── */
@@ -756,48 +762,48 @@
     }
 
     function renderTableChoice(canvas, events) {
-      canvas.innerHTML = `
-        <div class="table-choice">
-          ${events.map(e => {
-            const seatsLeft = e.capacity - e.seats_taken;
-            const meta = e.date_tbd
-              ? (seatsLeft > 0 ? `${seatsLeft} left · date tbd` : `waitlist · date tbd`)
-              : `${fmtTableDate(e.event_date)} · ${seatsLeft > 0 ? seatsLeft + ' left' : 'waitlist'}`;
-            return `<div class="table-option" onclick="selectTableEvent(${JSON.stringify(esc(JSON.stringify(e)))})">
-              <span class="table-option-name">${esc(e.title.toLowerCase())}</span>
-              <div class="table-option-right">
-                <span class="table-option-price">${fmtTablePrice(e.price_cents)}</span>
-                <span class="table-option-meta">${meta}</span>
-              </div>
-            </div>`;
-          }).join('')}
-          <button class="table-just" onclick="renderReserveStep1(document.getElementById('results-canvas'))">just a table →</button>
-        </div>
-      `;
+      canvas.innerHTML = events.map(e => {
+        const seatsLeft = e.capacity - e.seats_taken;
+        const meta = e.date_tbd
+          ? (seatsLeft > 0 ? `date tbd · ${seatsLeft} left` : `date tbd · waitlist`)
+          : `${fmtTableDate(e.event_date)} · ${seatsLeft > 0 ? seatsLeft + ' left' : 'waitlist'}`;
+        return `<div class="table-option" onclick="selectTableEvent(${JSON.stringify(esc(JSON.stringify(e)))})">
+          <span class="table-option-name">${esc(e.title.toLowerCase())}</span>
+          <div class="table-option-right">
+            <span class="table-option-price">${fmtTablePrice(e.price_cents)}</span>
+            <span class="table-option-meta">${meta}</span>
+          </div>
+        </div>`;
+      }).join('') +
+      `<div class="table-option" onclick="renderReserveStep1(document.getElementById('results-canvas'))">
+        <span class="table-option-name">just a table</span>
+        <span class="table-option-meta" style="color:var(--muted);">date · time · pre-order</span>
+      </div>`;
     }
 
     function selectTableEvent(escapedJson) {
       const event = JSON.parse(unesc(escapedJson));
       currentTableEvent = event;
       const canvas = document.getElementById('results-canvas');
-      const seatsLeft = event.capacity - event.seats_taken;
-      const isFull = seatsLeft <= 0;
+      const isFull = event.capacity - event.seats_taken <= 0;
       canvas.innerHTML = `
-        <div class="reserve-step">${esc(event.title.toLowerCase())} · ${fmtTablePrice(event.price_cents)}</div>
-        <form class="apply-form" id="table-event-form" onsubmit="submitTableEvent(event)">
-          <div class="apply-field"><input type="text" id="te-name" placeholder="name" autocomplete="name" /></div>
-          <div class="apply-field"><input type="email" id="te-email" placeholder="email" autocomplete="email" /></div>
-          <div class="apply-field"><input type="number" id="te-seats" value="1" min="1" max="4" placeholder="seats" inputmode="numeric" /></div>
-          <div class="apply-field"><div class="table-card-wrap" id="table-card-element"></div></div>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.35rem 0;font-size:0.72rem;">
-            <span style="color:var(--muted);">total</span>
-            <span id="te-total">${fmtTablePrice(event.price_cents)}</span>
+        <form id="table-event-form" onsubmit="submitTableEvent(event)" style="display:flex;flex-direction:column;">
+          <div class="te-row">
+            <input class="te-field" type="text" id="te-name" placeholder="name" autocomplete="name" style="flex:2;" />
+            <input class="te-field" type="number" id="te-seats" value="1" min="1" max="4" inputmode="numeric" style="flex:0 0 3rem;text-align:right;" />
           </div>
-          <div id="te-error" style="font-size:0.65rem;color:#C0392B;display:none;margin-bottom:0.25rem;"></div>
-          <button type="submit" class="apply-submit" id="te-btn">${isFull ? 'join waitlist →' : 'pay + reserve →'}</button>
+          <input class="te-field" type="email" id="te-email" placeholder="email" autocomplete="email" />
+          <div class="table-card-wrap" id="table-card-element"></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:0.65rem;">
+            <button class="reserve-skip" type="button" onclick="showReserveFlow()">← back</button>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.15rem;">
+              <div id="te-error" style="font-size:0.6rem;color:#C0392B;display:none;"></div>
+              <button type="submit" class="apply-submit" id="te-btn">${isFull ? 'waitlist' : 'pay'} <span id="te-total">${fmtTablePrice(event.price_cents)}</span> →</button>
+            </div>
+          </div>
         </form>
-        <button class="reserve-skip" style="margin-top:0.5rem;" onclick="showReserveFlow()">← back</button>
       `;
+
       // Lazily init Stripe
       if (!tableStripe) tableStripe = Stripe('pk_live_51R3UWEGkzAbVnPaCoqp8w7a6zxOiXUBhJiuBKMGG7v96W7LBGIlLLhJHNWP3qcllZBLH4oLjJFm1YrqdFBJv63qy00LmQSbJxq');
       const elements = tableStripe.elements();
@@ -805,8 +811,8 @@
         style: { base: { fontFamily: "'DM Mono', monospace", fontSize: '13px', color: '#1A1A18', '::placeholder': { color: '#8A8880' } } }
       });
       tableCardEl.mount('#table-card-element');
-      document.getElementById('te-seats').addEventListener('input', () => {
-        const seats = parseInt(document.getElementById('te-seats').value) || 1;
+      document.getElementById('te-seats').addEventListener('input', function() {
+        const seats = parseInt(this.value) || 1;
         document.getElementById('te-total').textContent = fmtTablePrice(currentTableEvent.price_cents * seats);
       });
       setTimeout(() => document.getElementById('te-name')?.focus(), 50);
@@ -848,14 +854,19 @@
 
     function renderReserveStep1(canvas) {
       canvas.innerHTML = `
-        <div class="reserve-step">1 of 2 — details</div>
-        <form class="apply-form" onsubmit="submitReserveStep1(event)">
-          <div class="apply-field"><input type="text" id="res-name" placeholder="name" autocomplete="name" /></div>
-          <div class="apply-field"><input type="number" id="res-size" placeholder="party size" min="1" max="50" inputmode="numeric" /></div>
-          <div class="apply-field"><input type="date" id="res-date" /></div>
-          <div class="apply-field"><input type="time" id="res-time" /></div>
-          <div class="apply-field"><input type="text" id="res-note" placeholder="any notes (optional)" autocomplete="off" /></div>
-          <button type="submit" class="apply-submit">next →</button>
+        <form onsubmit="submitReserveStep1(event)" style="display:flex;flex-direction:column;">
+          <div class="te-row">
+            <input class="te-field" type="text" id="res-name" placeholder="name" autocomplete="name" style="flex:2;" />
+            <input class="te-field" type="number" id="res-size" placeholder="guests" min="1" max="50" inputmode="numeric" style="flex:0 0 4rem;text-align:right;" />
+          </div>
+          <div class="te-row">
+            <input class="te-field" type="date" id="res-date" style="flex:1;" />
+            <input class="te-field" type="time" id="res-time" style="flex:1;" />
+          </div>
+          <input class="te-field" type="text" id="res-note" placeholder="notes (optional)" autocomplete="off" />
+          <div style="display:flex;justify-content:flex-end;margin-top:0.65rem;">
+            <button type="submit" class="apply-submit">next →</button>
+          </div>
         </form>
       `;
       if (reserveData._prefillSize) {
