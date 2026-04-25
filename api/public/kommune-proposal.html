@@ -242,6 +242,15 @@
     @media (max-width: 480px) {
       .header-top { flex-direction: column; gap: 0.3rem; }
       .foot-name { font-size: 1.2rem; }
+
+      /* Search takes over the full header on mobile */
+      body.searching .header-top { flex-direction: row; gap: 0; }
+      body.searching .header-links { display: none; }
+      .search-field input { font-size: 1rem; } /* prevents iOS zoom on focus */
+      .search-close {
+        font-size: 0.75rem;
+        padding: 0.5rem 0 0.5rem 0.75rem; /* larger tap area */
+      }
     }
   </style>
 </head>
@@ -477,6 +486,13 @@
       if (e.key === 'Escape' && document.body.classList.contains('searching')) {
         closeSearch();
       }
+    });
+
+    // Tap outside search area to close on mobile
+    document.addEventListener('click', e => {
+      if (!document.body.classList.contains('searching')) return;
+      if (e.target.closest('.header') || e.target.closest('.results-canvas')) return;
+      closeSearch();
     });
   </script>
 
