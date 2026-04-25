@@ -14,75 +14,84 @@
       --muted:  #8A8880;
       --border: #E2DDD6;
     }
-    html {
-      background: var(--bg); color: var(--text);
+    html, body {
+      height: 100%; background: var(--bg); color: var(--text);
       font-family: 'DM Mono', monospace; font-size: 14px;
       -webkit-font-smoothing: antialiased;
     }
     body {
       min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* ── Top bar ── */
-    .top-bar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      background: var(--bg);
+    /* ── Hero ── */
+    .hero {
+      padding: 1.25rem 1.5rem 1.5rem;
       border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.5rem;
+    }
+    .hero-top {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
       gap: 1rem;
-      z-index: 10;
+      margin-bottom: 1.5rem;
     }
-    .top-meta {
+    .hero-meta {
       font-size: 0.65rem; color: var(--muted);
       letter-spacing: 0.04em; line-height: 1.9;
     }
-    .top-meta a { color: inherit; text-decoration: none; }
-    .top-meta a:hover { color: var(--text); }
-    .top-meta a.dark { color: var(--text); }
-    .top-links {
+    .hero-meta a { color: inherit; text-decoration: none; }
+    .hero-links {
       display: flex; gap: 1rem; flex-shrink: 0;
-      align-items: center;
     }
-    .top-links a {
+    .hero-links a {
       font-size: 0.65rem; color: var(--muted);
       text-decoration: none; letter-spacing: 0.04em;
       transition: color 0.15s; white-space: nowrap;
     }
-    .top-links a:hover { color: var(--text); }
-    .top-links a.highlight { color: var(--text); }
-
-    /* ── Scrollable content ── */
-    .content {
-      padding: 5rem 1.5rem 6rem;
-      max-width: 400px;
-      margin: 0 auto;
-    }
+    .hero-links a:hover { color: var(--text); }
+    .hero-links a.highlight { color: var(--text); }
 
     .label {
       font-size: 0.6rem; letter-spacing: 0.14em;
       text-transform: uppercase; color: var(--muted);
-      margin-bottom: 0.7rem;
+      margin-bottom: 0.6rem;
     }
     .label a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 
     .row {
       display: flex; justify-content: space-between;
-      padding: 0.55rem 0; border-bottom: 1px solid var(--border);
+      padding: 0.45rem 0; border-bottom: 1px solid var(--border);
       font-size: 0.78rem;
     }
     .row:first-of-type { border-top: 1px solid var(--border); }
     .row-name { color: var(--text); }
     .row-price { color: var(--muted); }
 
-    .events { margin-top: 2rem; }
+    .events {
+      margin-top: 1.25rem;
+    }
+    .events-label {
+      font-size: 0.6rem; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .events-none {
+      font-size: 0.72rem; color: var(--muted);
+    }
 
+    /* ── Middle (empty canvas) ── */
+    .spacer { flex: 1; }
+
+    /* ── Footer ── */
+    .foot {
+      border-top: 1px solid var(--border);
+      padding: 1.25rem 1.5rem;
+    }
     .social-row {
-      margin-top: 2rem;
-      display: flex; gap: 0.6rem; flex-wrap: wrap;
+      display: flex; gap: 0.75rem;
+      margin-bottom: 1rem;
     }
     .social-row a {
       font-size: 0.65rem; color: var(--muted);
@@ -93,54 +102,41 @@
 
     .policy {
       font-size: 0.62rem; color: var(--muted);
-      line-height: 1.9; border-top: 1px solid var(--border);
-      padding-top: 1.5rem; margin-top: 2rem;
+      line-height: 1.9; margin-bottom: 1rem;
     }
 
-    /* ── Bottom identity ── */
-    .bottom-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      padding: 0.9rem 1.5rem;
+    .foot-bottom {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      z-index: 10;
     }
-    .bottom-name {
+    .foot-name {
       font-size: 1.5rem; font-weight: 500; color: var(--text);
     }
-    .bottom-name span { font-weight: 400; color: var(--muted); }
-    .bottom-treaty {
-      font-size: 0.6rem; color: var(--muted);
-      letter-spacing: 0.04em;
+    .foot-name span { font-weight: 400; color: var(--muted); }
+    .foot-treaty {
+      font-size: 0.6rem; color: var(--muted); letter-spacing: 0.04em;
     }
 
     @media (max-width: 480px) {
-      .top-bar { flex-direction: column; gap: 0.4rem; padding: 0.65rem 1.25rem; }
-      .top-links { gap: 0.75rem; }
-      .content { padding-top: 7.5rem; padding-left: 1.25rem; padding-right: 1.25rem; }
-      .bottom-bar { padding: 0.75rem 1.25rem; }
-      .bottom-name { font-size: 1.2rem; }
+      .hero-top { flex-direction: column; gap: 0.3rem; }
+      .foot-name { font-size: 1.2rem; }
     }
   </style>
 </head>
 <body>
 
-  <div class="top-bar">
-    <div class="top-meta">
-      11931 Jasper Ave NW · Edmonton<br />
-      daily from 10am · WiFi: Kommune@1
+  <div class="hero">
+    <div class="hero-top">
+      <div class="hero-meta">
+        11931 Jasper Ave NW · Edmonton<br />
+        daily from 10am · WiFi: Kommune@1
+      </div>
+      <div class="hero-links">
+        <a href="mailto:hello@kommunesnackbar.ca">reserve →</a>
+        <a href="/kommune/menu" class="highlight">menu →</a>
+      </div>
     </div>
-    <div class="top-links">
-      <a href="mailto:hello@kommunesnackbar.ca">reserve →</a>
-      <a href="/kommune/menu" class="highlight">menu →</a>
-    </div>
-  </div>
-
-  <div class="content">
 
     <div class="label">matcha by <a href="https://visitwhisked.ca" target="_blank" rel="noopener">Whisked</a></div>
     <div class="row"><span class="row-name">Regular</span><span class="row-price">$7</span></div>
@@ -152,24 +148,25 @@
     <div class="row"><span class="row-name">Hojicha</span><span class="row-price">$7</span></div>
 
     <div class="events">
-      <div class="label">events</div>
-      <div style="font-size:0.72rem;color:var(--muted);">nothing scheduled — check back</div>
+      <div class="events-label">events</div>
+      <div class="events-none">nothing scheduled — check back</div>
     </div>
+  </div>
 
+  <div class="spacer"></div>
+
+  <div class="foot">
     <div class="social-row">
       <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">Spotify</a>
       <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram</a>
     </div>
-
     <div class="policy">
       The $0 oat milk policy: every drink at Kommune comes with your choice of milk at no extra charge. Minor Figures oat, on the house.
     </div>
-
-  </div>
-
-  <div class="bottom-bar">
-    <div class="bottom-name">Kommune <span>($0 oat milk.)</span></div>
-    <div class="bottom-treaty">Treaty 6 · Wîhkwêntôwin</div>
+    <div class="foot-bottom">
+      <div class="foot-name">Kommune <span>($0 oat milk.)</span></div>
+      <div class="foot-treaty">Treaty 6 · Wîhkwêntôwin</div>
+    </div>
   </div>
 
 </body>
