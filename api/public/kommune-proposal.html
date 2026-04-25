@@ -458,7 +458,6 @@
       <div class="social-row">
         <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">Spotify</a>
         <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram</a>
-        <a href="/kommune/press">cold.press</a>
       </div>
       <div class="policy">
         The $0 oat milk policy: every drink at Kommune comes with your choice of milk at no extra charge. Minor Figures oat, on the house.
@@ -481,7 +480,7 @@
       { cmd: 'apply',     hint: 'work at Kommune',              action() { showApplyForm(); } },
       { cmd: 'playlist',  hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
       { cmd: 'btw',        hint: 'ask anything',                 action() { showBtwForm(); } },
-      { cmd: 'press',     hint: 'cold.press — Edmonton reviewed', action() { closeSearch(); window.location.href = '/kommune/press'; } },
+      { cmd: 'press',     hint: 'become a cold.press reviewer',   action() { showPressFlow(); } },
       { cmd: 'why',       hint: 'what is your why?',            action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">$0 oat milk.</div>'; } },
     ];
 
@@ -617,6 +616,89 @@
       } catch {
         canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
       }
+    }
+
+    const PRESS_CODE = 'coldpress'; // owner shares this in person with verified reviewers
+
+    const ASSIGNMENTS = [
+      // owner populates this list
+      // { name: 'Café Name', neighbourhood: 'Oliver', note: 'try the cortado' },
+    ];
+
+    function showPressFlow() {
+      const canvas = document.getElementById('results-canvas');
+      canvas.dataset.mode = 'press';
+
+      // Check if already verified
+      const code = localStorage.getItem('press_code');
+      if (code === PRESS_CODE) {
+        showAssignmentBoard(canvas);
+        return;
+      }
+
+      // Step 1 — enter code if you have one, or apply
+      canvas.innerHTML = `
+        <div class="result-state" style="margin-bottom:1.25rem;line-height:1.8;">
+          cold.press reviews Edmonton food &amp; drink.<br/>
+          Reviewers are verified in person at Kommune.
+        </div>
+        <form class="apply-form" onsubmit="submitPressCode(event)" style="margin-bottom:1.5rem;">
+          <div class="apply-field"><input type="text" id="press-code-input" placeholder="enter your code" autocomplete="off" autocorrect="off" autocapitalize="off" /></div>
+          <button type="submit" class="apply-submit">unlock →</button>
+        </form>
+        <div class="result-state" style="font-size:0.62rem;margin-bottom:0.75rem;">don't have a code? apply below.</div>
+        <form class="apply-form" onsubmit="submitPressApply(event)">
+          <div class="apply-field"><input type="text" id="press-name" placeholder="your name" autocomplete="name" /></div>
+          <div class="apply-field"><textarea id="press-note" placeholder="why you'd make a good reviewer" rows="3"></textarea></div>
+          <button type="submit" class="apply-submit">apply →</button>
+        </form>
+      `;
+      setTimeout(() => document.getElementById('press-code-input')?.focus(), 50);
+    }
+
+    function submitPressCode(e) {
+      e.preventDefault();
+      const val = document.getElementById('press-code-input').value.trim().toLowerCase();
+      if (val === PRESS_CODE) {
+        localStorage.setItem('press_code', PRESS_CODE);
+        showAssignmentBoard(document.getElementById('results-canvas'));
+      } else {
+        document.getElementById('press-code-input').value = '';
+        document.getElementById('press-code-input').placeholder = 'incorrect — try again';
+      }
+    }
+
+    function submitPressApply(e) {
+      e.preventDefault();
+      const name = document.getElementById('press-name').value.trim();
+      const note = document.getElementById('press-note').value.trim();
+      if (!name) return;
+      const subject = encodeURIComponent('cold.press application — ' + name);
+      const body = encodeURIComponent('Name: ' + name + '\n\n' + note);
+      window.location.href = 'mailto:hello@kommunesnackbar.ca?subject=' + subject + '&body=' + body;
+      closeSearch();
+    }
+
+    function showAssignmentBoard(canvas) {
+      if (!ASSIGNMENTS.length) {
+        canvas.innerHTML = `
+          <div class="result-state" style="line-height:1.8;">
+            you're verified.<br/>
+            no assignments yet — check back soon.
+          </div>
+        `;
+        return;
+      }
+      canvas.innerHTML = `
+        <div class="result-state" style="margin-bottom:0.75rem;font-size:0.62rem;">your assignments</div>
+        ${ASSIGNMENTS.map(a => `
+          <div class="result">
+            <div class="result-title">${esc(a.name)}</div>
+            <div class="result-url">${esc(a.neighbourhood)}</div>
+            ${a.note ? `<div class="result-desc">${esc(a.note)}</div>` : ''}
+          </div>
+        `).join('')}
+      `;
     }
 
     function showFeedbackForm() {
