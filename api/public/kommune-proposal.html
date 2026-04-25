@@ -1030,9 +1030,9 @@
           body: JSON.stringify({ people, mood }),
         });
         const data = await res.json();
-        result.innerHTML = esc(data.recommendation ?? 'unavailable right now') + '<br/><br/><button class="recommend-btn" onclick="toggleRecommend()" style="font-size:0.62rem;">try again →</button>';
+        result.innerHTML = esc(data.recommendation ?? 'unavailable right now') + '<br/><br/><button class="recommend-btn" onclick="toggleRecommend()" style="font-size:0.62rem;">again</button>';
       } catch {
-        result.innerHTML = 'unavailable right now &nbsp;<button class="recommend-btn" onclick="toggleRecommend()" style="font-size:0.62rem;">try again →</button>';
+        result.innerHTML = 'unavailable right now &nbsp;<button class="recommend-btn" onclick="toggleRecommend()" style="font-size:0.62rem;">again</button>';
       }
     }
 
