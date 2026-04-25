@@ -356,5 +356,11 @@ export async function ensureSchema(): Promise<void> {
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`);
 
+  await run('kommune_flavour_suggestions', sql`CREATE TABLE IF NOT EXISTS kommune_flavour_suggestions (
+    id SERIAL PRIMARY KEY,
+    suggestion TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`);
+
   logger.info('ensureSchema complete');
 }

@@ -297,6 +297,22 @@
     .rate-sent { font-size: 0.65rem; color: var(--muted); }
     .item { cursor: pointer; }
     .row { cursor: pointer; }
+    .suggest-row {
+      display: flex; padding: 0.45rem 0;
+      border-bottom: 1px solid var(--border); align-items: baseline;
+    }
+    .suggest-trigger {
+      font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 0; letter-spacing: 0; opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .suggest-trigger:hover { opacity: 1; }
+    .suggest-input {
+      flex: 1; font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      color: var(--text); background: none; border: none; outline: none;
+    }
+    .suggest-input::placeholder { color: var(--muted); }
 
     /* ── Apply form ── */
     .apply-form { padding-top: 0.25rem; }
@@ -361,6 +377,10 @@
       <div class="row"><span class="row-name">Pumpkin Spice</span><span class="row-price">$8</span></div>
       <div class="row"><span class="row-name">Earl Grey</span><span class="row-price">$8</span></div>
       <div class="row"><span class="row-name">Hojicha</span><span class="row-price">$7</span></div>
+      <div class="suggest-row" id="suggest-row">
+        <button class="suggest-trigger" id="suggest-trigger" onclick="openSuggest(event)">+ suggest a flavour</button>
+        <input class="suggest-input" id="suggest-input" type="text" placeholder="e.g. lavender honey" style="display:none;" autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
       <div class="events">
         <div class="events-label">events</div>
         <div class="events-none">nothing scheduled — check back</div>
@@ -504,8 +524,8 @@
   <div class="foot">
     <div class="foot-secondary">
       <div class="social-row">
-        <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">Spotify</a>
-        <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram</a>
+        <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">spotify</a>
+        <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">instagram</a>
         <a href="/press">cold.press</a>
       </div>
       <div class="policy">
@@ -1152,6 +1172,59 @@
       const name = row.querySelector('.row-name')?.textContent?.trim();
       if (!name) return;
       attachRatePicker(row, name, row);
+    });
+
+    function openSuggest(e) {
+      e.stopPropagation();
+      const trigger = document.getElementById('suggest-trigger');
+      const input = document.getElementById('suggest-input');
+      trigger.style.display = 'none';
+      input.style.display = 'block';
+      input.focus();
+    }
+
+    document.getElementById('suggest-input').addEventListener('keydown', async function(e) {
+      if (e.key === 'Escape') {
+        this.value = '';
+        this.style.display = 'none';
+        document.getElementById('suggest-trigger').style.display = 'block';
+      }
+      if (e.key === 'Enter') {
+        const val = this.value.trim();
+        if (!val) return;
+        this.disabled = true;
+        try {
+          await fetch('/api/kommune/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suggestion: val })
+          });
+        } catch (_) {}
+        this.value = '';
+        this.disabled = false;
+        this.style.display = 'none';
+        const trigger = document.getElementById('suggest-trigger');
+        trigger.textContent = 'thanks.';
+        trigger.style.display = 'block';
+        trigger.style.opacity = '0.6';
+        trigger.onclick = null;
+        setTimeout(() => {
+          trigger.textContent = '+ suggest a flavour';
+          trigger.onclick = openSuggest;
+        }, 2500);
+      }
+    });
+
+    document.addEventListener('click', function(e) {
+      const row = document.getElementById('suggest-row');
+      if (row && !row.contains(e.target)) {
+        const input = document.getElementById('suggest-input');
+        if (input && input.style.display !== 'none') {
+          input.value = '';
+          input.style.display = 'none';
+          document.getElementById('suggest-trigger').style.display = 'block';
+        }
+      }
     });
   </script>
 

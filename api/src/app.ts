@@ -559,6 +559,15 @@ app.post('/api/kommune/rate', async (req: any, res: any) => {
   res.json({ ok: true, avg_rating: row.avg_rating, total: row.total });
 });
 
+app.post('/api/kommune/suggest', async (req: any, res: any) => {
+  const suggestion = String(req.body?.suggestion ?? '').trim().slice(0, 300);
+  if (!suggestion) return res.status(400).json({ error: 'invalid' });
+  await db.execute(sql`
+    INSERT INTO kommune_flavour_suggestions (suggestion) VALUES (${suggestion})
+  `);
+  res.json({ ok: true });
+});
+
 app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });
