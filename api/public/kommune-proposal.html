@@ -35,8 +35,7 @@
       margin-bottom: 2.5rem;
     }
     .meta a { color: inherit; text-decoration: none; }
-
-    hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .meta a.dark { color: var(--text); }
 
     .label {
       font-size: 0.6rem; letter-spacing: 0.14em;
@@ -53,14 +52,6 @@
     .row:first-of-type { border-top: 1px solid var(--border); }
     .row-name { color: var(--text); }
     .row-price { color: var(--muted); }
-
-    .links { display: flex; flex-direction: column; }
-    .links a {
-      font-size: 0.78rem; color: var(--muted);
-      text-decoration: none; padding: 0.3rem 0;
-      transition: color 0.15s;
-    }
-    .links a:hover { color: var(--text); }
 
     .policy {
       font-size: 0.62rem; color: var(--muted);
@@ -81,7 +72,8 @@
     <div class="meta">
       11931 Jasper Ave NW · Edmonton<br />
       daily from 10am · reservations welcome<br />
-      <a href="mailto:hello@kommunesnackbar.ca">hello@kommunesnackbar.ca</a> · WiFi · Kommune@1 · <a href="/kommune/menu" style="color:var(--text);">menu →</a>
+      <a href="mailto:hello@kommunesnackbar.ca">hello@kommunesnackbar.ca</a> · WiFi · Kommune@1<br />
+      <a href="/kommune/menu" class="dark">menu →</a> · <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">Spotify →</a> · <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram →</a>
     </div>
 
     <div class="label">matcha by <a href="https://visitwhisked.ca" target="_blank" rel="noopener">Whisked</a></div>
@@ -92,27 +84,6 @@
     <div class="row"><span class="row-name">Pumpkin Spice</span><span class="row-price">$8</span></div>
     <div class="row"><span class="row-name">Earl Grey</span><span class="row-price">$8</span></div>
     <div class="row"><span class="row-name">Hojicha</span><span class="row-price">$7</span></div>
-
-    <div style="margin-bottom:2rem;margin-top:2rem;">
-      <div class="label">events</div>
-      <span style="font-size:0.72rem;color:var(--muted);">nothing scheduled — check back</span>
-      <!--
-        <div class="row" style="display:block;padding:0.8rem 0;">
-          <div style="font-size:0.65rem;color:var(--muted);margin-bottom:0.2rem;">fri, may 9 · doors 8pm</div>
-          <div style="font-size:0.85rem;font-weight:500;margin-bottom:0.5rem;">Artist or Event Name</div>
-          <a href="#" style="font-size:0.72rem;color:var(--text);text-decoration:none;">get tickets →</a>
-        </div>
-      -->
-    </div>
-
-    <div class="label">the sound of the room</div>
-    <div class="links" style="margin-bottom:2rem;">
-      <a href="https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO" target="_blank" rel="noopener">listen on Spotify →</a>
-    </div>
-
-    <div class="links">
-      <a href="https://instagram.com/kommune.whisked" target="_blank" rel="noopener">Instagram →</a>
-    </div>
 
     <div class="policy">
       The $0 oat milk policy: every drink at Kommune comes with your choice of milk at no extra charge. Minor Figures oat, on the house.
