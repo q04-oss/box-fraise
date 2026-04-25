@@ -184,7 +184,7 @@
     .foot-name span { font-weight: 400; color: var(--muted); }
     .foot-treaty { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.04em; }
 
-    /* ── WiFi search ── */
+    /* ── WiFi / search ── */
     .wifi-btn {
       font-family: 'DM Mono', monospace; font-size: inherit;
       color: var(--text); background: none; border: none; cursor: pointer;
@@ -193,28 +193,51 @@
       transition: color 0.15s;
     }
     .wifi-btn:hover { color: var(--muted); }
-    .wifi-search {
-      display: none;
-      align-items: center; gap: 0.5rem;
-      margin-top: 0.85rem;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px solid var(--border);
+
+    .search-field {
+      display: none; flex: 1; align-items: center; gap: 0.75rem; min-width: 0;
     }
-    .wifi-search.open { display: flex; }
-    .wifi-search input {
+    body.searching .search-field { display: flex; }
+    body.searching .header-meta { display: none; }
+    body.searching .header-content { display: none; }
+
+    .search-field input {
       flex: 1; font-family: 'DM Mono', monospace;
       font-size: 0.78rem; color: var(--text);
-      background: none; border: none; outline: none;
-      min-width: 0;
+      background: none; border: none; outline: none; min-width: 0;
     }
-    .wifi-search input::placeholder { color: var(--muted); }
-    .wifi-search button {
+    .search-field input::placeholder { color: var(--muted); }
+    .search-close {
       font-family: 'DM Mono', monospace; font-size: 0.65rem;
       color: var(--muted); background: none; border: none;
       cursor: pointer; padding: 0; letter-spacing: 0.04em;
       flex-shrink: 0; transition: color 0.15s;
     }
-    .wifi-search button:hover { color: var(--text); }
+    .search-close:hover { color: var(--text); }
+
+    /* ── Results canvas ── */
+    .results-canvas {
+      display: none; flex: 1;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 1.25rem 1.5rem;
+    }
+    body.searching .results-canvas { display: block; }
+    body.searching .spacer { display: none; }
+    body.searching .foot-secondary { display: none; }
+
+    .result {
+      display: block; padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none; color: inherit;
+    }
+    .result:first-child { border-top: 1px solid var(--border); }
+    .result-title { font-size: 0.78rem; color: var(--text); margin-bottom: 0.2rem; }
+    .result-url { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.03em; margin-bottom: 0.2rem; }
+    .result-desc { font-size: 0.65rem; color: var(--muted); line-height: 1.55; }
+    .result:hover .result-title { text-decoration: underline; text-underline-offset: 3px; }
+    .result-state {
+      font-size: 0.72rem; color: var(--muted); padding: 0.75rem 0;
+    }
 
     @media (max-width: 480px) {
       .header-top { flex-direction: column; gap: 0.3rem; }
@@ -228,18 +251,17 @@
     <div class="header-top">
       <div class="header-meta">
         11931 Jasper Ave NW · Edmonton<br />
-        daily from 10am · WiFi: <button class="wifi-btn" onclick="toggleWifi()">Kommune@1</button>
+        daily from 10am · WiFi: <button class="wifi-btn" onclick="openSearch()">Kommune@1</button>
       </div>
+      <form class="search-field" id="search-form" onsubmit="doSearch(event)">
+        <input id="search-input" type="text" placeholder="search from Kommune" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        <button type="button" class="search-close" onclick="closeSearch()">esc</button>
+      </form>
       <div class="header-links">
         <a href="mailto:hello@kommunesnackbar.ca">reserve →</a>
         <button class="menu-btn" id="menu-btn" onclick="toggleMenu()">menu →</button>
       </div>
     </div>
-
-    <form class="wifi-search" id="wifi-search" onsubmit="doSearch(event)">
-      <input id="wifi-input" type="text" placeholder="search from Kommune" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-      <button type="submit">search →</button>
-    </form>
 
     <div class="header-content">
       <div class="label">matcha by <a href="https://visitwhisked.ca" target="_blank" rel="noopener">Whisked</a></div>
@@ -372,6 +394,8 @@
     </div>
   </div>
 
+  <div class="results-canvas" id="results-canvas"></div>
+
   <div class="spacer"></div>
 
   <div class="foot">
@@ -392,23 +416,68 @@
 
   <script>
     function toggleMenu() {
+      closeSearch();
       const open = document.body.classList.toggle('menu-open');
       document.getElementById('menu-btn').textContent = open ? '← close' : 'menu →';
     }
 
-    function toggleWifi() {
-      const form = document.getElementById('wifi-search');
-      const opening = !form.classList.contains('open');
-      form.classList.toggle('open');
-      if (opening) document.getElementById('wifi-input').focus();
+    function openSearch() {
+      document.body.classList.remove('menu-open');
+      document.getElementById('menu-btn').textContent = 'menu →';
+      document.body.classList.add('searching');
+      document.getElementById('search-input').focus();
     }
 
-    function doSearch(e) {
-      e.preventDefault();
-      const q = document.getElementById('wifi-input').value.trim();
-      if (!q) return;
-      window.open('/search?q=' + encodeURIComponent(q), '_blank');
+    function closeSearch() {
+      document.body.classList.remove('searching');
+      document.getElementById('search-input').value = '';
+      document.getElementById('results-canvas').innerHTML = '';
     }
+
+    async function doSearch(e) {
+      e.preventDefault();
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+
+      const canvas = document.getElementById('results-canvas');
+      canvas.innerHTML = '<div class="result-state">searching…</div>';
+
+      try {
+        const res = await fetch('/api/brave?q=' + encodeURIComponent(q));
+        const data = await res.json();
+        const results = data.results ?? [];
+
+        if (!results.length) {
+          canvas.innerHTML = '<div class="result-state">no results</div>';
+          return;
+        }
+
+        canvas.innerHTML = results.map(r => `
+          <a class="result" href="${esc(r.url)}" target="_blank" rel="noopener">
+            <div class="result-title">${esc(r.title)}</div>
+            <div class="result-url">${esc(r.display_url)}</div>
+            ${r.description ? `<div class="result-desc">${esc(r.description)}</div>` : ''}
+          </a>
+        `).join('');
+      } catch {
+        canvas.innerHTML = '<div class="result-state">search unavailable</div>';
+      }
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && !document.body.classList.contains('menu-open')) {
+        e.preventDefault();
+        openSearch();
+      }
+      if (e.key === 'Escape' && document.body.classList.contains('searching')) {
+        closeSearch();
+      }
+    });
   </script>
 
 </body>
