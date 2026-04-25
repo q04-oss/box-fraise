@@ -463,7 +463,7 @@
       { cmd: 'reserve',   hint: 'hello@kommunesnackbar.ca',      action() { closeSearch(); window.location.href = 'mailto:hello@kommunesnackbar.ca'; } },
       { cmd: 'wifi',      hint: 'Kommune@1 — copy to clipboard', action() { navigator.clipboard?.writeText('Kommune@1'); closeSearch(); } },
       { cmd: 'instagram', hint: '@kommune.whisked',              action() { closeSearch(); window.open('https://instagram.com/kommune.whisked', '_blank'); } },
-      { cmd: 'spotify',   hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
+      { cmd: 'playlist',  hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
       { cmd: 'apply',     hint: 'work at Kommune',              action() { showApplyForm(); } },
       { cmd: 'why',       hint: 'what is your why?',            action() { document.getElementById('results-canvas').innerHTML = '<div class="result-state">$0 oat milk.</div>'; } },
     ];
