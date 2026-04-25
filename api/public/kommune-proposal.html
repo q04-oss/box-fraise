@@ -296,6 +296,7 @@
     .rate-btn:hover { color: var(--text); }
     .rate-sent { font-size: 0.65rem; color: var(--muted); }
     .item { cursor: pointer; }
+    .row { cursor: pointer; }
 
     /* ── Apply form ── */
     .apply-form { padding-top: 0.25rem; }
@@ -1070,6 +1071,7 @@
     }
 
     function renderRatings() {
+      // Menu items
       document.querySelectorAll('.item').forEach(item => {
         const nameEl = item.querySelector('.item-name');
         if (!nameEl) return;
@@ -1084,26 +1086,31 @@
         el.textContent = `${r.avg_rating} (${r.total})`;
         item.insertBefore(el, priceEl);
       });
+      // Matcha rows
+      document.querySelectorAll('.row').forEach(row => {
+        const nameEl = row.querySelector('.row-name');
+        if (!nameEl) return;
+        const name = nameEl.textContent.trim();
+        row.querySelector('.item-rating')?.remove();
+        const r = ratingsCache[name];
+        if (!r || r.total < 3) return;
+        const priceEl = row.querySelector('.row-price');
+        if (!priceEl) return;
+        const el = document.createElement('span');
+        el.className = 'item-rating';
+        row.insertBefore(el, priceEl);
+        el.textContent = `${r.avg_rating} (${r.total})`;
+      });
     }
 
-    document.querySelector('.menu-content').addEventListener('click', function(e) {
-      const item = e.target.closest('.item');
-      if (!item) return;
-      if (e.target.closest('.rate-picker')) return;
-
+    function attachRatePicker(el, name, appendTo) {
       document.querySelectorAll('.rate-picker').forEach(p => p.remove());
-
-      const name = item.querySelector('.item-name')?.textContent?.trim();
-      if (!name) return;
-
-      const left = item.querySelector('.item-left');
       const picker = document.createElement('div');
       picker.className = 'rate-picker';
       picker.innerHTML = [1,2,3,4,5].map(n =>
         `<button class="rate-btn" type="button" data-n="${n}">${n}</button>`
       ).join('');
-      left.appendChild(picker);
-
+      appendTo.appendChild(picker);
       picker.querySelectorAll('.rate-btn').forEach(btn => {
         btn.addEventListener('click', async ev => {
           ev.stopPropagation();
@@ -1124,6 +1131,27 @@
           setTimeout(() => picker.remove(), 600);
         });
       });
+    }
+
+    document.querySelector('.menu-content').addEventListener('click', function(e) {
+      const item = e.target.closest('.item');
+      if (!item) return;
+      if (e.target.closest('.rate-picker')) return;
+      const name = item.querySelector('.item-name')?.textContent?.trim();
+      if (!name) return;
+      attachRatePicker(item, name, item.querySelector('.item-left'));
+    });
+
+    // Load ratings on page load for the matcha rows
+    loadRatings();
+
+    document.querySelector('.header-content').addEventListener('click', function(e) {
+      const row = e.target.closest('.row');
+      if (!row) return;
+      if (e.target.closest('.rate-picker')) return;
+      const name = row.querySelector('.row-name')?.textContent?.trim();
+      if (!name) return;
+      attachRatePicker(row, name, row);
     });
   </script>
 
