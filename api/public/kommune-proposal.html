@@ -458,6 +458,8 @@
   </div>
 
   <script>
+    let savedResults = null; // { query, html } — saved when / is typed over results
+
     const SHORTCUTS = [
       { cmd: 'menu',      hint: 'browse the full menu',         action() { closeSearch(); openMenu(); } },
       { cmd: 'wifi',      hint: 'Kommune@1 — copy to clipboard', action() { navigator.clipboard?.writeText('Kommune@1'); closeSearch(); } },
@@ -521,9 +523,16 @@
       const canvas = document.getElementById('results-canvas');
       if (!val) {
         canvas.innerHTML = '';
+        savedResults = null;
       } else if (val.startsWith('/')) {
+        // Save results if we're switching from a results view
+        if (canvas.dataset.mode === 'results' && !savedResults) {
+          savedResults = { query: val.slice(1), html: canvas.innerHTML };
+        }
         const q = val.slice(1).toLowerCase();
         renderShortcuts(q ? SHORTCUTS.filter(s => s.cmd.startsWith(q)) : SHORTCUTS);
+      } else {
+        savedResults = null; // typing a new query, discard saved state
       }
     });
 
@@ -552,6 +561,7 @@
           return;
         }
 
+        canvas.dataset.mode = 'results';
         canvas.innerHTML = results.map(r => `
           <a class="result" href="${esc(r.url)}" target="_blank" rel="noopener">
             <div class="result-title">${esc(r.title)}</div>
@@ -619,8 +629,16 @@
       document.getElementById('menu-btn').textContent = 'menu →';
       document.body.classList.add('searching');
       const input = document.getElementById('search-input');
-      input.value = '';
-      renderShortcuts(SHORTCUTS);
+      const canvas = document.getElementById('results-canvas');
+      if (savedResults) {
+        input.value = savedResults.query;
+        canvas.innerHTML = savedResults.html;
+        canvas.dataset.mode = 'results';
+        savedResults = null;
+      } else {
+        input.value = '';
+        renderShortcuts(SHORTCUTS);
+      }
       input.focus();
     }
 
