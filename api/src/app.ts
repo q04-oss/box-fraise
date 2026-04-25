@@ -568,6 +568,41 @@ app.post('/api/kommune/suggest', async (req: any, res: any) => {
   res.json({ ok: true });
 });
 
+app.post('/api/kommune/reservations', async (req: any, res: any) => {
+  const name = String(req.body?.name ?? '').trim().slice(0, 200);
+  const size = parseInt(req.body?.size) || 0;
+  const date = String(req.body?.date ?? '').trim().slice(0, 20);
+  const time = String(req.body?.time ?? '').trim().slice(0, 10);
+  const note = String(req.body?.note ?? '').trim().slice(0, 500);
+  const preorder = String(req.body?.preorder ?? '').trim().slice(0, 2000);
+  if (!name || !size || !date || !time) return res.status(400).json({ error: 'invalid' });
+  await db.execute(sql`
+    INSERT INTO kommune_reservations (name, size, date, time, note, preorder)
+    VALUES (${name}, ${size}, ${date}, ${time}, ${note}, ${preorder})
+  `);
+  res.json({ ok: true });
+});
+
+app.get('/api/kommune/reservations', async (req: any, res: any) => {
+  const password = String(req.query?.password ?? '');
+  if (password !== process.env.KOMMUNE_OWNER_PASSWORD) return res.status(401).json({ error: 'unauthorized' });
+  const rows = await db.execute(sql`
+    SELECT id, name, size, date, time, note, preorder, status, created_at
+    FROM kommune_reservations ORDER BY date ASC, time ASC
+  `);
+  res.json({ reservations: (rows as any).rows ?? rows });
+});
+
+app.patch('/api/kommune/reservations/:id', async (req: any, res: any) => {
+  const password = String(req.body?.password ?? '');
+  if (password !== process.env.KOMMUNE_OWNER_PASSWORD) return res.status(401).json({ error: 'unauthorized' });
+  const id = parseInt(req.params.id);
+  const status = String(req.body?.status ?? '').trim();
+  if (!['pending', 'confirmed', 'arrived', 'done'].includes(status)) return res.status(400).json({ error: 'invalid' });
+  await db.execute(sql`UPDATE kommune_reservations SET status = ${status} WHERE id = ${id}`);
+  res.json({ ok: true });
+});
+
 app.get('/table', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table.html'));
 });

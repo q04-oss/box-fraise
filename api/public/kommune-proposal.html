@@ -285,6 +285,23 @@
       margin-top: 0.5rem;
     }
 
+    /* ── Reservation flow ── */
+    .reserve-step { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+    .reserve-preorder {
+      font-size: 0.72rem; color: var(--text);
+      line-height: 1.8; white-space: pre-wrap;
+      padding: 0.65rem 0; border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border); margin: 0.5rem 0;
+    }
+    .reserve-preorder-label { font-size: 0.62rem; color: var(--muted); margin-bottom: 0.35rem; }
+    .reserve-skip {
+      font-family: 'DM Mono', monospace; font-size: 0.62rem;
+      color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 0; letter-spacing: 0.04em;
+      transition: color 0.15s; text-decoration: underline; text-underline-offset: 2px;
+    }
+    .reserve-skip:hover { color: var(--text); }
+
     /* ── Item ratings ── */
     .item-rating { font-size: 0.78rem; color: #C0392B; padding-right: 1.25rem; align-self: baseline; flex-shrink: 0; }
     .rate-picker { display: flex; gap: 0.6rem; margin-top: 0.35rem; }
@@ -363,8 +380,8 @@
         <button type="button" class="search-close" onclick="closeSearch()">esc</button>
       </form>
       <div class="header-links">
-        <a href="mailto:hello@kommunesnackbar.ca">reserve →</a>
-        <button class="menu-btn" id="menu-btn" onclick="toggleMenu()">menu →</button>
+        <a href="#" onclick="event.preventDefault();showReserveFlow()">reserve</a>
+        <button class="menu-btn" id="menu-btn" onclick="toggleMenu()">menu</button>
       </div>
     </div>
 
@@ -544,7 +561,7 @@
     const SHORTCUTS = [
       { cmd: 'menu',      hint: 'browse the full menu',         action() { closeSearch(); openMenu(); } },
       { cmd: 'wifi',      hint: 'Kommune@1 — copy to clipboard', action() { navigator.clipboard?.writeText('Kommune@1'); closeSearch(); } },
-      { cmd: 'reserve',   hint: 'hello@kommunesnackbar.ca',      action() { closeSearch(); window.location.href = 'mailto:hello@kommunesnackbar.ca'; } },
+      { cmd: 'reserve',   hint: 'book a table + pre-order',       action() { closeSearch(); showReserveFlow(); } },
       { cmd: 'feedback',  hint: 'leave a note for the owner',   action() { showFeedbackForm(); } },
       { cmd: 'apply',     hint: 'work at Kommune',              action() { showApplyForm(); } },
       { cmd: 'playlist',  hint: 'the room\'s playlist',         action() { closeSearch(); window.open('https://open.spotify.com/playlist/3EQfi5R0ziWSpFWLqpowmO', '_blank'); } },
@@ -556,14 +573,14 @@
 
     function openMenu() {
       document.body.classList.add('menu-open');
-      document.getElementById('menu-btn').textContent = '← close';
+      document.getElementById('menu-btn').textContent = 'close';
       loadRatings();
     }
 
     function toggleMenu() {
       closeSearch();
       const open = document.body.classList.toggle('menu-open');
-      document.getElementById('menu-btn').textContent = open ? '← close' : 'menu →';
+      document.getElementById('menu-btn').textContent = open ? 'close' : 'menu';
       if (open) loadRatings();
     }
 
@@ -685,6 +702,108 @@
         canvas.innerHTML = `<div class="result-state" style="white-space:pre-wrap;line-height:1.7;">${esc(data.answer)}</div>`;
       } catch {
         canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
+      }
+    }
+
+    // ── Reservation flow ──
+    let reserveData = {};
+
+    function showReserveFlow() {
+      openSearch();
+      const canvas = document.getElementById('results-canvas');
+      canvas.dataset.mode = 'reserve';
+      reserveData = {};
+      renderReserveStep1(canvas);
+    }
+
+    function renderReserveStep1(canvas) {
+      canvas.innerHTML = `
+        <div class="reserve-step">1 of 2 — details</div>
+        <form class="apply-form" onsubmit="submitReserveStep1(event)">
+          <div class="apply-field"><input type="text" id="res-name" placeholder="name" autocomplete="name" /></div>
+          <div class="apply-field"><input type="number" id="res-size" placeholder="party size" min="1" max="50" inputmode="numeric" /></div>
+          <div class="apply-field"><input type="date" id="res-date" /></div>
+          <div class="apply-field"><input type="time" id="res-time" /></div>
+          <div class="apply-field"><input type="text" id="res-note" placeholder="any notes (optional)" autocomplete="off" /></div>
+          <button type="submit" class="apply-submit">next →</button>
+        </form>
+      `;
+      setTimeout(() => document.getElementById('res-name')?.focus(), 50);
+    }
+
+    function submitReserveStep1(e) {
+      e.preventDefault();
+      const name = document.getElementById('res-name').value.trim();
+      const size = parseInt(document.getElementById('res-size').value) || 0;
+      const date = document.getElementById('res-date').value;
+      const time = document.getElementById('res-time').value;
+      const note = document.getElementById('res-note').value.trim();
+      if (!name || !size || !date || !time) {
+        const missing = document.querySelector('#res-name,#res-size,#res-date,#res-time');
+        missing?.focus(); return;
+      }
+      reserveData = { name, size, date, time, note };
+      renderReserveStep2(document.getElementById('results-canvas'));
+    }
+
+    function renderReserveStep2(canvas) {
+      canvas.innerHTML = `
+        <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
+        <form class="apply-form" onsubmit="runReserveRecommend(event)">
+          <div class="apply-field"><input type="text" id="res-mood" placeholder="what are you in the mood for?" autocomplete="off" autocorrect="off" /></div>
+          <button type="submit" class="apply-submit">suggest →</button>
+        </form>
+        <div id="res-rec-area"></div>
+      `;
+      setTimeout(() => document.getElementById('res-mood')?.focus(), 50);
+    }
+
+    async function runReserveRecommend(e) {
+      e.preventDefault();
+      const mood = document.getElementById('res-mood').value.trim();
+      if (!mood) { document.getElementById('res-mood').focus(); return; }
+      const area = document.getElementById('res-rec-area');
+      area.innerHTML = '<div class="result-state">thinking…</div>';
+      try {
+        const res = await fetch('/api/kommune/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ people: reserveData.size, mood }),
+        });
+        const data = await res.json();
+        const rec = data.recommendation ?? '';
+        area.innerHTML = `
+          <div class="reserve-preorder">
+            <div class="reserve-preorder-label">suggested order</div>
+            ${esc(rec)}
+          </div>
+          <div style="display:flex;gap:1.5rem;margin-top:0.5rem;align-items:baseline;">
+            <button class="apply-submit" type="button" onclick="submitReservation(${JSON.stringify(esc(rec))})">book with this →</button>
+            <button class="reserve-skip" type="button" onclick="runReserveRecommend({preventDefault:()=>{}})">again</button>
+            <button class="reserve-skip" type="button" onclick="submitReservation(null)">skip</button>
+          </div>
+        `;
+      } catch {
+        area.innerHTML = '<div class="result-state">unavailable — <button class="reserve-skip" onclick="submitReservation(null)">skip to booking</button></div>';
+      }
+    }
+
+    async function submitReservation(preorder) {
+      const canvas = document.getElementById('results-canvas');
+      canvas.innerHTML = '<div class="result-state">booking…</div>';
+      try {
+        await fetch('/api/kommune/reservations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...reserveData, preorder: preorder ?? '' }),
+        });
+        canvas.innerHTML = `
+          <div class="result-state">
+            booked. see you ${esc(reserveData.date)} at ${esc(reserveData.time)}.
+          </div>
+        `;
+      } catch {
+        canvas.innerHTML = '<div class="result-state">something went wrong — email hello@kommunesnackbar.ca</div>';
       }
     }
 
@@ -814,12 +933,14 @@
     async function renderOwnerBoard(canvas) {
       canvas.innerHTML = '<div class="result-state">loading…</div>';
       try {
-        const [assignRes, appRes] = await Promise.all([
+        const [assignRes, appRes, resRes] = await Promise.all([
           fetch('/api/kommune/assignments'),
           fetch('/api/kommune/press/applications?password=' + encodeURIComponent(ownerPassword)),
+          fetch('/api/kommune/reservations?password=' + encodeURIComponent(ownerPassword)),
         ]);
         const assignments = (await assignRes.json()).assignments ?? [];
         const applications = (await appRes.json()).applications ?? [];
+        const reservations = (await resRes.json()).reservations ?? [];
         const pending = applications.filter(a => a.status === 'pending');
         const approved = applications.filter(a => a.status === 'approved');
 
@@ -864,6 +985,28 @@
                 <div class="result-url">${esc(a.neighbourhood)}${a.note ? ' · ' + esc(a.note) : ''}</div>
               </div>
               <button class="apply-submit" type="button" onclick="ownerRemoveAssignment(${a.id}, this)" style="flex-shrink:0;margin-left:1rem;color:var(--muted);">remove</button>
+            </div>
+          `).join('')}
+          <div class="result-state" style="font-size:0.62rem;margin-top:1.5rem;margin-bottom:0.5rem;">reservations</div>
+          ${!reservations.length ? '<div class="result-state" style="font-size:0.65rem;">none yet</div>' : ''}
+          ${reservations.map(r => `
+            <div class="result">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;">
+                <div class="result-title">${esc(r.name)}</div>
+                <div class="result-url" style="flex-shrink:0;">${esc(r.date)} ${esc(r.time)} · ${esc(String(r.size))} guests</div>
+              </div>
+              ${r.note ? `<div class="result-desc" style="margin-top:0.15rem;">${esc(r.note)}</div>` : ''}
+              ${r.preorder ? `
+                <div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid var(--border);">
+                  <div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.2rem;letter-spacing:0.04em;">pre-order</div>
+                  <div style="font-size:0.7rem;color:var(--text);white-space:pre-wrap;line-height:1.7;">${esc(r.preorder)}</div>
+                </div>
+              ` : ''}
+              <div style="margin-top:0.4rem;">
+                <button class="apply-submit" type="button" onclick="ownerUpdateReservation(${r.id}, 'confirmed', this)" style="${r.status==='confirmed'?'color:var(--text);':'color:var(--muted);'}">confirmed</button>
+                <button class="apply-submit" type="button" onclick="ownerUpdateReservation(${r.id}, 'arrived', this)" style="margin-left:0.75rem;${r.status==='arrived'?'color:var(--text);':'color:var(--muted);'}">arrived</button>
+                <button class="apply-submit" type="button" onclick="ownerUpdateReservation(${r.id}, 'done', this)" style="margin-left:0.75rem;${r.status==='done'?'color:var(--text);':'color:var(--muted);'}">done</button>
+              </div>
             </div>
           `).join('')}
         `;
@@ -915,6 +1058,17 @@
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: ownerPassword }),
+      });
+      if (res.status === 401) { ownerPassword = null; showOwnerPanel(); return; }
+      renderOwnerBoard(document.getElementById('results-canvas'));
+    }
+
+    async function ownerUpdateReservation(id, status, btn) {
+      btn.textContent = '…';
+      const res = await fetch('/api/kommune/reservations/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: ownerPassword, status }),
       });
       if (res.status === 401) { ownerPassword = null; showOwnerPanel(); return; }
       renderOwnerBoard(document.getElementById('results-canvas'));
