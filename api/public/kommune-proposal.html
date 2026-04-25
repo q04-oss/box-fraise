@@ -708,11 +708,11 @@
     // ── Reservation flow ──
     let reserveData = {};
 
-    function showReserveFlow() {
+    function showReserveFlow(prefill = {}) {
       openSearch();
       const canvas = document.getElementById('results-canvas');
       canvas.dataset.mode = 'reserve';
-      reserveData = {};
+      reserveData = { _prefillSize: prefill.size || null, _prefillPreorder: prefill.preorder || null };
       renderReserveStep1(canvas);
     }
 
@@ -728,6 +728,9 @@
           <button type="submit" class="apply-submit">next →</button>
         </form>
       `;
+      if (reserveData._prefillSize) {
+        document.getElementById('res-size').value = reserveData._prefillSize;
+      }
       setTimeout(() => document.getElementById('res-name')?.focus(), 50);
     }
 
@@ -747,15 +750,31 @@
     }
 
     function renderReserveStep2(canvas) {
-      canvas.innerHTML = `
-        <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
-        <form class="apply-form" onsubmit="runReserveRecommend(event)">
-          <div class="apply-field"><input type="text" id="res-mood" placeholder="what are you in the mood for?" autocomplete="off" autocorrect="off" /></div>
-          <button type="submit" class="apply-submit">suggest →</button>
-        </form>
-        <div id="res-rec-area"></div>
-      `;
-      setTimeout(() => document.getElementById('res-mood')?.focus(), 50);
+      const carried = reserveData._prefillPreorder;
+      if (carried) {
+        canvas.innerHTML = `
+          <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
+          <div class="reserve-preorder">
+            <div class="reserve-preorder-label">from your recommendation</div>
+            ${esc(carried)}
+          </div>
+          <div style="display:flex;gap:1.5rem;margin-top:0.5rem;align-items:baseline;">
+            <button class="apply-submit" type="button" onclick="submitReservation(${JSON.stringify(carried)})">book with this →</button>
+            <button class="reserve-skip" type="button" onclick="reserveData._prefillPreorder=null;renderReserveStep2(document.getElementById('results-canvas'))">change</button>
+            <button class="reserve-skip" type="button" onclick="submitReservation(null)">skip</button>
+          </div>
+        `;
+      } else {
+        canvas.innerHTML = `
+          <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
+          <form class="apply-form" onsubmit="runReserveRecommend(event)">
+            <div class="apply-field"><input type="text" id="res-mood" placeholder="what are you in the mood for?" autocomplete="off" autocorrect="off" /></div>
+            <button type="submit" class="apply-submit">suggest →</button>
+          </form>
+          <div id="res-rec-area"></div>
+        `;
+        setTimeout(() => document.getElementById('res-mood')?.focus(), 50);
+      }
     }
 
     async function runReserveRecommend(e) {
@@ -1217,7 +1236,7 @@
         });
         const data = await res.json();
         const rec = data.recommendation ?? 'unavailable right now';
-        result.innerHTML = esc(rec) + '<div style="margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);">booking a table? <button class="reserve-skip" onclick="closeRecommendPanel();showReserveFlow()">reserve</button></div>';
+        result.innerHTML = esc(rec) + '<div style="margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);">booking a table? <button class="reserve-skip" onclick="closeRecommendPanel();showReserveFlow({size:' + people + ',preorder:' + JSON.stringify(rec) + '})">reserve</button></div>';
       } catch {
         result.textContent = 'unavailable right now';
       }
