@@ -343,8 +343,12 @@ app.get('/kommune', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/kommune-proposal.html'));
 });
 
+app.get('/press', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/press.html'));
+});
+
 app.get('/kommune/press', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../public/kommune-press.html'));
+  res.redirect('/press');
 });
 
 app.post('/api/kommune/ask', async (req: any, res: any) => {
