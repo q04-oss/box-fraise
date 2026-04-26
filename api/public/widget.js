@@ -24,6 +24,7 @@
   var priceCents  = parseInt(params.get('price') || '12000');
   var label       = params.get('label') || 'join the table';
   var apiBase     = params.get('api') || 'https://api.fraise.box';
+  var demoMode    = params.get('demo') === 'true';
 
   if (!slug) { console.warn('[table widget] no slug set'); return; }
 
@@ -73,6 +74,8 @@
       '.tf-cancel{font-family:inherit;font-size:0.65rem;color:#8A8880;background:none;border:none',
         ';cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px;margin-top:0.25rem}',
       '.tf-cancel:hover{color:#1A1A18}',
+      '.tf-demo-badge{display:inline-block;font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase',
+        ';background:#F0EDE8;color:#8A8880;border-radius:4px;padding:0.2rem 0.5rem;margin-bottom:0.65rem}',
     ].join('');
     document.head.appendChild(style);
   }
@@ -85,6 +88,7 @@
   // ── Build HTML ─────────────────────────────────────────────────────────────
   mount.innerHTML = [
     '<div class="tf">',
+      demoMode ? '<div class="tf-demo-badge">demo</div>' : '',
       '<button class="tf-join" id="tf-open-' + instanceId + '">' + label + '</button>',
       '<div class="tf-form" id="tf-form-' + instanceId + '">',
         '<div>',
@@ -97,7 +101,9 @@
         '</div>',
         '<div>',
           '<label class="tf-label">payment</label>',
-          '<div class="tf-card" id="tf-card-' + instanceId + '"></div>',
+          demoMode
+            ? '<div class="tf-card" id="tf-card-' + instanceId + '" style="color:#8A8880;font-size:0.8rem;">4242 4242 4242 4242 &nbsp;·&nbsp; 12/34 &nbsp;·&nbsp; 123</div>'
+            : '<div class="tf-card" id="tf-card-' + instanceId + '"></div>',
         '</div>',
         '<div class="tf-total">',
           '<span class="tf-total-label">total</span>',
@@ -137,39 +143,38 @@
   var stripeInstance = null;
   var cardEl = null;
 
-  function loadStripe(cb) {
-    if (window.Stripe) { cb(window.Stripe); return; }
-    // Only ever inject Stripe.js once — queue callbacks if already loading
-    if (window._tfStripeLoading) { window._tfStripeQueue.push(cb); return; }
-    var existing = document.querySelector('script[src^="https://js.stripe.com/v3"]');
-    if (existing) { existing.addEventListener('load', function () { cb(window.Stripe); }); return; }
-    window._tfStripeLoading = true;
-    window._tfStripeQueue = [cb];
-    var s = document.createElement('script');
-    s.src = 'https://js.stripe.com/v3/';
-    s.onload = function () {
-      window._tfStripeLoading = false;
-      window._tfStripeQueue.forEach(function (fn) { fn(window.Stripe); });
-      window._tfStripeQueue = [];
-    };
-    document.head.appendChild(s);
-  }
-
-  loadStripe(function (Stripe) {
-    stripeInstance = Stripe('pk_live_51R3UWEGkzAbVnPaCoqp8w7a6zxOiXUBhJiuBKMGG7v96W7LBGIlLLhJHNWP3qcllZBLH4oLjJFm1YrqdFBJv63qy00LmQSbJxq');
-    var elements = stripeInstance.elements();
-    cardEl = elements.create('card', {
-      style: {
-        base: {
-          fontFamily: '"DM Mono", monospace',
-          fontSize: '14px',
-          color: '#1A1A18',
-          '::placeholder': { color: '#8A8880' },
+  if (!demoMode) {
+    (function loadStripe(cb) {
+      if (window.Stripe) { cb(window.Stripe); return; }
+      if (window._tfStripeLoading) { window._tfStripeQueue.push(cb); return; }
+      var existing = document.querySelector('script[src^="https://js.stripe.com/v3"]');
+      if (existing) { existing.addEventListener('load', function () { cb(window.Stripe); }); return; }
+      window._tfStripeLoading = true;
+      window._tfStripeQueue = [cb];
+      var s = document.createElement('script');
+      s.src = 'https://js.stripe.com/v3/';
+      s.onload = function () {
+        window._tfStripeLoading = false;
+        window._tfStripeQueue.forEach(function (fn) { fn(window.Stripe); });
+        window._tfStripeQueue = [];
+      };
+      document.head.appendChild(s);
+    }(function (Stripe) {
+      stripeInstance = Stripe('pk_live_51R3UWEGkzAbVnPaCoqp8w7a6zxOiXUBhJiuBKMGG7v96W7LBGIlLLhJHNWP3qcllZBLH4oLjJFm1YrqdFBJv63qy00LmQSbJxq');
+      var elements = stripeInstance.elements();
+      cardEl = elements.create('card', {
+        style: {
+          base: {
+            fontFamily: '"DM Mono", monospace',
+            fontSize: '14px',
+            color: '#1A1A18',
+            '::placeholder': { color: '#8A8880' },
+          }
         }
-      }
-    });
-    cardEl.mount('#tf-card-' + instanceId);
-  });
+      });
+      cardEl.mount('#tf-card-' + instanceId);
+    }));
+  }
 
   // ── Pay ───────────────────────────────────────────────────────────────────
   payBtn.addEventListener('click', async function () {
@@ -184,14 +189,35 @@
       errEl.classList.add('on');
       return;
     }
-    if (!stripeInstance || !cardEl) {
-      errEl.textContent = 'payment not ready — try again.';
-      errEl.classList.add('on');
-      return;
-    }
 
     payBtn.disabled = true;
     payBtn.textContent = '—';
+
+    // ── Demo mode: simulate the flow, no network calls ─────────────────────
+    if (demoMode) {
+      setTimeout(function () {
+        form.classList.remove('open');
+        doneEl.classList.add('on');
+        // Reset after 4s so the demo can be replayed
+        setTimeout(function () {
+          doneEl.classList.remove('on');
+          openBtn.style.display = '';
+          document.getElementById('tf-name-'  + instanceId).value = '';
+          document.getElementById('tf-email-' + instanceId).value = '';
+          payBtn.disabled = false;
+          payBtn.textContent = 'pay ' + fmt(priceCents);
+        }, 4000);
+      }, 1500);
+      return;
+    }
+
+    if (!stripeInstance || !cardEl) {
+      errEl.textContent = 'payment not ready — try again.';
+      errEl.classList.add('on');
+      payBtn.disabled = false;
+      payBtn.textContent = 'pay ' + fmt(priceCents);
+      return;
+    }
 
     try {
       // 1. Create payment intent

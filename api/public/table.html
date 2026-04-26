@@ -394,7 +394,22 @@
       border-top: 1px solid var(--border);
     }
     .get-listed h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.5rem; }
-    .get-listed p { font-size: 0.72rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.25rem; }
+    .get-listed p { font-size: 0.72rem; color: var(--muted); line-height: 1.7; margin-bottom: 1.5rem; }
+
+    /* ── Demo ── */
+    .demo-section { margin-bottom: 2rem; }
+    .demo-label {
+      font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.75rem;
+    }
+    .demo-frame {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem;
+    }
+    .demo-mit {
+      font-size: 0.65rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.6;
+    }
+    .demo-mit a { color: var(--text); text-underline-offset: 3px; }
     .get-listed-form { display: flex; flex-direction: column; gap: 0.75rem; max-width: 400px; }
     .get-listed-msg { font-size: 0.72rem; color: var(--muted); display: none; }
     .get-listed-msg.ok { color: var(--text); display: block; }
@@ -476,10 +491,19 @@
       </div>
     </div>
 
-    <!-- Get listed -->
+    <!-- For venues: demo + get listed -->
     <div class="get-listed" id="get-listed-section" style="display:none;">
       <h2>list your venue</h2>
-      <p>build a pool of people who pay in before the event exists. date confirmed once seats fill. you keep the float, we take 15%.</p>
+      <p>build a pool of people who pay in before the event exists. date confirmed once seats fill. you keep 85%, we keep 15%.</p>
+
+      <div class="demo-section">
+        <div class="demo-label">what your customers see</div>
+        <div class="demo-frame">
+          <script src="/table/widget.js?slug=demo&price=12000&label=join+the+pool&demo=true"></script>
+        </div>
+        <div class="demo-mit">widget is <a href="/table/widget.js" target="_blank" rel="noopener">MIT licensed</a> — embed it, audit it, fork it.</div>
+      </div>
+
       <div class="get-listed-form">
         <div>
           <label for="gl-name">venue name</label>
