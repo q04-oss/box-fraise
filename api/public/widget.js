@@ -1,3 +1,16 @@
+/**
+ * table widget — demand-pool join button
+ * MIT License — Copyright (c) 2026 Box Fraise / Rajzyngier Research
+ *
+ * Usage:
+ *   <script src="https://api.fraise.box/table/widget.js?slug=yourslug&price=12000"></script>
+ *
+ * Params:
+ *   slug    — your venue slug (required)
+ *   price   — pool entry price in cents (display only; server enforces the real price)
+ *   label   — button label (default: "join the table")
+ *   api     — API base URL (default: https://api.fraise.box)
+ */
 (function () {
   'use strict';
 
@@ -185,7 +198,7 @@
       var coRes = await fetch(apiBase + '/api/table/pool/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: slug, name: name, email: email, amount_cents: priceCents }),
+        body: JSON.stringify({ slug: slug, name: name, email: email }),
       });
       var coData = await coRes.json();
       if (!coRes.ok) throw new Error(coData.error || 'checkout failed');
