@@ -1,57 +1,36 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL as BASE_URL } from '../config/api';
+import * as SecureStore from 'expo-secure-store';
 
-const FRAISE = `${BASE_URL}/api/fraise`;
+const API = 'https://fraise.box/api/fraise';
 const TOKEN_KEY = 'fraise_member_token';
 
-// ── Token ─────────────────────────────────────────────────────────────────────
+// ─── Token ────────────────────────────────────────────────────────────────────
 
 export async function getMemberToken(): Promise<string | null> {
-  return AsyncStorage.getItem(TOKEN_KEY);
+  return SecureStore.getItemAsync(TOKEN_KEY);
 }
-export async function setMemberToken(token: string): Promise<void> {
-  await AsyncStorage.setItem(TOKEN_KEY, token);
+export async function setMemberToken(t: string): Promise<void> {
+  await SecureStore.setItemAsync(TOKEN_KEY, t);
 }
 export async function deleteMemberToken(): Promise<void> {
-  await AsyncStorage.removeItem(TOKEN_KEY);
-}
-async function h(): Promise<Record<string, string>> {
-  const t = await getMemberToken();
-  return t ? { 'x-member-token': t } : {};
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface FraiseEvent {
-  id: number;
-  title: string;
-  description: string | null;
-  price_cents: number;
-  min_seats: number;
-  max_seats: number;
-  seats_claimed: number;
-  status: 'open' | 'threshold_met' | 'confirmed';
-  event_date: string | null;
-  created_at: string;
-  business_slug: string;
-  business_name: string;
-  business_lat: number | null;
-  business_lng: number | null;
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface FraiseMember {
-  id: number;
+  id?: number;
   name: string;
   email: string;
   credit_balance: number;
   credits_purchased: number;
-  created_at: string;
+  token?: string;
 }
 
-export interface FraiseClaim {
+export interface FraiseInvitation {
   id: number;
-  status: string;
+  status: 'pending' | 'accepted' | 'declined' | 'confirmed';
   created_at: string;
+  responded_at: string | null;
   event_id: number;
   title: string;
   description: string | null;
@@ -65,114 +44,92 @@ export interface FraiseClaim {
   business_slug: string;
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export async function memberLogin(email: string, password: string): Promise<FraiseMember & { token: string }> {
-  const r = await fetch(`${FRAISE}/members/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'login failed');
-  return data;
+async function authHeaders(): Promise<Record<string, string>> {
+  const t = await getMemberToken();
+  return t ? { 'x-member-token': t } : {};
 }
 
-export async function memberSignup(name: string, email: string, password: string): Promise<FraiseMember & { token: string }> {
-  const r = await fetch(`${FRAISE}/members/signup`, {
+async function apiFetch(path: string, opts: RequestInit = {}): Promise<any> {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+  return json;
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export async function memberLogin(email: string, password: string): Promise<FraiseMember> {
+  return apiFetch('/members/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function memberSignup(name: string, email: string, password: string): Promise<FraiseMember> {
+  return apiFetch('/members/signup', {
+    method: 'POST',
     body: JSON.stringify({ name, email, password }),
   });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'signup failed');
-  return data;
 }
 
 export async function fetchMe(): Promise<FraiseMember | null> {
-  const headers = await h();
+  const headers = await authHeaders();
   if (!headers['x-member-token']) return null;
-  const r = await fetch(`${FRAISE}/members/me`, { headers });
-  if (!r.ok) return null;
-  return r.json();
+  return apiFetch('/members/me', { headers }).catch(() => null);
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
+// ─── Invitations ──────────────────────────────────────────────────────────────
 
-export async function fetchEvents(): Promise<FraiseEvent[]> {
-  const r = await fetch(`${FRAISE}/events`);
-  if (!r.ok) return [];
-  const data = await r.json();
-  return data.events || [];
-}
-
-// ── Claims ────────────────────────────────────────────────────────────────────
-
-export async function fetchMyClaims(): Promise<FraiseClaim[]> {
-  const headers = await h();
+export async function fetchInvitations(): Promise<FraiseInvitation[]> {
+  const headers = await authHeaders();
   if (!headers['x-member-token']) return [];
-  const r = await fetch(`${FRAISE}/members/claims`, { headers });
-  if (!r.ok) return [];
-  const data = await r.json();
-  return data.claims || [];
+  const data = await apiFetch('/members/invitations', { headers });
+  return data.invitations ?? [];
 }
 
-export async function claimEvent(eventId: number): Promise<{ credit_balance: number; seats_claimed: number }> {
-  const headers = await h();
-  const r = await fetch(`${FRAISE}/events/${eventId}/claim`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'claim failed');
-  return data;
+export async function acceptInvitation(eventId: number): Promise<{ credit_balance: number; seats_claimed: number }> {
+  const headers = await authHeaders();
+  return apiFetch(`/members/invitations/${eventId}/accept`, { method: 'POST', headers });
 }
 
-export async function declineClaim(eventId: number): Promise<{ credit_balance: number }> {
-  const headers = await h();
-  const r = await fetch(`${FRAISE}/events/${eventId}/decline`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'decline failed');
-  return data;
+export async function declineInvitation(eventId: number): Promise<{ credit_balance: number; credit_returned: boolean }> {
+  const headers = await authHeaders();
+  return apiFetch(`/members/invitations/${eventId}/decline`, { method: 'POST', headers });
 }
 
-// ── Credits ───────────────────────────────────────────────────────────────────
+// ─── Credits ──────────────────────────────────────────────────────────────────
 
 export async function creditsCheckout(credits: number): Promise<{ client_secret: string; amount_cents: number }> {
-  const headers = await h();
-  const r = await fetch(`${FRAISE}/members/credits/checkout`, {
+  const headers = await authHeaders();
+  return apiFetch('/members/credits/checkout', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers,
     body: JSON.stringify({ credits }),
   });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'checkout failed');
-  return data;
 }
 
-export async function creditsConfirm(paymentIntentId: string): Promise<{ credit_balance: number; credits_added: number }> {
-  const headers = await h();
-  const r = await fetch(`${FRAISE}/members/credits/confirm`, {
+export async function creditsConfirm(paymentIntentId: string): Promise<{ credit_balance: number }> {
+  const headers = await authHeaders();
+  return apiFetch('/members/credits/confirm', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers,
     body: JSON.stringify({ payment_intent_id: paymentIntentId }),
   });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'confirm failed');
-  return data;
 }
 
-// ── Push token ────────────────────────────────────────────────────────────────
+// ─── Push token ───────────────────────────────────────────────────────────────
 
 export async function updatePushToken(pushToken: string): Promise<void> {
-  const headers = await h();
+  const headers = await authHeaders();
   if (!headers['x-member-token']) return;
-  await fetch(`${FRAISE}/members/push-token`, {
+  await apiFetch('/members/push-token', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers,
     body: JSON.stringify({ push_token: pushToken }),
-  }).catch(() => {});
+  });
 }

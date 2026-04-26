@@ -4,20 +4,17 @@ import {
   StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import {
   memberLogin, memberSignup, setMemberToken, deleteMemberToken,
-  fetchMyClaims,
+  fetchInvitations,
 } from '../../lib/api';
 import { PanelHeader, Card, PrimaryButton } from '../ui';
 
-const SHEET_NAME = 'main-sheet';
-
 export default function AccountPanel() {
-  const { member, setMember, setClaims } = usePanel();
+  const { member, setMember, setInvitations, showPanel } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
 
@@ -37,10 +34,9 @@ export default function AccountPanel() {
     setLoading(true);
     try {
       const data = await memberLogin(email.trim().toLowerCase(), password);
-      await setMemberToken(data.token);
+      await setMemberToken(data.token!);
       setMember(data);
-      const claims = await fetchMyClaims();
-      setClaims(claims);
+      setInvitations(await fetchInvitations());
       reset();
     } catch (err: any) {
       setError(err.message || 'login failed.');
@@ -58,9 +54,9 @@ export default function AccountPanel() {
     setLoading(true);
     try {
       const data = await memberSignup(name.trim(), email.trim().toLowerCase(), password);
-      await setMemberToken(data.token);
+      await setMemberToken(data.token!);
       setMember(data);
-      setClaims([]);
+      setInvitations([]);
       reset();
     } catch (err: any) {
       setError(err.message || 'signup failed.');
@@ -75,7 +71,7 @@ export default function AccountPanel() {
         text: 'Sign out', style: 'destructive', onPress: async () => {
           await deleteMemberToken();
           setMember(null);
-          setClaims([]);
+          setInvitations([]);
         },
       },
     ]);
@@ -114,7 +110,7 @@ export default function AccountPanel() {
             label="buy credits →"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              TrueSheet.resize(SHEET_NAME, 2);
+              showPanel('credits');
             }}
           />
 

@@ -145,36 +145,105 @@ router.put('/members/push-token', requireMember, async (req: any, res: any) => {
   }
 });
 
-// PATCH /api/fraise/businesses/location
-router.patch('/businesses/location', requireBusiness, async (req: any, res: any) => {
-  const lat = parseFloat(req.body?.lat);
-  const lng = parseFloat(req.body?.lng);
-  if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'lat and lng required' });
+// GET /api/fraise/members/invitations
+router.get('/members/invitations', requireMember, async (req: any, res: any) => {
   try {
-    await db.execute(sql`UPDATE fraise_businesses SET lat = ${lat}, lng = ${lng} WHERE id = ${req.business.id}`);
-    res.json({ ok: true });
+    const rows = await db.execute(sql`
+      SELECT
+        i.id, i.status, i.created_at, i.responded_at,
+        e.id AS event_id, e.title, e.description, e.price_cents,
+        e.min_seats, e.max_seats, e.seats_claimed, e.status AS event_status, e.event_date,
+        b.name AS business_name, b.slug AS business_slug
+      FROM fraise_invitations i
+      JOIN fraise_events e ON e.id = i.event_id
+      JOIN fraise_businesses b ON b.id = e.business_id
+      WHERE i.member_id = ${req.member.id}
+      ORDER BY i.created_at DESC
+    `);
+    res.json({ invitations: (rows as any).rows ?? rows });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
 });
 
-// GET /api/fraise/members/claims
-router.get('/members/claims', requireMember, async (req: any, res: any) => {
+// POST /api/fraise/members/invitations/:event_id/accept — spend credit, accept spot
+router.post('/members/invitations/:event_id/accept', requireMember, async (req: any, res: any) => {
+  const eventId = parseInt(req.params.event_id);
+  if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
   try {
-    const rows = await db.execute(sql`
-      SELECT
-        c.id, c.status, c.created_at,
-        e.id AS event_id, e.title, e.description, e.price_cents,
-        e.min_seats, e.max_seats, e.seats_claimed, e.status AS event_status, e.event_date,
-        b.name AS business_name, b.slug AS business_slug
-      FROM fraise_claims c
-      JOIN fraise_events e ON e.id = c.event_id
-      JOIN fraise_businesses b ON b.id = e.business_id
-      WHERE c.member_id = ${req.member.id}
-        AND c.status NOT IN ('declined')
-      ORDER BY c.created_at DESC
+    const invRows = await db.execute(sql`
+      SELECT id, status FROM fraise_invitations
+      WHERE event_id = ${eventId} AND member_id = ${req.member.id} LIMIT 1
     `);
-    res.json({ claims: (rows as any).rows ?? rows });
+    const inv = ((invRows as any).rows ?? invRows)[0] as any;
+    if (!inv) return res.status(404).json({ error: 'no invitation found' });
+    if (inv.status === 'accepted') return res.status(409).json({ error: 'already accepted' });
+    if (inv.status === 'declined') return res.status(400).json({ error: 'invitation already declined' });
+
+    const evRows = await db.execute(sql`
+      SELECT id, status, max_seats, seats_claimed, min_seats, title, business_id
+      FROM fraise_events WHERE id = ${eventId} LIMIT 1
+    `);
+    const event = ((evRows as any).rows ?? evRows)[0] as any;
+    if (!event) return res.status(404).json({ error: 'event not found' });
+    if (event.seats_claimed >= event.max_seats) return res.status(400).json({ error: 'event is full' });
+
+    const memRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
+    const member = ((memRows as any).rows ?? memRows)[0] as any;
+    if (member.credit_balance < 1) return res.status(402).json({ error: 'insufficient credits' });
+
+    await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance - 1 WHERE id = ${req.member.id} AND credit_balance >= 1`);
+    await db.execute(sql`UPDATE fraise_invitations SET status = 'accepted', responded_at = now() WHERE id = ${inv.id}`);
+    const newSeats = await db.execute(sql`
+      UPDATE fraise_events SET seats_claimed = seats_claimed + 1 WHERE id = ${eventId}
+      RETURNING seats_claimed, min_seats, status
+    `);
+    const updated = ((newSeats as any).rows ?? newSeats)[0] as any;
+
+    if (updated.status === 'open' && updated.seats_claimed >= updated.min_seats) {
+      await db.execute(sql`UPDATE fraise_events SET status = 'threshold_met' WHERE id = ${eventId}`);
+    }
+
+    const balRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
+    const balance = (((balRows as any).rows ?? balRows)[0] as any).credit_balance;
+
+    const bizRows = await db.execute(sql`SELECT name FROM fraise_businesses WHERE id = ${event.business_id} LIMIT 1`);
+    const bizName = (((bizRows as any).rows ?? bizRows)[0] as any)?.name ?? '';
+    sendFraiseClaimConfirmation({ to: req.member.email, name: req.member.name, eventTitle: event.title, businessName: bizName, creditBalance: balance }).catch(() => {});
+
+    res.json({ ok: true, credit_balance: balance, seats_claimed: updated.seats_claimed });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// POST /api/fraise/members/invitations/:event_id/decline — decline, no credit charge
+router.post('/members/invitations/:event_id/decline', requireMember, async (req: any, res: any) => {
+  const eventId = parseInt(req.params.event_id);
+  if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
+  try {
+    const invRows = await db.execute(sql`
+      SELECT id, status FROM fraise_invitations
+      WHERE event_id = ${eventId} AND member_id = ${req.member.id} LIMIT 1
+    `);
+    const inv = ((invRows as any).rows ?? invRows)[0] as any;
+    if (!inv) return res.status(404).json({ error: 'no invitation found' });
+    if (inv.status === 'declined') return res.status(409).json({ error: 'already declined' });
+
+    const creditReturned = inv.status === 'accepted';
+    await db.execute(sql`UPDATE fraise_invitations SET status = 'declined', responded_at = now() WHERE id = ${inv.id}`);
+    if (creditReturned) {
+      await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance + 1 WHERE id = ${req.member.id}`);
+      await db.execute(sql`UPDATE fraise_events SET seats_claimed = GREATEST(seats_claimed - 1, 0) WHERE id = ${eventId}`);
+      await db.execute(sql`
+        UPDATE fraise_events SET status = 'open'
+        WHERE id = ${eventId} AND status = 'threshold_met' AND seats_claimed < min_seats
+      `);
+    }
+
+    const balRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
+    const balance = (((balRows as any).rows ?? balRows)[0] as any).credit_balance;
+    res.json({ ok: true, credit_returned: creditReturned, credit_balance: balance });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
@@ -351,42 +420,16 @@ router.post('/businesses/connect/verify', requireBusiness, async (req: any, res:
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
-// GET /api/fraise/events — public feed of open events
-router.get('/events', async (req: any, res: any) => {
+// GET /api/fraise/businesses/members — ticket holders available to invite
+router.get('/businesses/members', requireBusiness, async (req: any, res: any) => {
   try {
     const rows = await db.execute(sql`
-      SELECT
-        e.id, e.title, e.description, e.price_cents,
-        e.min_seats, e.max_seats, e.seats_claimed, e.status, e.event_date, e.created_at,
-        b.slug AS business_slug, b.name AS business_name, b.lat AS business_lat, b.lng AS business_lng
-      FROM fraise_events e
-      JOIN fraise_businesses b ON b.id = e.business_id
-      WHERE e.status IN ('open', 'threshold_met')
-      ORDER BY e.created_at DESC
+      SELECT id, name, email, credit_balance
+      FROM fraise_members
+      WHERE credit_balance > 0
+      ORDER BY name ASC
     `);
-    res.json({ events: (rows as any).rows ?? rows });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message ?? 'internal' });
-  }
-});
-
-// GET /api/fraise/events/:id
-router.get('/events/:id', async (req: any, res: any) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
-  try {
-    const rows = await db.execute(sql`
-      SELECT
-        e.id, e.title, e.description, e.price_cents,
-        e.min_seats, e.max_seats, e.seats_claimed, e.status, e.event_date, e.created_at,
-        b.slug AS business_slug, b.name AS business_name
-      FROM fraise_events e
-      JOIN fraise_businesses b ON b.id = e.business_id
-      WHERE e.id = ${id} LIMIT 1
-    `);
-    const event = ((rows as any).rows ?? rows)[0];
-    if (!event) return res.status(404).json({ error: 'not found' });
-    res.json(event);
+    res.json({ members: (rows as any).rows ?? rows });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
@@ -414,127 +457,55 @@ router.post('/events', requireBusiness, async (req: any, res: any) => {
   }
 });
 
-// POST /api/fraise/events/:id/claim — member claims a spot
-router.post('/events/:id/claim', requireMember, async (req: any, res: any) => {
+// POST /api/fraise/events/:id/invite — business sends invitations to selected members
+router.post('/events/:id/invite', requireBusiness, async (req: any, res: any) => {
   const eventId = parseInt(req.params.id);
   if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
+  const memberIds: number[] = Array.isArray(req.body?.member_ids) ? req.body.member_ids.map(Number).filter(Boolean) : [];
+  if (!memberIds.length) return res.status(400).json({ error: 'member_ids required' });
+
   try {
-    // Load event
-    const evRows = await db.execute(sql`SELECT id, status, max_seats, seats_claimed, price_cents, title, business_id FROM fraise_events WHERE id = ${eventId} LIMIT 1`);
-    const event = ((evRows as any).rows ?? evRows)[0] as any;
-    if (!event) return res.status(404).json({ error: 'event not found' });
-    if (!['open', 'threshold_met'].includes(event.status)) {
-      return res.status(400).json({ error: 'event is not open for claims' });
+    const evRows = await db.execute(sql`SELECT id, max_seats FROM fraise_events WHERE id = ${eventId} AND business_id = ${req.business.id} LIMIT 1`);
+    if (!((evRows as any).rows ?? evRows).length) return res.status(404).json({ error: 'event not found' });
+
+    let sent = 0;
+    for (const memberId of memberIds) {
+      try {
+        await db.execute(sql`
+          INSERT INTO fraise_invitations (event_id, member_id) VALUES (${eventId}, ${memberId})
+          ON CONFLICT (event_id, member_id) DO NOTHING
+        `);
+        sent++;
+      } catch {}
     }
-    if (event.seats_claimed >= event.max_seats) {
-      return res.status(400).json({ error: 'event is full' });
-    }
-
-    // Check member credit
-    const memRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
-    const member = ((memRows as any).rows ?? memRows)[0] as any;
-    if (member.credit_balance < 1) {
-      return res.status(402).json({ error: 'insufficient credits' });
-    }
-
-    // Check for duplicate claim
-    const dup = await db.execute(sql`SELECT id FROM fraise_claims WHERE member_id = ${req.member.id} AND event_id = ${eventId} LIMIT 1`);
-    if (((dup as any).rows ?? dup).length) {
-      return res.status(409).json({ error: 'already claimed this event' });
-    }
-
-    // Atomically decrement credit and increment seats_claimed
-    await db.execute(sql`
-      UPDATE fraise_members SET credit_balance = credit_balance - 1 WHERE id = ${req.member.id} AND credit_balance >= 1
-    `);
-    await db.execute(sql`
-      INSERT INTO fraise_claims (member_id, event_id) VALUES (${req.member.id}, ${eventId})
-    `);
-    const newSeats = await db.execute(sql`
-      UPDATE fraise_events SET seats_claimed = seats_claimed + 1 WHERE id = ${eventId}
-      RETURNING seats_claimed, min_seats, status
-    `);
-    const updated = ((newSeats as any).rows ?? newSeats)[0] as any;
-
-    // Auto-advance to threshold_met
-    if (updated.status === 'open' && updated.seats_claimed >= updated.min_seats) {
-      await db.execute(sql`UPDATE fraise_events SET status = 'threshold_met' WHERE id = ${eventId}`);
-    }
-
-    // Get updated balance
-    const balRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
-    const balance = (((balRows as any).rows ?? balRows)[0] as any).credit_balance;
-
-    // Business name for email
-    const bizRows = await db.execute(sql`SELECT name FROM fraise_businesses WHERE id = ${event.business_id} LIMIT 1`);
-    const bizName = (((bizRows as any).rows ?? bizRows)[0] as any)?.name ?? '';
-
-    sendFraiseClaimConfirmation({ to: req.member.email, name: req.member.name, eventTitle: event.title, businessName: bizName, creditBalance: balance }).catch(() => {});
-    res.json({ ok: true, credit_balance: balance, seats_claimed: updated.seats_claimed });
+    res.json({ ok: true, sent });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
 });
 
-// POST /api/fraise/events/:id/decline — member releases claim, credit returned
-router.post('/events/:id/decline', requireMember, async (req: any, res: any) => {
+// GET /api/fraise/events/:id/invitations — business sees invitation responses
+router.get('/events/:id/invitations', requireBusiness, async (req: any, res: any) => {
   const eventId = parseInt(req.params.id);
   if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
   try {
-    const claimRows = await db.execute(sql`
-      SELECT id, status FROM fraise_claims
-      WHERE member_id = ${req.member.id} AND event_id = ${eventId}
-      LIMIT 1
-    `);
-    const claim = ((claimRows as any).rows ?? claimRows)[0] as any;
-    if (!claim) return res.status(404).json({ error: 'no claim found' });
-    if (['declined', 'attended'].includes(claim.status)) {
-      return res.status(400).json({ error: 'claim already closed' });
-    }
-
-    await db.execute(sql`UPDATE fraise_claims SET status = 'declined', declined_at = now() WHERE id = ${claim.id}`);
-    await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance + 1 WHERE id = ${req.member.id}`);
-    await db.execute(sql`
-      UPDATE fraise_events SET seats_claimed = GREATEST(seats_claimed - 1, 0) WHERE id = ${eventId}
-    `);
-    // Re-open if was threshold_met and now below threshold
-    await db.execute(sql`
-      UPDATE fraise_events SET status = 'open'
-      WHERE id = ${eventId} AND status = 'threshold_met'
-        AND seats_claimed < min_seats
-    `);
-
-    const balRows = await db.execute(sql`SELECT credit_balance FROM fraise_members WHERE id = ${req.member.id} LIMIT 1`);
-    const balance = (((balRows as any).rows ?? balRows)[0] as any).credit_balance;
-    res.json({ ok: true, credit_returned: true, credit_balance: balance });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message ?? 'internal' });
-  }
-});
-
-// GET /api/fraise/events/:id/claims — business sees who claimed their event
-router.get('/events/:id/claims', requireBusiness, async (req: any, res: any) => {
-  const eventId = parseInt(req.params.id);
-  if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
-  try {
-    // Verify business owns this event
     const evRows = await db.execute(sql`SELECT id FROM fraise_events WHERE id = ${eventId} AND business_id = ${req.business.id} LIMIT 1`);
     if (!((evRows as any).rows ?? evRows).length) return res.status(404).json({ error: 'event not found' });
 
     const rows = await db.execute(sql`
-      SELECT c.id, c.status, c.created_at, m.name, m.email
-      FROM fraise_claims c
-      JOIN fraise_members m ON m.id = c.member_id
-      WHERE c.event_id = ${eventId}
-      ORDER BY c.created_at ASC
+      SELECT i.id, i.status, i.created_at, i.responded_at, m.name, m.email
+      FROM fraise_invitations i
+      JOIN fraise_members m ON m.id = i.member_id
+      WHERE i.event_id = ${eventId}
+      ORDER BY i.status, i.created_at ASC
     `);
-    res.json({ claims: (rows as any).rows ?? rows });
+    res.json({ invitations: (rows as any).rows ?? rows });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
 });
 
-// POST /api/fraise/events/:id/confirm — admin or business sets the date, notifies claimants
+// POST /api/fraise/events/:id/confirm — admin or business sets the date, notifies accepted members
 router.post('/events/:id/confirm', async (req: any, res: any) => {
   const eventId = parseInt(req.params.id);
   if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
@@ -572,25 +543,25 @@ router.post('/events/:id/confirm', async (req: any, res: any) => {
       UPDATE fraise_events SET status = 'confirmed', event_date = ${eventDate} WHERE id = ${eventId}
     `);
 
-    // Generate confirm tokens and notify all active claimants
-    const claimRows = await db.execute(sql`
-      UPDATE fraise_claims SET confirm_token = encode(gen_random_bytes(20), 'hex')
-      WHERE event_id = ${eventId} AND status = 'claimed'
+    // Generate confirm tokens and notify all accepted members
+    const invRows = await db.execute(sql`
+      UPDATE fraise_invitations SET confirm_token = encode(gen_random_bytes(20), 'hex')
+      WHERE event_id = ${eventId} AND status = 'accepted'
       RETURNING id, confirm_token, member_id
     `);
-    const claims = (claimRows as any).rows ?? claimRows;
+    const invitations = (invRows as any).rows ?? invRows;
 
     const apiBase = process.env.API_BASE_URL ?? 'https://api.fraise.box';
-    for (const c of claims) {
-      const memRows = await db.execute(sql`SELECT name, email FROM fraise_members WHERE id = ${c.member_id} LIMIT 1`);
+    for (const inv of invitations) {
+      const memRows = await db.execute(sql`SELECT name, email FROM fraise_members WHERE id = ${inv.member_id} LIMIT 1`);
       const mem = ((memRows as any).rows ?? memRows)[0] as any;
       if (!mem) continue;
-      const confirmUrl = `${apiBase}/api/fraise/claims/confirm/${c.confirm_token}`;
-      const declineUrl = `${apiBase}/api/fraise/claims/decline/${c.confirm_token}`;
+      const confirmUrl = `${apiBase}/api/fraise/claims/confirm/${inv.confirm_token}`;
+      const declineUrl = `${apiBase}/api/fraise/claims/decline/${inv.confirm_token}`;
       sendFraiseEventConfirmed({ to: mem.email, name: mem.name, eventTitle: event.title, businessName: event.business_name, eventDate, confirmUrl, declineUrl }).catch(() => {});
     }
 
-    res.json({ ok: true, notified: claims.length, event_date: eventDate });
+    res.json({ ok: true, notified: invitations.length, event_date: eventDate });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
@@ -608,19 +579,17 @@ router.get('/claims/confirm/:token', async (req: any, res: any) => {
   if (!t) return res.status(400).send(claimResponsePage('invalid link', 'this confirmation link is not valid.'));
   try {
     const rows = await db.execute(sql`
-      SELECT c.id, c.status, m.name
-      FROM fraise_claims c
-      JOIN fraise_members m ON m.id = c.member_id
-      WHERE c.confirm_token = ${t} LIMIT 1
+      SELECT i.id, i.status, m.name
+      FROM fraise_invitations i
+      JOIN fraise_members m ON m.id = i.member_id
+      WHERE i.confirm_token = ${t} LIMIT 1
     `);
-    const claim = ((rows as any).rows ?? rows)[0] as any;
-    if (!claim) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
-    if (claim.status === 'confirmed') return res.send(claimResponsePage("already confirmed.", `you're already confirmed. see you there.`));
-    if (claim.status === 'declined') return res.send(claimResponsePage('already declined', 'you already released this spot. your credit was returned.'));
-    await db.execute(sql`
-      UPDATE fraise_claims SET status = 'confirmed', confirmed_at = now(), confirm_token = NULL WHERE id = ${claim.id}
-    `);
-    res.send(claimResponsePage("you're confirmed.", `see you there, ${claim.name.split(' ')[0]}. we'll be in touch with any details closer to the date.`));
+    const inv = ((rows as any).rows ?? rows)[0] as any;
+    if (!inv) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
+    if (inv.status === 'confirmed') return res.send(claimResponsePage("already confirmed.", `you're already confirmed. see you there.`));
+    if (inv.status === 'declined') return res.send(claimResponsePage('already declined', 'you already released this spot. your credit was returned.'));
+    await db.execute(sql`UPDATE fraise_invitations SET status = 'confirmed', confirm_token = NULL WHERE id = ${inv.id}`);
+    res.send(claimResponsePage("you're confirmed.", `see you there, ${inv.name.split(' ')[0]}. we'll be in touch with any details closer to the date.`));
   } catch (err: any) {
     res.status(500).send(claimResponsePage('error', 'something went wrong. reply to your email and we\'ll sort it.'));
   }
@@ -632,21 +601,21 @@ router.get('/claims/decline/:token', async (req: any, res: any) => {
   if (!t) return res.status(400).send(claimResponsePage('invalid link', 'this decline link is not valid.'));
   try {
     const rows = await db.execute(sql`
-      SELECT c.id, c.status, c.event_id, c.member_id, m.name
-      FROM fraise_claims c
-      JOIN fraise_members m ON m.id = c.member_id
-      WHERE c.confirm_token = ${t} LIMIT 1
+      SELECT i.id, i.status, i.event_id, i.member_id, m.name
+      FROM fraise_invitations i
+      JOIN fraise_members m ON m.id = i.member_id
+      WHERE i.confirm_token = ${t} LIMIT 1
     `);
-    const claim = ((rows as any).rows ?? rows)[0] as any;
-    if (!claim) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
-    if (claim.status === 'declined') return res.send(claimResponsePage('already released', 'your credit was already returned. use it on the next event.'));
-    if (claim.status === 'confirmed') return res.send(claimResponsePage('already confirmed', 'you already confirmed this spot. reply to your email if you need to cancel.'));
+    const inv = ((rows as any).rows ?? rows)[0] as any;
+    if (!inv) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
+    if (inv.status === 'declined') return res.send(claimResponsePage('already released', 'your credit was already returned. use it on the next event.'));
+    if (inv.status === 'confirmed') return res.send(claimResponsePage('already confirmed', 'you already confirmed this spot. reply to your email if you need to cancel.'));
 
-    await db.execute(sql`UPDATE fraise_claims SET status = 'declined', declined_at = now(), confirm_token = NULL WHERE id = ${claim.id}`);
-    await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance + 1 WHERE id = ${claim.member_id}`);
-    await db.execute(sql`UPDATE fraise_events SET seats_claimed = GREATEST(seats_claimed - 1, 0) WHERE id = ${claim.event_id}`);
+    await db.execute(sql`UPDATE fraise_invitations SET status = 'declined', confirm_token = NULL WHERE id = ${inv.id}`);
+    await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance + 1 WHERE id = ${inv.member_id}`);
+    await db.execute(sql`UPDATE fraise_events SET seats_claimed = GREATEST(seats_claimed - 1, 0) WHERE id = ${inv.event_id}`);
 
-    res.send(claimResponsePage('spot released.', `no problem, ${claim.name.split(' ')[0]}. your credit has been returned — it'll be there for the next event.`));
+    res.send(claimResponsePage('spot released.', `no problem, ${inv.name.split(' ')[0]}. your credit has been returned — it'll be there for the next event.`));
   } catch (err: any) {
     res.status(500).send(claimResponsePage('error', 'something went wrong. reply to your email and we\'ll sort it.'));
   }

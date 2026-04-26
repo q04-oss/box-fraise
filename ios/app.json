@@ -23,7 +23,6 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Used to show your location on the map.",
         "NSUserNotificationUsageDescription": "We'll notify you when event dates are confirmed."
       }
     },
@@ -48,12 +47,6 @@
       "expo-updates",
       "expo-font",
       "expo-notifications",
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Used to show your location on the map."
-        }
-      ],
       "expo-secure-store"
     ],
     "extra": {

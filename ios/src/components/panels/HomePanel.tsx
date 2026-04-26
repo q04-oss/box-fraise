@@ -1,36 +1,31 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  RefreshControl, StyleSheet, ActivityIndicator,
+  RefreshControl, StyleSheet,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePanel, FraiseEvent } from '../../context/PanelContext';
+import { usePanel, FraiseInvitation } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
-import { fetchEvents, fetchMyClaims, getMemberToken } from '../../lib/api';
-import { PanelHeader, PillBadge, ProgressBar } from '../ui';
+import { fetchInvitations, getMemberToken } from '../../lib/api';
+import { PanelHeader, PillBadge } from '../ui';
 
-const SHEET_NAME = 'main-sheet';
-
-function statusLabel(ev: FraiseEvent): string {
-  if (ev.status === 'confirmed')     return 'confirmed';
-  if (ev.status === 'threshold_met') return 'going ahead';
-  return 'open';
-}
-
-function statusColor(ev: FraiseEvent, c: any): string {
-  if (ev.status === 'confirmed')     return c.text;
-  if (ev.status === 'threshold_met') return '#27AE60';
+function invitationColor(inv: FraiseInvitation, c: any): string {
+  if (inv.status === 'accepted')  return '#27AE60';
+  if (inv.status === 'confirmed') return c.text;
   return c.border;
 }
 
-function EventRow({ ev, isClaimed, onPress }: { ev: FraiseEvent; isClaimed: boolean; onPress: () => void }) {
+function invitationLabel(inv: FraiseInvitation): string {
+  if (inv.status === 'accepted')  return 'accepted';
+  if (inv.status === 'confirmed') return 'confirmed';
+  if (inv.status === 'declined')  return 'declined';
+  return 'invited';
+}
+
+function InvitationRow({ inv, onPress }: { inv: FraiseInvitation; onPress: () => void }) {
   const c = useColors();
-  const pct = Math.min(100, Math.round((ev.seats_claimed / ev.min_seats) * 100));
-  const seatsLeft = ev.max_seats - ev.seats_claimed;
-  const isReady = ev.status !== 'open';
-  const badgeColor = isClaimed ? c.text : statusColor(ev, c);
+  const color = invitationColor(inv, c);
 
   return (
     <TouchableOpacity
@@ -40,58 +35,47 @@ function EventRow({ ev, isClaimed, onPress }: { ev: FraiseEvent; isClaimed: bool
     >
       <View style={styles.rowLeft}>
         <Text style={[styles.rowBiz, { color: c.muted }]} numberOfLines={1}>
-          {ev.business_name}
+          {inv.business_name}
         </Text>
         <Text style={[styles.rowTitle, { color: c.text }]} numberOfLines={2}>
-          {ev.title}
+          {inv.title}
         </Text>
-        {ev.description ? (
+        {inv.description ? (
           <Text style={[styles.rowDesc, { color: c.muted }]} numberOfLines={2}>
-            {ev.description}
+            {inv.description}
           </Text>
         ) : null}
-        <ProgressBar pct={pct} ready={isReady} />
       </View>
       <View style={styles.rowRight}>
-        <Text style={[styles.rowPrice, { color: c.text }]}>1 credit</Text>
-        <Text style={[styles.rowSeats, { color: seatsLeft <= 3 ? '#C0392B' : c.muted }]}>
-          {seatsLeft > 0 ? `${seatsLeft} left` : 'full'}
-        </Text>
-        <PillBadge
-          label={isClaimed ? 'claimed' : statusLabel(ev)}
-          color={badgeColor}
-        />
+        <PillBadge label={invitationLabel(inv)} color={color} />
       </View>
     </TouchableOpacity>
   );
 }
 
 export default function HomePanel() {
-  const { showPanel, setActiveEvent, events, setEvents, claims, setClaims, member } = usePanel();
+  const { showPanel, setActiveInvitation, invitations, setInvitations, member } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = React.useState(false);
-
-  const claimedEventIds = new Set(claims.map(cl => cl.event_id));
+  const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [evs] = await Promise.all([
-        fetchEvents(),
-        getMemberToken().then(t => t ? fetchMyClaims().then(setClaims) : null),
-      ]);
-      setEvents(evs);
+      const token = await getMemberToken();
+      if (token) setInvitations(await fetchInvitations());
     } catch {}
     setRefreshing(false);
   }, []);
 
-  const openEvent = (ev: FraiseEvent) => {
+  const openInvitation = (inv: FraiseInvitation) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveEvent(ev);
-    showPanel('event-detail', { event: ev });
-    setTimeout(() => TrueSheet.resize(SHEET_NAME, 1), 200);
+    setActiveInvitation(inv);
+    showPanel('invitation-detail', { invitation: inv });
   };
+
+  const pending = invitations.filter(i => i.status === 'pending');
+  const others  = invitations.filter(i => i.status !== 'pending');
 
   return (
     <ScrollView
@@ -102,38 +86,43 @@ export default function HomePanel() {
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.muted} />
       }
     >
-      <PanelHeader title={'experiences that only happen\nwhen enough people want them.'} />
+      <PanelHeader title={member ? member.name : 'fraise'}>
+        {member ? (
+          <Text style={[styles.balance, { color: c.muted }]}>
+            {member.credit_balance} credit{member.credit_balance !== 1 ? 's' : ''}
+          </Text>
+        ) : null}
+      </PanelHeader>
 
-      {events.length === 0 ? (
-        <Text style={[styles.empty, { color: c.muted }]}>no open events right now.</Text>
+      {!member ? (
+        <Text style={[styles.empty, { color: c.muted }]}>
+          sign in to receive invitations.
+        </Text>
+      ) : pending.length === 0 && others.length === 0 ? (
+        <Text style={[styles.empty, { color: c.muted }]}>
+          no invitations yet.{'\n'}when a business invites you, it'll appear here.
+        </Text>
       ) : (
         <View>
-          {events.map(ev => (
-            <EventRow
-              key={ev.id}
-              ev={ev}
-              isClaimed={claimedEventIds.has(ev.id)}
-              onPress={() => openEvent(ev)}
-            />
-          ))}
+          {pending.length > 0 && (
+            <>
+              {pending.map(inv => (
+                <InvitationRow key={inv.id} inv={inv} onPress={() => openInvitation(inv)} />
+              ))}
+            </>
+          )}
+          {others.length > 0 && (
+            <>
+              {pending.length > 0 && (
+                <Text style={[styles.sectionLabel, { color: c.muted }]}>past</Text>
+              )}
+              {others.map(inv => (
+                <InvitationRow key={inv.id} inv={inv} onPress={() => openInvitation(inv)} />
+              ))}
+            </>
+          )}
           <View style={[styles.lastBorder, { borderBottomColor: c.border }]} />
         </View>
-      )}
-
-      {!member && (
-        <TouchableOpacity
-          style={[styles.authNudge, { backgroundColor: c.card, borderColor: c.border }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            showPanel('account');
-            setTimeout(() => TrueSheet.resize(SHEET_NAME, 2), 350);
-          }}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.authNudgeText, { color: c.text }]}>
-            sign in to claim spots →
-          </Text>
-        </TouchableOpacity>
       )}
     </ScrollView>
   );
@@ -141,12 +130,14 @@ export default function HomePanel() {
 
 const styles = StyleSheet.create({
   container: { paddingTop: SPACING.md },
+  balance: { fontSize: 12, fontFamily: fonts.dmMono, marginTop: 2 },
   row: {
     flexDirection: 'row',
     paddingVertical: SPACING.lg,
     paddingHorizontal: SPACING.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: SPACING.md,
+    alignItems: 'flex-start',
   },
   lastBorder: { borderBottomWidth: StyleSheet.hairlineWidth },
   rowLeft: { flex: 1, gap: 4 },
@@ -158,32 +149,20 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontSize: 14, fontFamily: fonts.dmMono, fontWeight: '500' },
   rowDesc: { fontSize: 11, fontFamily: fonts.dmMono, lineHeight: 16 },
-  rowRight: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    gap: 4,
-    paddingTop: 16,
-    flexShrink: 0,
+  rowRight: { paddingTop: 2, flexShrink: 0 },
+  sectionLabel: {
+    fontSize: 10,
+    fontFamily: fonts.dmMono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.sm,
   },
-  rowPrice: { fontSize: 13, fontFamily: fonts.dmMono },
-  rowSeats: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
   empty: {
     fontSize: 13,
     fontFamily: fonts.dmMono,
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-  },
-  authNudge: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.xl,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  authNudgeText: {
-    fontSize: 12,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 0.5,
+    lineHeight: 20,
   },
 });
