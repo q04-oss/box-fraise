@@ -4,76 +4,22 @@ import { TrueSheet } from '@lodev09/react-native-true-sheet';
 import { usePanel } from '../context/PanelContext';
 import { useColors } from '../theme';
 import HomePanel from './panels/HomePanel';
-import LocationPanel from './panels/LocationPanel';
-import VerifiedPanel from './panels/VerifiedPanel';
-import BatchPreferencePanel from './panels/StandingOrderPanel';
-import PartnerDetailPanel from './panels/PartnerDetailPanel';
-import OrderHistoryPanel from './panels/OrderHistoryPanel';
-import VerifyNFCPanel from './panels/VerifyNFCPanel';
-import MyProfilePanel from './panels/MyProfilePanel';
-import StaffOrdersPanel from './panels/StaffOrdersPanel';
-import WalkInPanel from './panels/WalkInPanel';
-import WalkInWritePanel from './panels/WalkInWritePanel';
-import WalkInInventoryPanel from './panels/WalkInInventoryPanel';
-import NfcWritePanel from './panels/NfcWritePanel';
-import NfcRevealPanel from './panels/NfcRevealPanel';
-import MerchPanel from './panels/MerchPanel';
-import GiftPanel from './panels/GiftPanel';
-import DonatePanel from './panels/DonatePanel';
-import SendCreditPanel from './panels/SendCreditPanel';
-import UserProfilePanel from './panels/UserProfilePanel';
-import ProposeBusinessPanel from './panels/ProposeBusinessPanel';
-import MemoryPromptPanel from './panels/MemoryPromptPanel';
-import ConversationsPanel from './panels/ConversationsPanel';
-import ChatThreadPanel from './panels/ChatThreadPanel';
-import PopupFoodPanel from './panels/PopupFoodPanel';
-import PopupMerchPanel from './panels/PopupMerchPanel';
-import { TierGate, PANEL_TIER_REQUIREMENTS } from './TierGate';
+import EventDetailPanel from './panels/EventDetailPanel';
+import MyClaimsPanel from './panels/MyClaimsPanel';
+import AccountPanel from './panels/AccountPanel';
+import CreditsPanel from './panels/CreditsPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
-  home: HomePanel,
-  location: LocationPanel,
-  verified: VerifiedPanel,
-  'batch-preference': BatchPreferencePanel,
-  'partner-detail': PartnerDetailPanel,
-  'order-history': OrderHistoryPanel,
-  'verifyNFC': VerifyNFCPanel,
-  'my-profile': MyProfilePanel,
-  'staff-orders': StaffOrdersPanel,
-  'walk-in': WalkInPanel,
-  'walk-in-write': WalkInWritePanel,
-  'walk-in-inventory': WalkInInventoryPanel,
-  'nfc-write': NfcWritePanel,
-  'nfc-reveal': NfcRevealPanel,
-  'merch': MerchPanel,
-  'gift': GiftPanel,
-  'donate': DonatePanel,
-  'send-credit': SendCreditPanel,
-  'user-profile': UserProfilePanel,
-  'propose-business': ProposeBusinessPanel,
-  'memory-prompt': MemoryPromptPanel,
-  'conversations': ConversationsPanel,
-  'chat-thread': ChatThreadPanel,
-  'popup-food': PopupFoodPanel,
-  'popup-merch': PopupMerchPanel,
+  home:           HomePanel,
+  'event-detail': EventDetailPanel,
+  'my-claims':    MyClaimsPanel,
+  account:        AccountPanel,
+  credits:        CreditsPanel,
 };
 
-const FULL_HEIGHT_PANELS = new Set([
-  'nfc-write', 'walk-in', 'walk-in-write', 'walk-in-inventory',
-  'verified', 'batch-preference', 'order-history',
-  'staff-orders',
-  'merch',
-  'gift',
-  'popup-food',
-  'popup-merch',
-]);
+const FULL_HEIGHT_PANELS = new Set(['my-claims', 'account', 'credits']);
 
-// Panels that collapse the sheet so native system UI (NFC prompt) appears unobstructed
-const COLLAPSED_PANELS = new Set<string>();
-
-/** Single source of truth for which sheet detent a panel should open at. */
 export function detentIndexForPanel(panelId: string): 0 | 1 | 2 {
-  if (COLLAPSED_PANELS.has(panelId)) return 0;
   if (FULL_HEIGHT_PANELS.has(panelId)) return 2;
   return 1;
 }
@@ -88,11 +34,9 @@ export default function PanelNavigator() {
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (COLLAPSED_PANELS.has(currentPanel) && lastNavType.current === 'show') {
-      timerRef.current = setTimeout(() => TrueSheet.resize('main-sheet', 0), 0);
-    } else if (FULL_HEIGHT_PANELS.has(currentPanel) && lastNavType.current === 'show') {
+    if (FULL_HEIGHT_PANELS.has(currentPanel) && lastNavType.current === 'show') {
       timerRef.current = setTimeout(() => TrueSheet.resize('main-sheet', 2), 350);
-    } else if ((currentPanel === 'home' || currentPanel === 'partner-detail') && mountedRef.current) {
+    } else if ((currentPanel === 'home' || currentPanel === 'event-detail') && mountedRef.current) {
       timerRef.current = setTimeout(() => TrueSheet.resize('main-sheet', 1), 350);
     }
     mountedRef.current = true;
@@ -109,9 +53,7 @@ export default function PanelNavigator() {
         }),
       }],
     }]}>
-      <TierGate required={PANEL_TIER_REQUIREMENTS[currentPanel] ?? null} panelName={currentPanel}>
-        <CurrentComponent />
-      </TierGate>
+      <CurrentComponent />
     </Animated.View>
   );
 }

@@ -133,6 +133,31 @@ router.get('/members/me', requireMember, async (req: any, res: any) => {
   res.json(((rows as any).rows ?? rows)[0]);
 });
 
+// PUT /api/fraise/members/push-token
+router.put('/members/push-token', requireMember, async (req: any, res: any) => {
+  const pushToken = String(req.body?.push_token ?? '').trim().slice(0, 500);
+  if (!pushToken) return res.status(400).json({ error: 'push_token required' });
+  try {
+    await db.execute(sql`UPDATE fraise_members SET push_token = ${pushToken} WHERE id = ${req.member.id}`);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// PATCH /api/fraise/businesses/location
+router.patch('/businesses/location', requireBusiness, async (req: any, res: any) => {
+  const lat = parseFloat(req.body?.lat);
+  const lng = parseFloat(req.body?.lng);
+  if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'lat and lng required' });
+  try {
+    await db.execute(sql`UPDATE fraise_businesses SET lat = ${lat}, lng = ${lng} WHERE id = ${req.business.id}`);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
 // GET /api/fraise/members/claims
 router.get('/members/claims', requireMember, async (req: any, res: any) => {
   try {
@@ -333,7 +358,7 @@ router.get('/events', async (req: any, res: any) => {
       SELECT
         e.id, e.title, e.description, e.price_cents,
         e.min_seats, e.max_seats, e.seats_claimed, e.status, e.event_date, e.created_at,
-        b.slug AS business_slug, b.name AS business_name
+        b.slug AS business_slug, b.name AS business_name, b.lat AS business_lat, b.lng AS business_lng
       FROM fraise_events e
       JOIN fraise_businesses b ON b.id = e.business_id
       WHERE e.status IN ('open', 'threshold_met')

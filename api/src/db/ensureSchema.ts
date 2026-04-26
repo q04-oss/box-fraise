@@ -515,6 +515,10 @@ export async function ensureSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS fraise_claims_event_idx ON fraise_claims (event_id, status)
   `);
 
+  await run('fraise_members.push_token',  sql`ALTER TABLE fraise_members  ADD COLUMN IF NOT EXISTS push_token TEXT`);
+  await run('fraise_businesses.lat',      sql`ALTER TABLE fraise_businesses ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION`);
+  await run('fraise_businesses.lng',      sql`ALTER TABLE fraise_businesses ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION`);
+
   // ── Kommune reservations — paid pre-order columns ─────────────────────────
   await run('kommune_reservations.email', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS email text`);
   await run('kommune_reservations.total_cents', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS total_cents integer NOT NULL DEFAULT 0`);
