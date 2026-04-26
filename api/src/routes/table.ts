@@ -744,20 +744,20 @@ function poolCors(req: any, res: any, next: any) {
   next();
 }
 
-// GET /api/table/pool/directory — public listing of all venues with active pools
+// GET /api/table/pool/directory — public listing of all active venues
 router.get('/pool/directory', async (req: any, res: any) => {
   try {
     const rows = await db.execute(sql`
       SELECT
-        tm.slug,
-        COALESCE(MIN(te.venue_name), tm.slug) AS display_name,
-        COALESCE(MIN(te.price_cents), 12000)   AS price_cents,
-        COUNT(*)::int                           AS total,
-        SUM(CASE WHEN tm.status = 'waiting' THEN 1 ELSE 0 END)::int AS waiting
-      FROM table_memberships tm
-      LEFT JOIN table_events te
-        ON te.venue_slug = tm.slug AND te.active = true
-      GROUP BY tm.slug
+        tv.slug,
+        tv.display_name,
+        tv.price_cents,
+        COUNT(tm.id)::int                                             AS total,
+        SUM(CASE WHEN tm.status = 'waiting' THEN 1 ELSE 0 END)::int  AS waiting
+      FROM table_venues tv
+      LEFT JOIN table_memberships tm ON tm.slug = tv.slug
+      WHERE tv.active = true
+      GROUP BY tv.slug, tv.display_name, tv.price_cents
       ORDER BY waiting DESC
     `);
     res.json({ venues: (rows as any).rows ?? rows });
@@ -880,9 +880,10 @@ router.post('/pool/call', async (req: any, res: any) => {
   const slug = authorizedSlug;
   const seats = parseInt(req.body?.seats) || 0;
   const note = String(req.body?.note ?? '').trim().slice(0, 500);
+  const eventDate = String(req.body?.event_date ?? '').trim().slice(0, 100);
   if (seats < 1) return res.status(400).json({ error: 'seats required' });
   try {
-    // Atomic select+update with row locking to prevent double-calling on concurrent requests
+    // Atomic select+update — generates per-member confirm tokens in the same statement
     const rows = await db.execute(sql`
       WITH selected AS (
         SELECT id FROM table_memberships
@@ -891,25 +892,29 @@ router.post('/pool/call', async (req: any, res: any) => {
         LIMIT ${seats}
         FOR UPDATE SKIP LOCKED
       )
-      UPDATE table_memberships SET status = 'called', last_called_at = now()
+      UPDATE table_memberships
+        SET status = 'called',
+            last_called_at = now(),
+            confirm_token = encode(gen_random_bytes(20), 'hex')
       FROM selected
       WHERE table_memberships.id = selected.id
-      RETURNING table_memberships.id, table_memberships.name, table_memberships.email
+      RETURNING table_memberships.id, table_memberships.name, table_memberships.email, table_memberships.confirm_token
     `);
     const members = (rows as any).rows ?? rows;
     if (!members.length) return res.status(400).json({ error: 'no waiting members' });
 
-    // Get venue display name for emails
     const venueRows = await db.execute(sql`SELECT display_name FROM table_venues WHERE slug = ${slug} LIMIT 1`);
     const venue = ((venueRows as any).rows ?? venueRows)[0] as any;
     const venueName = venue?.display_name ?? slug;
+    const apiBase = process.env.API_BASE_URL ?? 'https://api.fraise.box';
 
-    // Fire-and-forget notifications
     for (const m of members) {
-      sendPoolCallNotification({ to: m.email, name: m.name, venueName, note: note || undefined }).catch(() => {});
+      const confirmUrl = `${apiBase}/api/table/pool/confirm/${m.confirm_token}`;
+      const declineUrl = `${apiBase}/api/table/pool/decline/${m.confirm_token}`;
+      sendPoolCallNotification({ to: m.email, name: m.name, venueName, note: note || undefined, eventDate: eventDate || undefined, confirmUrl, declineUrl }).catch(() => {});
     }
 
-    res.json({ called: members, note });
+    res.json({ called: members.map((m: any) => ({ id: m.id, name: m.name, email: m.email })), note });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
@@ -971,6 +976,86 @@ router.get('/pool/slugs', requirePin, async (req: any, res: any) => {
       ORDER BY slug
     `);
     res.json({ slugs: (rows as any).rows ?? rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// ── Pool member self-service ─────────────────────────────────────────────────
+
+function poolTokenPage(heading: string, body: string): string {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${heading} — table</title><style>*{box-sizing:border-box;margin:0;padding:0}html{background:#fff;font-family:'DM Mono',monospace;font-size:14px;-webkit-font-smoothing:antialiased}body{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:2rem}main{max-width:400px;width:100%}.eyebrow{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:#8A8880;margin-bottom:0.5rem}h1{font-size:1rem;font-weight:500;margin-bottom:1rem}p{font-size:0.78rem;color:#8A8880;line-height:1.7}a{color:#1A1A18;text-underline-offset:3px}</style></head><body><main><div class="eyebrow">box fraise · table</div><h1>${heading}</h1><p>${body}</p></main></body></html>`;
+}
+
+// GET /api/table/pool/confirm/:token — member confirms attendance
+router.get('/pool/confirm/:token', async (req: any, res: any) => {
+  const token = String(req.params.token ?? '').trim();
+  if (!token) return res.status(400).send(poolTokenPage('invalid link', 'this confirmation link is not valid.'));
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, name, status FROM table_memberships WHERE confirm_token = ${token} LIMIT 1
+    `);
+    const m = ((rows as any).rows ?? rows)[0] as any;
+    if (!m) return res.status(404).send(poolTokenPage('link not found', 'this link has already been used or does not exist.'));
+    if (m.status === 'confirmed') return res.send(poolTokenPage('already confirmed', `you're already confirmed, ${m.name.split(' ')[0]}. see you there.`));
+    if (m.status === 'refunded') return res.send(poolTokenPage('already refunded', 'this spot was already refunded. contact us if you think this is an error.'));
+    await db.execute(sql`
+      UPDATE table_memberships SET status = 'confirmed', confirmed_at = now(), confirm_token = NULL WHERE id = ${m.id}
+    `);
+    res.send(poolTokenPage("you're confirmed.", `see you there, ${m.name.split(' ')[0]}. we'll be in touch with details closer to the date.`));
+  } catch (err: any) {
+    res.status(500).send(poolTokenPage('error', 'something went wrong. try again or reply to your call email.'));
+  }
+});
+
+// GET /api/table/pool/decline/:token — member declines and gets a refund
+router.get('/pool/decline/:token', async (req: any, res: any) => {
+  const token = String(req.params.token ?? '').trim();
+  if (!token) return res.status(400).send(poolTokenPage('invalid link', 'this decline link is not valid.'));
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, name, status, stripe_payment_intent_id FROM table_memberships WHERE confirm_token = ${token} LIMIT 1
+    `);
+    const m = ((rows as any).rows ?? rows)[0] as any;
+    if (!m) return res.status(404).send(poolTokenPage('link not found', 'this link has already been used or does not exist.'));
+    if (m.status === 'refunded') return res.send(poolTokenPage('already refunded', "your refund was already processed. it should appear within 5–10 business days."));
+    if (m.status === 'confirmed') return res.send(poolTokenPage('already confirmed', "you already confirmed this spot. reply to your call email if you need to cancel."));
+
+    if (m.stripe_payment_intent_id) {
+      await stripe.refunds.create({ payment_intent: m.stripe_payment_intent_id });
+    }
+    await db.execute(sql`
+      UPDATE table_memberships SET status = 'refunded', refunded_at = now(), confirm_token = NULL WHERE id = ${m.id}
+    `);
+    res.send(poolTokenPage('refund issued.', `sorry you can't make it, ${m.name.split(' ')[0]}. your refund should appear within 5–10 business days. you're still in the pool for future events.`));
+  } catch (err: any) {
+    res.status(500).send(poolTokenPage('error', 'something went wrong processing your refund. reply to your call email and we\'ll sort it out.'));
+  }
+});
+
+// POST /api/table/pool/refund — self-service refund for waiting members (no token needed)
+router.post('/pool/refund', poolCors, async (req: any, res: any) => {
+  const slug  = String(req.body?.slug ?? '').trim();
+  const email = String(req.body?.email ?? '').trim().toLowerCase();
+  if (!slug || !email) return res.status(400).json({ error: 'slug and email required' });
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, status, stripe_payment_intent_id
+      FROM table_memberships
+      WHERE slug = ${slug} AND lower(email) = ${email}
+        AND status IN ('waiting', 'called')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const m = ((rows as any).rows ?? rows)[0] as any;
+    if (!m) return res.status(404).json({ error: 'no active membership found for that email' });
+    if (m.stripe_payment_intent_id) {
+      await stripe.refunds.create({ payment_intent: m.stripe_payment_intent_id });
+    }
+    await db.execute(sql`
+      UPDATE table_memberships SET status = 'refunded', refunded_at = now() WHERE id = ${m.id}
+    `);
+    res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }

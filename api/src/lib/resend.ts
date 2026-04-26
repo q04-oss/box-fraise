@@ -952,15 +952,35 @@ export async function sendPoolJoinConfirmation(params: { to: string; name: strin
   });
 }
 
-export async function sendPoolCallNotification(params: { to: string; name: string; venueName: string; note?: string }) {
+export async function sendPoolCallNotification(params: { to: string; name: string; venueName: string; note?: string; eventDate?: string; confirmUrl?: string; declineUrl?: string }) {
   const { to } = params;
   const name = htmlEsc(params.name);
   const venueName = htmlEsc(params.venueName);
   const note = params.note ? htmlEsc(params.note) : undefined;
-  const content =
-    tableP(`hi ${name} — your table at <strong>${venueName.toLowerCase()}</strong> is ready.`) +
-    (note ? tableP(note) : '') +
-    tableMuted('reply to this email if you can\'t make it and we\'ll roll your spot to the next one.');
+  const eventDate = params.eventDate ? htmlEsc(params.eventDate) : undefined;
+  const { confirmUrl, declineUrl } = params;
+
+  let content =
+    tableP(`hi ${name} — your table at <strong>${venueName.toLowerCase()}</strong> is ready.`);
+  if (eventDate) content += tableP(`date: <strong>${eventDate}</strong>`);
+  if (note) content += tableP(note);
+
+  if (confirmUrl && declineUrl) {
+    content += `<table cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <tr>
+        <td style="padding-right:12px;">
+          <a href="${confirmUrl}" style="display:inline-block;background:#1C1C1E;color:#FFFFFF;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;padding:10px 22px;border-radius:9999px;text-decoration:none;">i'm in</a>
+        </td>
+        <td>
+          <a href="${declineUrl}" style="display:inline-block;color:#8E8E93;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:10px 22px;border-radius:9999px;text-decoration:none;border:1px solid #E5E1DA;">can't make it</a>
+        </td>
+      </tr>
+    </table>`;
+    content += tableMuted("clicking \"can't make it\" will release your spot and trigger a full refund. you'll stay in the pool for future events.");
+  } else {
+    content += tableMuted('reply to this email if you can\'t make it and we\'ll roll your spot to the next one.');
+  }
+
   await resend.emails.send({
     from: 'box fraise <orders@fraise.chat>',
     to,

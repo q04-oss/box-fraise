@@ -430,6 +430,9 @@ export async function ensureSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS table_memberships_slug_idx
     ON table_memberships (slug, status, created_at)
   `);
+  await run('table_memberships.confirm_token', sql`ALTER TABLE table_memberships ADD COLUMN IF NOT EXISTS confirm_token TEXT UNIQUE`);
+  await run('table_memberships.confirmed_at', sql`ALTER TABLE table_memberships ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ`);
+  await run('table_memberships.refunded_at', sql`ALTER TABLE table_memberships ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ`);
 
   // ── Kommune reservations — paid pre-order columns ─────────────────────────
   await run('kommune_reservations.email', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS email text`);

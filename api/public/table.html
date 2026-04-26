@@ -458,6 +458,24 @@
       </div>
     </div>
 
+    <!-- Pool self-service refund -->
+    <div class="refund-panel" id="pool-refund-panel" style="display:none;">
+      <h2>leave the pool</h2>
+      <p>want out? enter your email and slug and we'll refund your spot. you won't be called for future events at that venue.</p>
+      <div class="refund-form">
+        <div>
+          <label for="pool-refund-slug">venue slug</label>
+          <input type="text" id="pool-refund-slug" placeholder="e.g. kommune" autocomplete="off" spellcheck="false" />
+        </div>
+        <div>
+          <label for="pool-refund-email">your email</label>
+          <input type="email" id="pool-refund-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="refund-msg" id="pool-refund-msg"></div>
+        <button class="btn-refund" id="btn-pool-refund">refund my spot</button>
+      </div>
+    </div>
+
     <!-- Get listed -->
     <div class="get-listed" id="get-listed-section" style="display:none;">
       <h2>list your venue</h2>
@@ -640,6 +658,7 @@
           }
 
           setupRefundPanel(allEvents);
+          if (venues.length) document.getElementById('pool-refund-panel').style.display = 'block';
           if (venues.length || allEvents.length) {
             document.getElementById('get-listed-section').style.display = 'block';
           }
@@ -1006,6 +1025,37 @@
         msgEl.textContent = err.message ?? 'something went wrong.';
         msgEl.className = 'refund-msg visible';
         document.getElementById('btn-refund').disabled = false;
+      }
+    });
+
+    // Pool self-service refund
+    document.getElementById('btn-pool-refund').addEventListener('click', async () => {
+      const slug  = document.getElementById('pool-refund-slug').value.trim();
+      const email = document.getElementById('pool-refund-email').value.trim();
+      const msgEl = document.getElementById('pool-refund-msg');
+      const btn   = document.getElementById('btn-pool-refund');
+
+      if (!slug || !email) {
+        msgEl.textContent = 'venue slug and email required.';
+        msgEl.className = 'refund-msg visible';
+        return;
+      }
+      btn.disabled = true;
+      msgEl.textContent = 'processing —';
+      msgEl.className = 'refund-msg visible';
+      try {
+        const res = await fetch('/api/table/pool/refund', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'refund failed');
+        msgEl.textContent = 'refund issued. should appear within 5–10 business days.';
+        msgEl.className = 'refund-msg visible ok';
+      } catch (err) {
+        msgEl.textContent = err.message ?? 'something went wrong.';
+        msgEl.className = 'refund-msg visible';
+        btn.disabled = false;
       }
     });
 

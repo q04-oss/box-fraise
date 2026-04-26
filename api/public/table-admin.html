@@ -434,6 +434,10 @@
           <input type="number" id="${seatsId}" value="8" min="1" style="width:5rem;" />
         </div>
         <div style="flex:1;min-width:160px;">
+          <label>event date (optional)</label>
+          <input type="text" id="${'pool-date-' + slug}" placeholder="e.g. saturday june 14" />
+        </div>
+        <div style="flex:1;min-width:160px;">
           <label>note (optional)</label>
           <input type="text" id="${noteId}" placeholder="dinner, details to follow" />
         </div>
@@ -466,14 +470,15 @@
   }
 
   async function sendCall(slug) {
-    const seats = parseInt(document.getElementById('pool-seats-' + slug).value) || 0;
-    const note  = document.getElementById('pool-note-' + slug).value.trim();
-    const resultEl = document.getElementById('pool-call-result-' + slug);
+    const seats     = parseInt(document.getElementById('pool-seats-' + slug).value) || 0;
+    const eventDate = document.getElementById('pool-date-' + slug).value.trim();
+    const note      = document.getElementById('pool-note-' + slug).value.trim();
+    const resultEl  = document.getElementById('pool-call-result-' + slug);
     if (seats < 1) return;
     const res = await fetch('/api/table/pool/call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ slug, seats, note }),
+      body: JSON.stringify({ slug, seats, note, event_date: eventDate }),
     });
     const data = await res.json();
     resultEl.style.display = 'block';
