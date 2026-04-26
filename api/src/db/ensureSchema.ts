@@ -391,5 +391,30 @@ export async function ensureSchema(): Promise<void> {
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`);
 
+  // ── Table memberships (pool) ─────────────────────────────────────────────
+  await run('table_memberships', sql`CREATE TABLE IF NOT EXISTS table_memberships (
+    id SERIAL PRIMARY KEY,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    stripe_payment_intent_id TEXT UNIQUE,
+    status TEXT NOT NULL DEFAULT 'waiting',
+    events_attended INTEGER NOT NULL DEFAULT 0,
+    last_called_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`);
+  await run('table_memberships_idx', sql`
+    CREATE INDEX IF NOT EXISTS table_memberships_slug_idx
+    ON table_memberships (slug, status, created_at)
+  `);
+
+  // ── Kommune reservations — paid pre-order columns ─────────────────────────
+  await run('kommune_reservations.email', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS email text`);
+  await run('kommune_reservations.total_cents', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS total_cents integer NOT NULL DEFAULT 0`);
+  await run('kommune_reservations.stripe_payment_intent_id', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS stripe_payment_intent_id text`);
+  await run('kommune_reservations.order_json', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS order_json jsonb`);
+  await run('kommune_reservations.event_id', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS event_id integer REFERENCES table_events(id)`);
+
   logger.info('ensureSchema complete');
 }

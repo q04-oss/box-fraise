@@ -604,4 +604,146 @@ router.post('/bookings/:id/refund', requirePin, async (req: any, res: any) => {
   }
 });
 
+// ── Pool (table memberships) ─────────────────────────────────────────────
+
+function poolCors(req: any, res: any, next: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  next();
+}
+
+// POST /api/table/pool/checkout — create payment intent for joining the pool
+router.post('/pool/checkout', poolCors, async (req: any, res: any) => {
+  const slug = String(req.body?.slug ?? '').trim();
+  const name = String(req.body?.name ?? '').trim().slice(0, 200);
+  const email = String(req.body?.email ?? '').trim().slice(0, 200);
+  const amountCents = parseInt(req.body?.amount_cents) || 0;
+  if (!slug || !name || !email || amountCents < 100) {
+    return res.status(400).json({ error: 'slug, name, email, and amount_cents required' });
+  }
+  try {
+    const intent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'cad',
+      automatic_payment_methods: { enabled: true },
+      metadata: { slug, name, email, type: 'table_pool' },
+    });
+    res.json({ client_secret: intent.client_secret });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// POST /api/table/pool/join — confirm membership after payment
+router.post('/pool/join', poolCors, async (req: any, res: any) => {
+  const slug = String(req.body?.slug ?? '').trim();
+  const name = String(req.body?.name ?? '').trim().slice(0, 200);
+  const email = String(req.body?.email ?? '').trim().slice(0, 200);
+  const paymentIntentId = String(req.body?.payment_intent_id ?? '').trim();
+  const amountCents = parseInt(req.body?.amount_cents) || 0;
+  if (!slug || !name || !email || !paymentIntentId) {
+    return res.status(400).json({ error: 'missing fields' });
+  }
+  try {
+    // Verify payment succeeded
+    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (intent.status !== 'succeeded') {
+      return res.status(402).json({ error: 'payment not confirmed' });
+    }
+    await db.execute(sql`
+      INSERT INTO table_memberships (slug, name, email, amount_cents, stripe_payment_intent_id, status)
+      VALUES (${slug}, ${name}, ${email}, ${amountCents}, ${paymentIntentId}, 'waiting')
+      ON CONFLICT (stripe_payment_intent_id) DO NOTHING
+    `);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// GET /api/table/pool?slug= — admin: list pool members
+router.get('/pool', requirePin, async (req: any, res: any) => {
+  const slug = String(req.query.slug ?? '').trim();
+  if (!slug) return res.status(400).json({ error: 'slug required' });
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, name, email, amount_cents, status, events_attended, last_called_at, created_at
+      FROM table_memberships
+      WHERE slug = ${slug}
+      ORDER BY
+        CASE status WHEN 'waiting' THEN 0 WHEN 'called' THEN 1 ELSE 2 END,
+        created_at ASC
+    `);
+    const members = (rows as any).rows ?? rows;
+    const waiting = members.filter((m: any) => m.status === 'waiting').length;
+    res.json({ members, waiting, total: members.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// POST /api/table/pool/call — admin: call N members from the pool
+router.post('/pool/call', requirePin, async (req: any, res: any) => {
+  const slug = String(req.body?.slug ?? '').trim();
+  const seats = parseInt(req.body?.seats) || 0;
+  const note = String(req.body?.note ?? '').trim().slice(0, 500);
+  if (!slug || seats < 1) return res.status(400).json({ error: 'slug and seats required' });
+  try {
+    // Select longest-waiting members not recently called
+    const rows = await db.execute(sql`
+      SELECT id, name, email
+      FROM table_memberships
+      WHERE slug = ${slug} AND status = 'waiting'
+      ORDER BY created_at ASC
+      LIMIT ${seats}
+    `);
+    const members = (rows as any).rows ?? rows;
+    if (!members.length) return res.status(400).json({ error: 'no waiting members' });
+    const ids = members.map((m: any) => m.id);
+    await db.execute(sql`
+      UPDATE table_memberships
+      SET status = 'called', last_called_at = now()
+      WHERE id = ANY(${ids}::int[])
+    `);
+    res.json({ called: members, note });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// POST /api/table/pool/attend — admin: mark members as attended and roll them back to waiting
+router.post('/pool/attend', requirePin, async (req: any, res: any) => {
+  const ids: number[] = req.body?.ids ?? [];
+  if (!ids.length) return res.status(400).json({ error: 'ids required' });
+  try {
+    await db.execute(sql`
+      UPDATE table_memberships
+      SET status = 'waiting', events_attended = events_attended + 1, last_called_at = now()
+      WHERE id = ANY(${ids}::int[])
+    `);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// GET /api/table/pool/slugs — admin: list all slugs that have a pool
+router.get('/pool/slugs', requirePin, async (req: any, res: any) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT slug, count(*) as total,
+             sum(case when status = 'waiting' then 1 else 0 end) as waiting,
+             sum(amount_cents) as total_cents
+      FROM table_memberships
+      GROUP BY slug
+      ORDER BY slug
+    `);
+    res.json({ slugs: (rows as any).rows ?? rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
 export default router;
