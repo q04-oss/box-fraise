@@ -63,13 +63,6 @@
     .form-toggle { font-size: 0.68rem; color: var(--muted); margin-top: 0.75rem; }
     .form-toggle button { font-family: inherit; font-size: inherit; color: var(--text); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-    /* ── Connect card ── */
-    .connect-card { border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 2.5rem; }
-    .connect-card h3 { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
-    .connect-status { font-size: 0.78rem; margin-bottom: 0.75rem; }
-    .connect-status.ok { color: var(--green); }
-    .connect-status.pending { color: var(--muted); }
-
     /* ── Event cards ── */
     .event-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1rem; }
     .event-hd { display: flex; justify-content: space-between; align-items: flex-start; padding: 1rem 1.25rem; background: var(--card); border-bottom: 1px solid var(--border); gap: 1rem; }
@@ -171,14 +164,6 @@
   <!-- Dashboard -->
   <div id="dashboard" style="display:none;">
 
-    <!-- Stripe Connect -->
-    <div class="connect-card" id="connect-card">
-      <h3>payouts</h3>
-      <div class="connect-status pending" id="connect-status">stripe not connected — payouts disabled.</div>
-      <button class="btn-primary btn-ghost" id="btn-connect" onclick="doConnect()" style="font-size:0.68rem;">connect stripe →</button>
-      <div class="ok-msg" id="connect-ok" style="margin-top:0.5rem;">stripe connected. payouts active.</div>
-    </div>
-
     <!-- Events -->
     <div class="section-label">your events</div>
     <div id="events-list">
@@ -226,12 +211,6 @@
     }
     if (!biz) openAuth('login');
 
-    // Check if returning from Stripe Connect
-    const params = new URLSearchParams(location.search);
-    if (params.get('connect') === 'done' && bizToken) {
-      history.replaceState({}, '', location.pathname);
-      await verifyConnect();
-    }
   }
 
   // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -312,67 +291,16 @@
     document.getElementById('btn-signout').style.display = '';
     document.getElementById('nav-biz').style.display = '';
     document.getElementById('nav-biz-name').textContent = biz.name;
-    updateConnectUI();
     loadEvents();
-  }
-
-  function updateConnectUI() {
-    const onboarded = biz.stripe_connect_onboarded;
-    const statusEl = document.getElementById('connect-status');
-    const btnEl    = document.getElementById('btn-connect');
-    const okEl     = document.getElementById('connect-ok');
-    if (onboarded) {
-      statusEl.style.display = 'none';
-      btnEl.style.display = 'none';
-      okEl.classList.add('on');
-    } else {
-      statusEl.style.display = '';
-      btnEl.style.display = '';
-      okEl.classList.remove('on');
-    }
-  }
-
-  async function doConnect() {
-    const btn = document.getElementById('btn-connect');
-    btn.disabled = true; btn.textContent = '—';
-    try {
-      const r = await fetch(API + '/api/fraise/businesses/connect', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-business-token': bizToken },
-        body: JSON.stringify({ return_url: location.href }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'connect failed');
-      location.href = data.url;
-    } catch (e) {
-      btn.disabled = false; btn.textContent = 'connect stripe →';
-      alert(e.message);
-    }
-  }
-
-  async function verifyConnect() {
-    try {
-      const r = await fetch(API + '/api/fraise/businesses/connect/verify', {
-        method: 'POST', headers: { 'x-business-token': bizToken },
-      });
-      const data = await r.json();
-      if (data.onboarded) {
-        biz.stripe_connect_onboarded = true;
-        updateConnectUI();
-      }
-    } catch {}
   }
 
   // ── Events ───────────────────────────────────────────────────────────────────
 
   async function loadEvents() {
     try {
-      const r = await fetch(API + '/api/fraise/events', { headers: { 'x-business-token': bizToken } });
-      // Get all events and filter by business
+      const r = await fetch(API + '/api/fraise/businesses/events', { headers: { 'x-business-token': bizToken } });
       const data = await r.json();
-      // We need business-specific events — use admin or filter client-side
-      // Actually we filter by business_slug from biz
-      const allEvents = (data.events || []).filter(e => e.business_slug === biz.slug);
-      renderEvents(allEvents);
+      renderEvents(data.events || []);
     } catch {}
   }
 

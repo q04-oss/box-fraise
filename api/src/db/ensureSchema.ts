@@ -499,22 +499,6 @@ export async function ensureSchema(): Promise<void> {
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`);
 
-  await run('fraise_claims', sql`CREATE TABLE IF NOT EXISTS fraise_claims (
-    id SERIAL PRIMARY KEY,
-    member_id INTEGER NOT NULL REFERENCES fraise_members(id),
-    event_id INTEGER NOT NULL REFERENCES fraise_events(id),
-    status TEXT NOT NULL DEFAULT 'claimed',
-    confirm_token TEXT UNIQUE,
-    confirmed_at TIMESTAMPTZ,
-    declined_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (member_id, event_id)
-  )`);
-
-  await run('fraise_claims_idx', sql`
-    CREATE INDEX IF NOT EXISTS fraise_claims_event_idx ON fraise_claims (event_id, status)
-  `);
-
   await run('fraise_invitations', sql`CREATE TABLE IF NOT EXISTS fraise_invitations (
     id SERIAL PRIMARY KEY,
     event_id INTEGER NOT NULL REFERENCES fraise_events(id),
@@ -528,8 +512,6 @@ export async function ensureSchema(): Promise<void> {
   await run('fraise_invitations_idx', sql`
     CREATE INDEX IF NOT EXISTS fraise_invitations_member_idx ON fraise_invitations (member_id, status)
   `);
-  await run('fraise_invitations.confirm_token', sql`ALTER TABLE fraise_invitations ADD COLUMN IF NOT EXISTS confirm_token TEXT UNIQUE`);
-
   await run('fraise_members.push_token',  sql`ALTER TABLE fraise_members  ADD COLUMN IF NOT EXISTS push_token TEXT`);
   await run('fraise_businesses.lat',      sql`ALTER TABLE fraise_businesses ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION`);
   await run('fraise_businesses.lng',      sql`ALTER TABLE fraise_businesses ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION`);

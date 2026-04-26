@@ -8,22 +8,16 @@ import {
   sendFraiseWelcome,
   sendFraiseCreditsAdded,
   sendFraiseClaimConfirmation,
-  sendFraiseEventConfirmed,
 } from '../lib/resend';
 
 const router = Router();
 
 const CREDIT_PRICE_CENTS = 12000; // CA$120 per credit
-const FRAISE_PLATFORM_FEE = 0.15;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function token(): string {
   return crypto.randomBytes(32).toString('hex');
-}
-
-function confirmToken(): string {
-  return crypto.randomBytes(20).toString('hex');
 }
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
@@ -57,14 +51,6 @@ async function requireBusiness(req: any, res: any, next: NextFunction) {
   const business = ((rows as any).rows ?? rows)[0] as any;
   if (!business) return res.status(401).json({ error: 'invalid or expired token' });
   req.business = business;
-  next();
-}
-
-function requireAdmin(req: any, res: any, next: NextFunction) {
-  const pin = req.headers['x-admin-pin'];
-  if (!pin || pin !== process.env.ADMIN_PIN) {
-    return res.status(401).json({ error: 'admin pin required' });
-  }
   next();
 }
 
@@ -379,44 +365,6 @@ router.get('/businesses/me', requireBusiness, async (req: any, res: any) => {
   res.json(((rows as any).rows ?? rows)[0]);
 });
 
-// POST /api/fraise/businesses/connect
-router.post('/businesses/connect', requireBusiness, async (req: any, res: any) => {
-  const returnUrl = String(req.body?.return_url ?? '').trim();
-  if (!returnUrl) return res.status(400).json({ error: 'return_url required' });
-  try {
-    let accountId = req.business.stripe_connect_account_id;
-    if (!accountId) {
-      const account = await stripe.accounts.create({ type: 'express' });
-      accountId = account.id;
-      await db.execute(sql`UPDATE fraise_businesses SET stripe_connect_account_id = ${accountId} WHERE id = ${req.business.id}`);
-    }
-    const link = await stripe.accountLinks.create({
-      account: accountId,
-      refresh_url: returnUrl,
-      return_url: returnUrl + '?connect=done',
-      type: 'account_onboarding',
-    });
-    res.json({ url: link.url });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message ?? 'internal' });
-  }
-});
-
-// POST /api/fraise/businesses/connect/verify
-router.post('/businesses/connect/verify', requireBusiness, async (req: any, res: any) => {
-  try {
-    const rows = await db.execute(sql`SELECT stripe_connect_account_id FROM fraise_businesses WHERE id = ${req.business.id} LIMIT 1`);
-    const b = ((rows as any).rows ?? rows)[0] as any;
-    if (!b?.stripe_connect_account_id) return res.status(400).json({ error: 'no connect account' });
-    const account = await stripe.accounts.retrieve(b.stripe_connect_account_id);
-    if (account.details_submitted) {
-      await db.execute(sql`UPDATE fraise_businesses SET stripe_connect_onboarded = true WHERE id = ${req.business.id}`);
-    }
-    res.json({ onboarded: account.details_submitted });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message ?? 'internal' });
-  }
-});
 
 // ── Events ────────────────────────────────────────────────────────────────────
 
@@ -430,6 +378,21 @@ router.get('/businesses/members', requireBusiness, async (req: any, res: any) =>
       ORDER BY name ASC
     `);
     res.json({ members: (rows as any).rows ?? rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// GET /api/fraise/businesses/events — business lists their own events
+router.get('/businesses/events', requireBusiness, async (req: any, res: any) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT id, title, description, status, min_seats, max_seats, seats_claimed, event_date, created_at
+      FROM fraise_events
+      WHERE business_id = ${req.business.id}
+      ORDER BY created_at DESC
+    `);
+    res.json({ events: (rows as any).rows ?? rows });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
@@ -543,111 +506,18 @@ router.post('/events/:id/confirm', async (req: any, res: any) => {
       UPDATE fraise_events SET status = 'confirmed', event_date = ${eventDate} WHERE id = ${eventId}
     `);
 
-    // Generate confirm tokens and notify all accepted members
+    // Auto-confirm all accepted invitations
     const invRows = await db.execute(sql`
-      UPDATE fraise_invitations SET confirm_token = encode(gen_random_bytes(20), 'hex')
+      UPDATE fraise_invitations SET status = 'confirmed'
       WHERE event_id = ${eventId} AND status = 'accepted'
-      RETURNING id, confirm_token, member_id
+      RETURNING id, member_id
     `);
     const invitations = (invRows as any).rows ?? invRows;
 
-    const apiBase = process.env.API_BASE_URL ?? 'https://api.fraise.box';
-    for (const inv of invitations) {
-      const memRows = await db.execute(sql`SELECT name, email FROM fraise_members WHERE id = ${inv.member_id} LIMIT 1`);
-      const mem = ((memRows as any).rows ?? memRows)[0] as any;
-      if (!mem) continue;
-      const confirmUrl = `${apiBase}/api/fraise/claims/confirm/${inv.confirm_token}`;
-      const declineUrl = `${apiBase}/api/fraise/claims/decline/${inv.confirm_token}`;
-      sendFraiseEventConfirmed({ to: mem.email, name: mem.name, eventTitle: event.title, businessName: event.business_name, eventDate, confirmUrl, declineUrl }).catch(() => {});
-    }
-
-    res.json({ ok: true, notified: invitations.length, event_date: eventDate });
+    res.json({ ok: true, confirmed: invitations.length, event_date: eventDate });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
-});
-
-// ── Claim token actions (from email links) ────────────────────────────────────
-
-function claimResponsePage(heading: string, body: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${heading} — fraise.box</title><style>*{box-sizing:border-box;margin:0;padding:0}html{background:#fff;font-family:'DM Mono',monospace;font-size:14px;-webkit-font-smoothing:antialiased}body{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:2rem}main{max-width:400px;width:100%}.eyebrow{font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;color:#8A8880;margin-bottom:0.5rem}h1{font-size:1rem;font-weight:500;margin-bottom:1rem}p{font-size:0.78rem;color:#8A8880;line-height:1.7}a{color:#1A1A18;text-underline-offset:3px}</style></head><body><main><div class="eyebrow">fraise.box</div><h1>${heading}</h1><p>${body}</p></main></body></html>`;
-}
-
-// GET /api/fraise/claims/confirm/:token
-router.get('/claims/confirm/:token', async (req: any, res: any) => {
-  const t = String(req.params.token ?? '').trim();
-  if (!t) return res.status(400).send(claimResponsePage('invalid link', 'this confirmation link is not valid.'));
-  try {
-    const rows = await db.execute(sql`
-      SELECT i.id, i.status, m.name
-      FROM fraise_invitations i
-      JOIN fraise_members m ON m.id = i.member_id
-      WHERE i.confirm_token = ${t} LIMIT 1
-    `);
-    const inv = ((rows as any).rows ?? rows)[0] as any;
-    if (!inv) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
-    if (inv.status === 'confirmed') return res.send(claimResponsePage("already confirmed.", `you're already confirmed. see you there.`));
-    if (inv.status === 'declined') return res.send(claimResponsePage('already declined', 'you already released this spot. your credit was returned.'));
-    await db.execute(sql`UPDATE fraise_invitations SET status = 'confirmed', confirm_token = NULL WHERE id = ${inv.id}`);
-    res.send(claimResponsePage("you're confirmed.", `see you there, ${inv.name.split(' ')[0]}. we'll be in touch with any details closer to the date.`));
-  } catch (err: any) {
-    res.status(500).send(claimResponsePage('error', 'something went wrong. reply to your email and we\'ll sort it.'));
-  }
-});
-
-// GET /api/fraise/claims/decline/:token — releases spot, returns credit
-router.get('/claims/decline/:token', async (req: any, res: any) => {
-  const t = String(req.params.token ?? '').trim();
-  if (!t) return res.status(400).send(claimResponsePage('invalid link', 'this decline link is not valid.'));
-  try {
-    const rows = await db.execute(sql`
-      SELECT i.id, i.status, i.event_id, i.member_id, m.name
-      FROM fraise_invitations i
-      JOIN fraise_members m ON m.id = i.member_id
-      WHERE i.confirm_token = ${t} LIMIT 1
-    `);
-    const inv = ((rows as any).rows ?? rows)[0] as any;
-    if (!inv) return res.send(claimResponsePage('link not found', 'this link has already been used or does not exist.'));
-    if (inv.status === 'declined') return res.send(claimResponsePage('already released', 'your credit was already returned. use it on the next event.'));
-    if (inv.status === 'confirmed') return res.send(claimResponsePage('already confirmed', 'you already confirmed this spot. reply to your email if you need to cancel.'));
-
-    await db.execute(sql`UPDATE fraise_invitations SET status = 'declined', confirm_token = NULL WHERE id = ${inv.id}`);
-    await db.execute(sql`UPDATE fraise_members SET credit_balance = credit_balance + 1 WHERE id = ${inv.member_id}`);
-    await db.execute(sql`UPDATE fraise_events SET seats_claimed = GREATEST(seats_claimed - 1, 0) WHERE id = ${inv.event_id}`);
-
-    res.send(claimResponsePage('spot released.', `no problem, ${inv.name.split(' ')[0]}. your credit has been returned — it'll be there for the next event.`));
-  } catch (err: any) {
-    res.status(500).send(claimResponsePage('error', 'something went wrong. reply to your email and we\'ll sort it.'));
-  }
-});
-
-// ── Admin ─────────────────────────────────────────────────────────────────────
-
-router.get('/admin/members', requireAdmin, async (req: any, res: any) => {
-  const rows = await db.execute(sql`
-    SELECT id, name, email, credit_balance, credits_purchased, created_at
-    FROM fraise_members ORDER BY created_at DESC
-  `);
-  res.json({ members: (rows as any).rows ?? rows });
-});
-
-router.get('/admin/businesses', requireAdmin, async (req: any, res: any) => {
-  const rows = await db.execute(sql`
-    SELECT id, slug, name, email, stripe_connect_onboarded, active, created_at
-    FROM fraise_businesses ORDER BY created_at DESC
-  `);
-  res.json({ businesses: (rows as any).rows ?? rows });
-});
-
-router.get('/admin/events', requireAdmin, async (req: any, res: any) => {
-  const rows = await db.execute(sql`
-    SELECT e.id, e.title, e.status, e.price_cents, e.min_seats, e.max_seats,
-           e.seats_claimed, e.event_date, e.created_at, b.name AS business_name
-    FROM fraise_events e
-    JOIN fraise_businesses b ON b.id = e.business_id
-    ORDER BY e.created_at DESC
-  `);
-  res.json({ events: (rows as any).rows ?? rows });
 });
 
 export default router;
