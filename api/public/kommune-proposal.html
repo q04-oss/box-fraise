@@ -374,6 +374,43 @@
     @media (max-width: 480px) {
 .stage-input { font-size: 1rem; } /* prevents iOS zoom on focus */
     }
+
+    /* ── Order picker ── */
+    .order-section-title {
+      font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); padding: 0.9rem 0 0.4rem;
+    }
+    .order-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.4rem 0; border-bottom: 1px solid var(--border); gap: 1rem;
+    }
+    .order-item:first-of-type { border-top: 1px solid var(--border); }
+    .order-item-left { flex: 1; }
+    .order-item-name { font-size: 0.78rem; color: var(--text); }
+    .order-item-desc { font-size: 0.62rem; color: var(--muted); margin-top: 0.1rem; }
+    .order-item-right { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+    .order-item-price { font-size: 0.72rem; color: var(--muted); margin-right: 0.5rem; }
+    .order-qty { font-size: 0.78rem; color: var(--text); min-width: 1rem; text-align: center; }
+    .order-btn {
+      font-family: 'DM Mono', monospace; font-size: 0.78rem;
+      color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 0 0.15rem; line-height: 1;
+      transition: color 0.15s;
+    }
+    .order-btn:hover { color: var(--text); }
+    .order-event-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+      font-size: 0.72rem; gap: 1rem; margin-top: 0.25rem;
+    }
+    .order-event-label { color: var(--text); cursor: pointer; }
+    .order-event-price { color: var(--muted); flex-shrink: 0; }
+    .order-total-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 0.55rem 0; font-size: 0.78rem;
+    }
+    .order-total-label { color: var(--muted); }
+    .order-total-amount { color: var(--text); }
   </style>
 </head>
 <body>
@@ -757,7 +794,10 @@
     let currentTableEvent = null;
     let _pendingRec = null; // holds recommendation text across onclick boundaries
 
-    function fmtTablePrice(cents) { return `CA$${(cents / 100).toFixed(0)}`; }
+    function fmtTablePrice(cents) {
+      const v = cents / 100;
+      return `CA$${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(2)}`;
+    }
     function fmtTableDate(iso) {
       const d = new Date(iso);
       const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -938,81 +978,257 @@
       const firstEmpty = (!name && nameEl) || (!size && sizeEl) || (!date && dateEl) || (!time && timeEl);
       if (firstEmpty) { firstEmpty.focus(); return; }
       reserveData = { ...reserveData, name, size, date, time, note };
-      renderReserveStep2(document.getElementById('results-canvas'));
+      renderMenuPicker(document.getElementById('results-canvas'));
     }
 
-    function renderReserveStep2(canvas) {
-      const carried = reserveData._prefillPreorder;
-      if (carried) {
-        _pendingRec = carried;
-        canvas.innerHTML = `
-          <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
-          <div class="reserve-preorder">
-            <div class="reserve-preorder-label">from your recommendation</div>
-            ${esc(carried)}
+    // ── Menu items for order picker ──────────────────────────────────────────
+    const MENU_ITEMS_FLAT = [
+      // plates (0–3)
+      { section: 'plates', name: 'Crispy Potato Cake',   desc: 'potato, gouda sauce, chives',                cents: 1600 },
+      { section: 'plates', name: 'Berlin Mustard Eggs',  desc: 'smoked egg yolk, potato, horseradish',       cents: 1200 },
+      { section: 'plates', name: 'Smoked Schnitzel',     desc: 'breaded smoked meat, lettuce, dijon',        cents: 2500 },
+      { section: 'plates', name: 'Seitan Vegan Cheeses', desc: 'chili, dill, gorgonzola, rye chips',         cents: 1800 },
+      // bakes & morning (4–8)
+      { section: 'bakes', name: 'The Tony',              desc: 'mortadella, provolone, dijon, brioche',      cents: 1400 },
+      { section: 'bakes', name: 'The Bea',               desc: 'eggs, bacon, spicy ketchup, aioli, brioche', cents: 1200 },
+      { section: 'bakes', name: 'Avocado Toast',         desc: 'sourdough, tomatoes, gouda, pea shoots',     cents: 1200 },
+      { section: 'bakes', name: 'Almond French Toast',   desc: 'sourdough, almond butter, banana, strawberries', cents: 1250 },
+      { section: 'bakes', name: 'Yogurt Bowl',           desc: 'granola, berries, honey',                    cents: 1000 },
+      // snacks (9–11)
+      { section: 'snacks', name: 'Beet Hummus',          desc: 'roasted beets, oil, dill, rye chips',        cents: 1100 },
+      { section: 'snacks', name: 'Marinated Goat Feta',  desc: 'herbed feta, rye chips',                     cents:  800 },
+      { section: 'snacks', name: 'Brio Rye Bread',       desc: 'rosemary oil, pomegranate vinegar',          cents:  700 },
+      // sweets (12–14)
+      { section: 'sweets', name: 'Flourless Chocolate Cake', desc: '',                                       cents:  900 },
+      { section: 'sweets', name: 'Affogato',             desc: 'espresso, matcha, or hojicha',               cents:  700 },
+      { section: 'sweets', name: 'Affogato Flight',      desc: '',                                           cents: 1200 },
+      // coffee (15–23)
+      { section: 'coffee', name: 'Americano',            desc: '',  cents:  450 },
+      { section: 'coffee', name: 'Latte',                desc: '',  cents:  625 },
+      { section: 'coffee', name: 'Vanilla Latte',        desc: '',  cents:  700 },
+      { section: 'coffee', name: 'Flat White',           desc: '',  cents:  500 },
+      { section: 'coffee', name: 'Espresso',             desc: '',  cents:  375 },
+      { section: 'coffee', name: 'Tonic',                desc: '',  cents:  600 },
+      { section: 'coffee', name: 'Cappuccino',           desc: '',  cents:  575 },
+      { section: 'coffee', name: 'Cortado',              desc: '',  cents:  550 },
+      { section: 'coffee', name: 'Macchiato',            desc: '',  cents:  450 },
+      // fog (24–26)
+      { section: 'fog', name: 'London',                  desc: '',  cents:  650 },
+      { section: 'fog', name: 'Peppermint',              desc: '',  cents:  650 },
+      { section: 'fog', name: 'Tea',                     desc: '',  cents:  400 },
+      // matcha (27–33)
+      { section: 'matcha', name: 'Matcha Regular',       desc: '',  cents:  700 },
+      { section: 'matcha', name: 'Matcha Premium',       desc: '',  cents: 1000 },
+      { section: 'matcha', name: 'Maple Sea Salt Matcha',desc: '',  cents:  800 },
+      { section: 'matcha', name: 'Apple Cinnamon Matcha',desc: '',  cents:  800 },
+      { section: 'matcha', name: 'Pumpkin Spice Matcha', desc: '',  cents:  800 },
+      { section: 'matcha', name: 'Earl Grey Matcha',     desc: '',  cents:  800 },
+      { section: 'matcha', name: 'Hojicha',              desc: '',  cents:  700 },
+      // na cocktails (34–41)
+      { section: 'na', name: 'Dhos & Tonic',             desc: '',  cents:  900 },
+      { section: 'na', name: 'Kasu Yuzu & Soda',         desc: '',  cents: 1100 },
+      { section: 'na', name: 'Coco-No-Lo',               desc: '',  cents: 1100 },
+      { section: 'na', name: 'Coriander Crush',          desc: '',  cents: 1100 },
+      { section: 'na', name: 'Pathfinder & Root Beer',   desc: '',  cents: 1200 },
+      { section: 'na', name: 'The Moose is Loose',       desc: '',  cents: 1200 },
+      { section: 'na', name: 'Not Mint to Be',           desc: '',  cents: 1100 },
+      { section: 'na', name: 'Cheeky Boilermaker / Phony Negroni', desc: 'na industry favourites', cents: 1400 },
+      // cocktails (42–50)
+      { section: 'cocktails', name: 'Gin & Tonic',               desc: '',  cents:  900 },
+      { section: 'cocktails', name: 'Kasu Vodka Yuzu & Soda',    desc: '',  cents: 1100 },
+      { section: 'cocktails', name: 'Sherry Colada Lowball',     desc: '',  cents: 1300 },
+      { section: 'cocktails', name: 'Coriander Spritz',          desc: '',  cents: 1100 },
+      { section: 'cocktails', name: 'Root of All Evil',          desc: '',  cents: 1200 },
+      { section: 'cocktails', name: 'Old Fashioned',             desc: '',  cents: 1400 },
+      { section: 'cocktails', name: 'Mint to Be',                desc: '',  cents: 1100 },
+      { section: 'cocktails', name: 'Arandasi Picante',          desc: '',  cents: 1200 },
+      { section: 'cocktails', name: 'Boilermaker / Negroni',     desc: 'industry favourites', cents: 1400 },
+      // beer (51–55)
+      { section: 'beer', name: 'Guinness Stout',                 desc: '',  cents:  900 },
+      { section: 'beer', name: 'Bent Stick Brewing',             desc: '',  cents:  900 },
+      { section: 'beer', name: 'Establishment Afternoon Delight',desc: '',  cents:  900 },
+      { section: 'beer', name: 'Last Best Tokyo Drift',          desc: '',  cents:  900 },
+      { section: 'beer', name: 'Rotating Beer',                  desc: '',  cents:  900 },
+    ];
+
+    const SECTION_LABELS = {
+      plates: 'plates', bakes: 'bakes & morning', snacks: 'snacks',
+      sweets: 'sweets', coffee: 'coffee', fog: 'fog', matcha: 'matcha',
+      na: 'na cocktails', cocktails: 'cocktails', beer: 'beer',
+    };
+
+    let orderCart = {};   // { idx: { name, cents, qty } }
+    let resCardEl = null;
+
+    function renderMenuPicker(canvas) {
+      orderCart = {};
+
+      // Group items by section
+      const sections = [];
+      let currentSection = null;
+      MENU_ITEMS_FLAT.forEach((item, idx) => {
+        if (item.section !== currentSection) {
+          sections.push({ key: item.section, items: [] });
+          currentSection = item.section;
+        }
+        sections[sections.length - 1].items.push({ idx, ...item });
+      });
+
+      const sectionHTML = sections.map(s => `
+        <div class="order-section-title">${esc(SECTION_LABELS[s.key] || s.key)}</div>
+        ${s.items.map(item => `
+          <div class="order-item">
+            <div class="order-item-left">
+              <div class="order-item-name">${esc(item.name)}</div>
+              ${item.desc ? `<div class="order-item-desc">${esc(item.desc)}</div>` : ''}
+            </div>
+            <div class="order-item-right">
+              <span class="order-item-price">${fmtTablePrice(item.cents)}</span>
+              <button class="order-btn" type="button" onclick="orderRemove(${item.idx})">−</button>
+              <span class="order-qty" id="oqty-${item.idx}">0</span>
+              <button class="order-btn" type="button" onclick="orderAdd(${item.idx})">+</button>
+            </div>
           </div>
-          <div style="display:flex;gap:1.5rem;margin-top:0.5rem;align-items:baseline;">
-            <button class="apply-submit" type="button" onclick="submitReservation(_pendingRec)">book with this →</button>
-            <button class="reserve-skip" type="button" onclick="reserveData._prefillPreorder=null;renderReserveStep2(document.getElementById('results-canvas'))">change</button>
-            <button class="reserve-skip" type="button" onclick="submitReservation(null)">skip</button>
+        `).join('')}
+      `).join('');
+
+      const partySize = reserveData.size || 1;
+
+      canvas.innerHTML = `
+        <div class="reserve-step">2 of 2 — pre-order</div>
+        <div id="order-items-wrap">${sectionHTML}</div>
+        <div class="order-event-row">
+          <label class="order-event-label" for="res-include-event">
+            <input type="checkbox" id="res-include-event" onchange="updateOrderTotal()" style="margin-right:0.4rem;" />
+            add to next event
+          </label>
+          <span class="order-event-price" id="order-event-price">+${fmtTablePrice(12000 * partySize)}</span>
+        </div>
+        <div class="order-total-row">
+          <span class="order-total-label">total</span>
+          <span class="order-total-amount" id="order-total">CA$0</span>
+        </div>
+        <input class="te-field" type="email" id="res-email" placeholder="email for confirmation" autocomplete="email" style="margin-top:0.25rem;" />
+        <div class="table-card-wrap" id="res-card-element" style="margin-top:0.25rem;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:0.65rem;">
+          <button class="reserve-skip" type="button" onclick="renderReserveStep1(document.getElementById('results-canvas'))">← back</button>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.15rem;">
+            <div id="res-error" style="font-size:0.6rem;color:#C0392B;display:none;"></div>
+            <button type="button" class="apply-submit" id="res-pay-btn" onclick="submitTableReservation()">pay CA$0 →</button>
           </div>
-        `;
-      } else {
-        canvas.innerHTML = `
-          <div class="reserve-step">2 of 2 — pre-order <button class="reserve-skip" onclick="submitReservation(null)">skip</button></div>
-          <form class="apply-form" onsubmit="runReserveRecommend(event)">
-            <div class="apply-field"><input type="text" id="res-mood" placeholder="what are you in the mood for?" autocomplete="off" autocorrect="off" /></div>
-            <button type="submit" class="apply-submit">suggest →</button>
-          </form>
-          <div id="res-rec-area"></div>
-        `;
-        setTimeout(() => document.getElementById('res-mood')?.focus(), 50);
+        </div>
+      `;
+
+      if (!tableStripe) tableStripe = Stripe('pk_live_51R3UWEGkzAbVnPaCoqp8w7a6zxOiXUBhJiuBKMGG7v96W7LBGIlLLhJHNWP3qcllZBLH4oLjJFm1YrqdFBJv63qy00LmQSbJxq');
+      const elements = tableStripe.elements();
+      resCardEl = elements.create('card', {
+        style: { base: { fontFamily: "'DM Mono', monospace", fontSize: '13px', color: '#1A1A18', '::placeholder': { color: '#8A8880' } } }
+      });
+      resCardEl.mount('#res-card-element');
+    }
+
+    function orderAdd(idx) {
+      const item = MENU_ITEMS_FLAT[idx];
+      if (!orderCart[idx]) orderCart[idx] = { name: item.name, cents: item.cents, qty: 0 };
+      orderCart[idx].qty += 1;
+      document.getElementById('oqty-' + idx).textContent = orderCart[idx].qty;
+      updateOrderTotal();
+    }
+
+    function orderRemove(idx) {
+      if (!orderCart[idx] || orderCart[idx].qty === 0) return;
+      orderCart[idx].qty -= 1;
+      if (orderCart[idx].qty === 0) delete orderCart[idx];
+      document.getElementById('oqty-' + idx).textContent = '0';
+      updateOrderTotal();
+    }
+
+    function updateOrderTotal() {
+      let foodCents = 0;
+      for (const entry of Object.values(orderCart)) {
+        foodCents += entry.cents * entry.qty;
       }
+      const partySize = reserveData.size || 1;
+      const includeEvent = document.getElementById('res-include-event')?.checked;
+      const eventCents = includeEvent ? 12000 * partySize : 0;
+      const total = foodCents + eventCents;
+      document.getElementById('order-total').textContent = fmtTablePrice(total);
+      document.getElementById('res-pay-btn').textContent = `pay ${fmtTablePrice(total)} →`;
     }
 
-    async function runReserveRecommend(e) {
-      e.preventDefault();
-      const mood = document.getElementById('res-mood').value.trim();
-      if (!mood) { document.getElementById('res-mood').focus(); return; }
-      const area = document.getElementById('res-rec-area');
-      area.innerHTML = '<div class="result-state">thinking…</div>';
+    async function submitTableReservation() {
+      const email = document.getElementById('res-email').value.trim();
+      const includeEvent = document.getElementById('res-include-event')?.checked;
+      const errEl = document.getElementById('res-error');
+      const btn = document.getElementById('res-pay-btn');
+
+      // Build order summary
+      let foodCents = 0;
+      const orderItems = [];
+      for (const [idx, entry] of Object.entries(orderCart)) {
+        foodCents += entry.cents * entry.qty;
+        orderItems.push({ name: entry.name, qty: entry.qty, cents: entry.cents });
+      }
+      const partySize = reserveData.size || 1;
+      const eventCents = includeEvent ? 12000 * partySize : 0;
+      const totalCents = foodCents + eventCents;
+
+      if (!email) { errEl.textContent = 'email required.'; errEl.style.display = 'block'; return; }
+      if (totalCents < 50) { errEl.textContent = 'add at least one item.'; errEl.style.display = 'block'; return; }
+
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = '—';
+
       try {
-        const res = await fetch('/api/kommune/recommend', {
+        // Get standing event ID if opted in
+        let eventId = null;
+        if (includeEvent) {
+          const evRes = await fetch('/api/table/standing?slug=kommune', { method: 'POST' });
+          if (!evRes.ok) throw new Error('could not reserve event spot');
+          const evData = await evRes.json();
+          eventId = evData.id;
+        }
+
+        // Create payment intent
+        const coRes = await fetch('/api/kommune/reservations/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ people: reserveData.size, mood }),
+          body: JSON.stringify({ total_cents: totalCents }),
         });
-        const data = await res.json();
-        const rec = data.recommendation ?? '';
-        _pendingRec = rec;
-        area.innerHTML = `
-          <div class="reserve-preorder">
-            <div class="reserve-preorder-label">suggested order</div>
-            ${esc(rec)}
-          </div>
-          <div style="display:flex;gap:1.5rem;margin-top:0.5rem;align-items:baseline;">
-            <button class="apply-submit" type="button" onclick="submitReservation(_pendingRec)">book with this →</button>
-            <button class="reserve-skip" type="button" onclick="runReserveRecommend({preventDefault:()=>{}})">again</button>
-            <button class="reserve-skip" type="button" onclick="submitReservation(null)">skip</button>
-          </div>
-        `;
-      } catch {
-        area.innerHTML = '<div class="result-state">unavailable — <button class="reserve-skip" onclick="submitReservation(null)">skip to booking</button></div>';
-      }
-    }
+        const coData = await coRes.json();
+        if (!coRes.ok) throw new Error(coData.error ?? 'checkout failed');
 
-    async function submitReservation(preorder) {
-      const canvas = document.getElementById('results-canvas');
-      canvas.innerHTML = '<div class="result-state">booking…</div>';
-      try {
+        // Confirm card payment
+        const result = await tableStripe.confirmCardPayment(coData.client_secret, {
+          payment_method: { card: resCardEl, billing_details: { name: reserveData.name, email } }
+        });
+        if (result.error) throw new Error(result.error.message);
+
+        // Save reservation
         await fetch('/api/kommune/reservations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...reserveData, preorder: preorder ?? '' }),
+          body: JSON.stringify({
+            name: reserveData.name,
+            size: reserveData.size,
+            date: reserveData.date,
+            time: reserveData.time,
+            note: reserveData.note || '',
+            email,
+            order_json: orderItems,
+            total_cents: totalCents,
+            stripe_payment_intent_id: result.paymentIntent.id,
+            event_id: eventId,
+          }),
         });
-        canvas.innerHTML = `<div class="result-state">booked. see you ${esc(reserveData.date)} at ${esc(reserveData.time)}.</div>`;
-      } catch {
-        canvas.innerHTML = '<div class="result-state">something went wrong — email hello@kommunesnackbar.ca</div>';
+
+        const canvas = document.getElementById('results-canvas');
+        canvas.innerHTML = `<div class="result-state">booked.<br/><span style="font-size:0.65rem;color:var(--muted);margin-top:0.3rem;display:block;">confirmation sent to ${esc(email)}. see you ${esc(reserveData.date)} at ${esc(reserveData.time)}.</span></div>`;
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = `pay ${fmtTablePrice(totalCents)} →`;
+        errEl.textContent = err.message ?? 'payment failed.';
+        errEl.style.display = 'block';
       }
     }
 
@@ -1196,17 +1412,22 @@
           `).join('')}
           <div class="result-state" style="font-size:0.62rem;margin-top:1.5rem;margin-bottom:0.5rem;">reservations</div>
           ${!reservations.length ? '<div class="result-state" style="font-size:0.65rem;">none yet</div>' : ''}
-          ${reservations.map(r => `
+          ${reservations.map(r => {
+            const orderItems = Array.isArray(r.order_json) ? r.order_json : (r.order_json ? JSON.parse(r.order_json) : []);
+            const orderSummary = orderItems.map(item => `${item.qty}× ${esc(item.name)}`).join(', ');
+            const totalStr = r.total_cents > 0 ? fmtTablePrice(r.total_cents) : '';
+            return `
             <div class="result">
               <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;">
                 <div class="result-title">${esc(r.name)}</div>
-                <div class="result-url" style="flex-shrink:0;">${esc(r.date)} ${esc(r.time)} · ${esc(String(r.size))} guests</div>
+                <div class="result-url" style="flex-shrink:0;">${esc(r.date)} ${esc(r.time)} · ${esc(String(r.size))} guests${totalStr ? ' · ' + totalStr : ''}</div>
               </div>
               ${r.note ? `<div class="result-desc" style="margin-top:0.15rem;">${esc(r.note)}</div>` : ''}
-              ${r.preorder ? `
+              ${r.email ? `<div class="result-url" style="margin-top:0.1rem;">${esc(r.email)}</div>` : ''}
+              ${orderSummary ? `
                 <div style="margin-top:0.4rem;padding-top:0.4rem;border-top:1px solid var(--border);">
-                  <div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.2rem;letter-spacing:0.04em;">pre-order</div>
-                  <div style="font-size:0.7rem;color:var(--text);white-space:pre-wrap;line-height:1.7;">${esc(r.preorder)}</div>
+                  <div style="font-size:0.6rem;color:var(--muted);margin-bottom:0.2rem;letter-spacing:0.04em;">order${r.event_id ? ' + event' : ''}</div>
+                  <div style="font-size:0.7rem;color:var(--text);line-height:1.7;">${orderSummary}</div>
                 </div>
               ` : ''}
               <div style="margin-top:0.4rem;">
@@ -1215,7 +1436,7 @@
                 <button class="apply-submit" type="button" onclick="ownerUpdateReservation(${r.id}, 'done', this)" style="margin-left:0.75rem;${r.status==='done'?'color:var(--text);':'color:var(--muted);'}">done</button>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         `;
       } catch { canvas.innerHTML = '<div class="result-state">unavailable right now</div>'; }
     }

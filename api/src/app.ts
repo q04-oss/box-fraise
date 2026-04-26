@@ -92,6 +92,7 @@ import proposalsRouter from './routes/proposals';
 import artRouter from './routes/art';
 import artAdminRouter from './routes/art-admin';
 import { logger } from './lib/logger';
+import { stripe } from './lib/stripe';
 import { db } from './db';
 import { editorialPieces, users, notifications, memberships, batches, varieties as varietiesTable } from './db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -651,18 +652,39 @@ app.post('/api/kommune/suggest', async (req: any, res: any) => {
   res.json({ ok: true });
 });
 
+app.post('/api/kommune/reservations/checkout', async (req: any, res: any) => {
+  const totalCents = parseInt(req.body?.total_cents) || 0;
+  if (totalCents < 50) return res.status(400).json({ error: 'invalid amount' });
+  const intent = await stripe.paymentIntents.create({
+    amount: totalCents,
+    currency: 'cad',
+    automatic_payment_methods: { enabled: true },
+  });
+  res.json({ client_secret: intent.client_secret });
+});
+
 app.post('/api/kommune/reservations', async (req: any, res: any) => {
   const name = String(req.body?.name ?? '').trim().slice(0, 200);
   const size = parseInt(req.body?.size) || 0;
   const date = String(req.body?.date ?? '').trim().slice(0, 20);
   const time = String(req.body?.time ?? '').trim().slice(0, 10);
   const note = String(req.body?.note ?? '').trim().slice(0, 500);
-  const preorder = String(req.body?.preorder ?? '').trim().slice(0, 2000);
+  const email = String(req.body?.email ?? '').trim().slice(0, 200);
+  const totalCents = parseInt(req.body?.total_cents) || 0;
+  const stripePaymentIntentId = String(req.body?.stripe_payment_intent_id ?? '').trim().slice(0, 200);
+  const orderJson = req.body?.order_json ?? null;
+  const eventId = req.body?.event_id ? parseInt(req.body.event_id) : null;
   if (!name || !size || !date || !time) return res.status(400).json({ error: 'invalid' });
   await db.execute(sql`
-    INSERT INTO kommune_reservations (name, size, date, time, note, preorder)
-    VALUES (${name}, ${size}, ${date}, ${time}, ${note}, ${preorder})
+    INSERT INTO kommune_reservations (name, size, date, time, note, email, total_cents, stripe_payment_intent_id, order_json, event_id)
+    VALUES (${name}, ${size}, ${date}, ${time}, ${note}, ${email}, ${totalCents},
+            ${stripePaymentIntentId || null}, ${orderJson ? JSON.stringify(orderJson) : null}, ${eventId})
   `);
+  if (eventId) {
+    await db.execute(sql`
+      UPDATE table_events SET seats_taken = seats_taken + ${size} WHERE id = ${eventId}
+    `);
+  }
   res.json({ ok: true });
 });
 
@@ -670,7 +692,7 @@ app.get('/api/kommune/reservations', async (req: any, res: any) => {
   const password = String(req.query?.password ?? '');
   if (password !== process.env.KOMMUNE_OWNER_PASSWORD) return res.status(401).json({ error: 'unauthorized' });
   const rows = await db.execute(sql`
-    SELECT id, name, size, date, time, note, preorder, status, created_at
+    SELECT id, name, size, date, time, note, email, total_cents, order_json, event_id, stripe_payment_intent_id, status, created_at
     FROM kommune_reservations ORDER BY date ASC, time ASC
   `);
   res.json({ reservations: (rows as any).rows ?? rows });
@@ -696,6 +718,16 @@ app.get('/table/admin', (_req, res) => {
 
 app.get('/table/abstract', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/table-abstract.html'));
+});
+
+app.get('/table/widget.js', (_req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.sendFile(path.join(__dirname, '../public/widget.js'));
+});
+
+app.get('/table/pool-admin', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/table-pool-admin.html'));
 });
 
 app.get('/table/:slug', (_req, res) => {
