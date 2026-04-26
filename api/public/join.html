@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>join — box fraise</title>
+  <meta name="description" content="A private network. Businesses run exclusive experiences. Members get invited." />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #FFFFFF;
+      --card:   #F7F5F2;
+      --text:   #1C1C1E;
+      --muted:  #8E8E93;
+      --border: #E5E1DA;
+      --green:  #27AE60;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:     #0C0C0E;
+        --card:   #1A1A1C;
+        --text:   #F2F2F7;
+        --muted:  #8A8A8E;
+        --border: #2A2A2E;
+      }
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body { min-height: 100dvh; }
+
+    /* ── Nav ── */
+    nav {
+      padding: 1.25rem clamp(1.5rem, 6vw, 4rem);
+      border-bottom: 1px solid var(--border);
+    }
+    nav a {
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    nav a:hover { color: var(--text); }
+
+    /* ── Layout ── */
+    main {
+      max-width: 900px;
+      margin-inline: auto;
+      padding-inline: clamp(1.5rem, 6vw, 4rem);
+      padding-block: clamp(3rem, 8vw, 5rem);
+    }
+
+    /* ── Header ── */
+    .eyebrow {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+
+    .headline {
+      font-size: clamp(1rem, 2.5vw, 1.3rem);
+      font-weight: 500;
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+      max-width: 580px;
+    }
+
+    .subhead {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 520px;
+      margin-bottom: 4rem;
+    }
+
+    /* ── Two columns ── */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 4rem;
+    }
+
+    .col {
+      background: var(--bg);
+      padding: clamp(1.5rem, 4vw, 2.5rem);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .col-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .col-title {
+      font-size: 1rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .points {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      flex: 1;
+    }
+
+    .point {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .point-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      margin-top: 0.45rem;
+    }
+
+    .point-text {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .point-text strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .col-cta {
+      display: inline-block;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 9999px;
+      padding: 0.65rem 1.5rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      text-align: center;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+
+    .col-cta:hover { opacity: 0.75; }
+
+    .col-cta-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .col-cta-ghost:hover {
+      border-color: var(--text);
+      opacity: 1;
+    }
+
+    /* ── How it works ── */
+    .how {
+      margin-bottom: 4rem;
+    }
+
+    .section-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .step {
+      background: var(--bg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .step-num {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .step-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .step-body {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── Widget preview ── */
+    .widget-section {
+      margin-bottom: 4rem;
+    }
+
+    .widget-preview {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2rem;
+      background: var(--card);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .widget-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .widget-code {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .widget-note {
+      font-size: 0.7rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── Footer ── */
+    .page-footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem clamp(1.5rem, 6vw, 4rem);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .page-footer a {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+    }
+
+    .page-footer a:hover { color: var(--text); }
+
+    @media (max-width: 640px) {
+      .split { grid-template-columns: 1fr; }
+      .page-footer { flex-direction: column; gap: 0.75rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/">← box fraise</a>
+  </nav>
+
+  <main>
+
+    <div class="eyebrow">box fraise</div>
+    <h1 class="headline">a private network.<br>you don't browse. you get invited.</h1>
+    <p class="subhead">
+      businesses run exclusive experiences and select their guests by name.
+      members hold credits and build standing. nothing is public.
+      nothing is posted. the invitation is the product.
+    </p>
+
+    <!-- ── Member / Business split ── -->
+    <div class="split" id="business">
+      <div class="col">
+        <div class="col-label">for members</div>
+        <div class="col-title">hold a credit.<br>get considered.</div>
+        <div class="points">
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>one credit, CA$120.</strong> no subscription. no expiry. returned automatically if an event doesn't go ahead.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>businesses find you.</strong> holding a credit puts you in the pool. businesses browse the member list and send invitations to people they want in the room.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>standing grows over time.</strong> every event you attend, every invitation you respond to — your standing on the network increases. members can see each other's standing.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>accept or decline.</strong> when an invitation arrives, you decide. accepting spends one credit. declining returns it if you'd already accepted.</div>
+          </div>
+        </div>
+        <a href="https://testflight.apple.com/join/zJG1Wc5Y" class="col-cta">get the app →</a>
+      </div>
+
+      <div class="col">
+        <div class="col-label">for businesses</div>
+        <div class="col-title">curate your room.<br>run the experience.</div>
+        <div class="points">
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>embed the widget.</strong> drop one line on your website. visitors express interest. you see who wants in — and whether they already hold a credit.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>you choose your guests.</strong> browse the interest list and the full member pool. filter by standing, credits held, events attended. send invitations to the people you want.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>no date until it's real.</strong> invitations go out without a date. once enough people accept, you confirm the time. members are notified automatically.</div>
+          </div>
+          <div class="point">
+            <div class="point-dot"></div>
+            <div class="point-text"><strong>demand pooling.</strong> you set a minimum. if enough people accept, the event happens. if not, everyone's credit is returned. no wasted effort.</div>
+          </div>
+        </div>
+        <a href="/fraise-business.html" class="col-cta col-cta-ghost">business dashboard →</a>
+      </div>
+    </div>
+
+    <!-- ── How it works ── -->
+    <div class="how">
+      <div class="section-label">how it works</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <div class="step-title">business creates an event</div>
+          <div class="step-body">title, description, seat range. no date. the experience is the draw, not the calendar slot.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <div class="step-title">invitations go out</div>
+          <div class="step-body">business selects members from their interest list and the wider pool. selected members receive a push notification.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <div class="step-title">members respond</div>
+          <div class="step-body">accept spends one credit. decline costs nothing. the business watches responses in real time.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">04</div>
+          <div class="step-title">threshold met</div>
+          <div class="step-body">once enough people accept, the business sets the date. confirmed members are notified. the room is set.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Widget embed ── -->
+    <div class="widget-section">
+      <div class="section-label">the widget</div>
+      <div class="widget-preview">
+        <div class="widget-label">embed on any website — one line.</div>
+        <div class="widget-code">&lt;div data-fraise="your-slug" data-fraise-tagline="private dinners, by invitation only."&gt;&lt;/div&gt;
+&lt;script src="https://api.fraise.box/fraise-widget.js"&gt;&lt;/script&gt;</div>
+        <div class="widget-note">
+          MIT licensed. self-contained. no dependencies. light and dark theme. visitors submit their name and email — you see them in your dashboard with a flag showing whether they already hold a credit.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="page-footer">
+    <a href="/">box fraise</a>
+    <div style="display:flex;gap:1.5rem;">
+      <a href="/privacy">privacy</a>
+      <a href="/paper">paper</a>
+    </div>
+  </footer>
+
+</body>
+</html>
