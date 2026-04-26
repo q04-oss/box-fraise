@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { fetchMembersDirectory, FraiseMemberPublic } from '../../lib/api';
 import { PanelHeader, Card } from '../ui';
@@ -13,6 +14,7 @@ function memberSince(createdAt: string): string {
 }
 
 export default function MembersPanel() {
+  const { member } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
   const [members, setMembers] = useState<FraiseMemberPublic[]>([]);
@@ -43,7 +45,9 @@ export default function MembersPanel() {
     >
       <PanelHeader title="members" />
 
-      {loading ? null : members.length === 0 ? (
+      {loading ? null : !member ? (
+        <Text style={[styles.empty, { color: c.muted }]}>sign in to see the member directory.</Text>
+      ) : members.length === 0 ? (
         <Text style={[styles.empty, { color: c.muted }]}>no members yet.</Text>
       ) : (
         <View style={styles.list}>

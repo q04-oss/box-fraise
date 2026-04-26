@@ -149,8 +149,8 @@ router.get('/members/me', requireMember, async (req: any, res: any) => {
   res.json(((rows as any).rows ?? rows)[0]);
 });
 
-// GET /api/fraise/members/directory — public leaderboard
-router.get('/members/directory', async (req: any, res: any) => {
+// GET /api/fraise/members/directory — members-only leaderboard
+router.get('/members/directory', requireMember, async (req: any, res: any) => {
   try {
     const rows = await db.execute(sql`
       SELECT

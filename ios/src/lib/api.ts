@@ -137,7 +137,9 @@ export async function creditsConfirm(paymentIntentId: string): Promise<{ credit_
 // ─── Members directory ────────────────────────────────────────────────────────
 
 export async function fetchMembersDirectory(): Promise<FraiseMemberPublic[]> {
-  const data = await apiFetch('/members/directory');
+  const headers = await authHeaders();
+  if (!headers['x-member-token']) return [];
+  const data = await apiFetch('/members/directory', { headers });
   return data.members ?? [];
 }
 
