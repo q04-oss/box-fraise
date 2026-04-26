@@ -48,9 +48,6 @@
       align-items: baseline;
       margin-bottom: 1.75rem;
     }
-    .stage-name {
-      font-size: 0.9rem; font-weight: 500; color: var(--text);
-    }
     .menu-btn {
       font-family: 'DM Mono', monospace;
       font-size: 0.65rem; color: var(--text);
@@ -205,6 +202,10 @@
     .foot-bottom {
       display: flex; justify-content: space-between; align-items: baseline;
     }
+    .foot-name {
+      font-size: 1.5rem; font-weight: 500; color: var(--text);
+    }
+    .foot-name span { font-weight: 400; color: var(--muted); }
     .foot-treaty { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.04em; }
 
     /* ── WiFi btn ── */
@@ -379,7 +380,6 @@
 
   <div class="stage">
     <div class="stage-bar">
-      <div class="stage-name">Kommune</div>
       <button class="menu-btn" id="menu-btn" onclick="toggleMenu()">menu</button>
     </div>
 
@@ -563,6 +563,7 @@
       </div>
     </div>
     <div class="foot-bottom">
+      <a href="/kommune" style="text-decoration:none;"><div class="foot-name">Kommune <span>($0 oat milk.)</span></div></a>
       <div class="foot-treaty">Treaty 6 · Wîhkwêntôwin</div>
     </div>
   </div>
