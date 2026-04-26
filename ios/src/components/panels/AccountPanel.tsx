@@ -12,6 +12,7 @@ import {
   memberLogin, memberSignup, setMemberToken, deleteMemberToken,
   fetchMyClaims,
 } from '../../lib/api';
+import { PanelHeader, Card, PrimaryButton } from '../ui';
 
 const SHEET_NAME = 'main-sheet';
 
@@ -87,17 +88,12 @@ export default function AccountPanel() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <Text style={[styles.eyebrow, { color: c.muted }]}>fraise</Text>
-        <Text style={[styles.title, { color: c.text }]}>
-          {member ? member.name : 'account'}
-        </Text>
-      </View>
+      <PanelHeader title={member ? member.name : 'account'} />
 
       {member ? (
         // ── Signed in ──────────────────────────────────────────────────────────
         <View style={styles.body}>
-          <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Card style={styles.card}>
             <View style={styles.cardRow}>
               <Text style={[styles.cardLabel, { color: c.muted }]}>email</Text>
               <Text style={[styles.cardValue, { color: c.text }]}>{member.email}</Text>
@@ -112,18 +108,15 @@ export default function AccountPanel() {
               <Text style={[styles.cardLabel, { color: c.muted }]}>credits purchased</Text>
               <Text style={[styles.cardValue, { color: c.text }]}>{member.credits_purchased}</Text>
             </View>
-          </View>
+          </Card>
 
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: c.text }]}
+          <PrimaryButton
+            label="buy credits →"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               TrueSheet.resize(SHEET_NAME, 2);
             }}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.btnText, { color: c.ctaText }]}>buy credits →</Text>
-          </TouchableOpacity>
+          />
 
           <TouchableOpacity
             style={[styles.btnGhost, { borderColor: c.border }]}
@@ -201,19 +194,11 @@ export default function AccountPanel() {
               <Text style={[styles.errText, { color: '#C0392B' }]}>{error}</Text>
             ) : null}
 
-            <TouchableOpacity
-              style={[styles.btn, { backgroundColor: c.text, marginTop: SPACING.sm }]}
+            <PrimaryButton
+              label={view === 'login' ? 'sign in →' : 'create account →'}
               onPress={view === 'login' ? handleLogin : handleSignup}
-              activeOpacity={0.8}
-              disabled={loading}
-            >
-              {loading
-                ? <ActivityIndicator color={c.ctaText} />
-                : <Text style={[styles.btnText, { color: c.ctaText }]}>
-                    {view === 'login' ? 'sign in →' : 'create account →'}
-                  </Text>
-              }
-            </TouchableOpacity>
+              loading={loading}
+            />
           </View>
         </View>
       )}
@@ -232,21 +217,8 @@ function Field({ label, children, c }: { label: string; children: React.ReactNod
 
 const styles = StyleSheet.create({
   container: { paddingTop: SPACING.md },
-  header: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl, gap: 4 },
-  eyebrow: {
-    fontSize: 10,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  title: { fontSize: 20, fontFamily: fonts.dmMono, fontWeight: '500' },
   body: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
-  card: {
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-    marginBottom: SPACING.xs,
-  },
+  card: { marginBottom: SPACING.xs },
   cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -256,12 +228,6 @@ const styles = StyleSheet.create({
   cardRowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
   cardLabel: { fontSize: 12, fontFamily: fonts.dmMono },
   cardValue: { fontSize: 12, fontFamily: fonts.dmMono },
-  btn: {
-    borderRadius: 9999,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 2, textTransform: 'uppercase' },
   btnGhost: {
     borderRadius: 9999,
     paddingVertical: 12,
@@ -289,7 +255,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    fontFamily: fonts.dmMono,
     fontSize: 14,
     borderWidth: 1,
     borderRadius: 8,

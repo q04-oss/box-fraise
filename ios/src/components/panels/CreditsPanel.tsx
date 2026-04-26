@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
   StyleSheet, ActivityIndicator,
@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { creditsCheckout, creditsConfirm, getMemberToken } from '../../lib/api';
+import { PanelHeader, Card, MetaRow, PrimaryButton } from '../ui';
 
 const CREDIT_PRICE_CENTS = 12000; // CA$120
 
@@ -37,32 +38,24 @@ export default function CreditsPanel() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Create payment intent
       const { client_secret, amount_cents } = await creditsCheckout(qty);
 
-      // 2. Init payment sheet
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: client_secret,
         merchantDisplayName: 'fraise',
-        applePay: {
-          merchantCountryCode: 'CA',
-        },
+        applePay: { merchantCountryCode: 'CA' },
         style: 'alwaysLight',
         primaryButtonLabel: `Pay ${totalDisplay}`,
       });
       if (initError) throw new Error(initError.message);
 
-      // 3. Present payment sheet
       const { error: presentError } = await presentPaymentSheet();
       if (presentError) {
         if (presentError.code === 'Canceled') { setLoading(false); return; }
         throw new Error(presentError.message);
       }
 
-      // 4. Extract payment intent ID from client_secret
       const paymentIntentId = client_secret.split('_secret_')[0];
-
-      // 5. Confirm on server
       const result = await creditsConfirm(paymentIntentId);
       setMember({ ...member, credit_balance: result.credit_balance });
       setNewBalance(result.credit_balance);
@@ -88,35 +81,28 @@ export default function CreditsPanel() {
       contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} activeOpacity={0.6} style={styles.back}>
-          <Text style={[styles.backText, { color: c.muted }]}>← back</Text>
-        </TouchableOpacity>
-        <Text style={[styles.eyebrow, { color: c.muted }]}>fraise</Text>
-        <Text style={[styles.title, { color: c.text }]}>buy credits</Text>
-        <Text style={[styles.subtitle, { color: c.muted }]}>
-          CA$120 per credit · no expiry
-        </Text>
-      </View>
+      <PanelHeader
+        title="buy credits"
+        subtitle="CA$120 per credit · no expiry"
+        back
+        onBack={goBack}
+      />
 
       {done ? (
-        <View style={[styles.doneCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        <Card style={styles.doneCard}>
           <Text style={[styles.doneTitle, { color: c.text }]}>credits added.</Text>
           {newBalance !== null ? (
             <Text style={[styles.doneSub, { color: c.muted }]}>
               balance: {newBalance} credit{newBalance !== 1 ? 's' : ''}
             </Text>
           ) : null}
-        </View>
+        </Card>
       ) : (
         <View style={styles.body}>
           {/* Current balance */}
-          <View style={[styles.balanceCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <Text style={[styles.balanceLabel, { color: c.muted }]}>current balance</Text>
-            <Text style={[styles.balanceValue, { color: c.text }]}>
-              {member.credit_balance} credit{member.credit_balance !== 1 ? 's' : ''}
-            </Text>
-          </View>
+          <Card>
+            <MetaRow label="current balance" value={`${member.credit_balance} credit${member.credit_balance !== 1 ? 's' : ''}`} last />
+          </Card>
 
           {/* Quantity */}
           <View style={styles.qtyRow}>
@@ -152,19 +138,11 @@ export default function CreditsPanel() {
             <Text style={[styles.errText, { color: '#C0392B' }]}>{error}</Text>
           ) : null}
 
-          <TouchableOpacity
-            style={[styles.payBtn, { backgroundColor: c.text }]}
+          <PrimaryButton
+            label={`pay ${totalDisplay} →`}
             onPress={handleBuy}
-            activeOpacity={0.8}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color={c.ctaText} />
-              : <Text style={[styles.payBtnText, { color: c.ctaText }]}>
-                  pay {totalDisplay} →
-                </Text>
-            }
-          </TouchableOpacity>
+            loading={loading}
+          />
 
           <Text style={[styles.note, { color: c.muted }]}>
             credits never expire. if an event doesn't go ahead, your credit is returned automatically.
@@ -178,29 +156,10 @@ export default function CreditsPanel() {
 const styles = StyleSheet.create({
   container: { paddingTop: SPACING.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  back: { marginBottom: SPACING.md },
-  backText: { fontSize: 12, fontFamily: fonts.dmMono },
-  header: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
-  eyebrow: {
-    fontSize: 10,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  title: { fontSize: 20, fontFamily: fonts.dmMono, fontWeight: '500' },
-  subtitle: { fontSize: 12, fontFamily: fonts.dmMono, marginTop: 4 },
   body: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
-  balanceCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  balanceLabel: { fontSize: 12, fontFamily: fonts.dmMono },
-  balanceValue: { fontSize: 14, fontFamily: fonts.dmMono, fontWeight: '500' },
+  doneCard: { marginHorizontal: SPACING.lg, gap: 6, padding: SPACING.lg },
+  doneTitle: { fontSize: 16, fontFamily: fonts.dmMono, fontWeight: '500' },
+  doneSub: { fontSize: 12, fontFamily: fonts.dmMono },
   qtyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,21 +188,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 13, fontFamily: fonts.dmMono },
   totalValue: { fontSize: 13, fontFamily: fonts.dmMono, fontWeight: '500' },
   errText: { fontSize: 12, fontFamily: fonts.dmMono },
-  payBtn: {
-    borderRadius: 9999,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  payBtnText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 2, textTransform: 'uppercase' },
   note: { fontSize: 11, fontFamily: fonts.dmMono, lineHeight: 17 },
-  doneCard: {
-    marginHorizontal: SPACING.lg,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: SPACING.lg,
-    gap: 6,
-  },
-  doneTitle: { fontSize: 16, fontFamily: fonts.dmMono, fontWeight: '500' },
-  doneSub: { fontSize: 12, fontFamily: fonts.dmMono },
   muted: { fontSize: 13, fontFamily: fonts.dmMono },
 });

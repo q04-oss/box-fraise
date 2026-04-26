@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel, FraiseClaim } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { declineClaim, fetchMyClaims } from '../../lib/api';
+import { PanelHeader, Card, PillBadge } from '../ui';
 
 function statusDisplay(claim: FraiseClaim): { label: string; color: string } {
   if (claim.event_status === 'confirmed')     return { label: 'confirmed', color: '#27AE60' };
@@ -66,15 +67,15 @@ export default function MyClaimsPanel() {
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.muted} />
       }
     >
-      <View style={styles.header}>
-        <Text style={[styles.eyebrow, { color: c.muted }]}>fraise</Text>
-        <Text style={[styles.title, { color: c.text }]}>your claims</Text>
+      <PanelHeader
+        title="your claims"
+      >
         {member ? (
           <Text style={[styles.balance, { color: c.muted }]}>
             {member.credit_balance} credit{member.credit_balance !== 1 ? 's' : ''} remaining
           </Text>
         ) : null}
-      </View>
+      </PanelHeader>
 
       {claims.length === 0 ? (
         <Text style={[styles.empty, { color: c.muted }]}>
@@ -85,9 +86,9 @@ export default function MyClaimsPanel() {
           const { label, color } = statusDisplay(claim);
           const isReleasing = decliningId === claim.event_id;
           return (
-            <View
+            <Card
               key={claim.id}
-              style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}
+              style={styles.card}
             >
               <View style={styles.cardTop}>
                 <View style={styles.cardLeft}>
@@ -101,9 +102,7 @@ export default function MyClaimsPanel() {
                     {claim.event_date ? `date: ${claim.event_date}` : 'date tbd'}
                   </Text>
                 </View>
-                <View style={[styles.statusBadge, { borderColor: color }]}>
-                  <Text style={[styles.statusText, { color }]}>{label}</Text>
-                </View>
+                <PillBadge label={label} color={color} />
               </View>
               <View style={[styles.cardFooter, { borderTopColor: c.border }]}>
                 <TouchableOpacity
@@ -116,7 +115,7 @@ export default function MyClaimsPanel() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Card>
           );
         })
       )}
@@ -126,14 +125,6 @@ export default function MyClaimsPanel() {
 
 const styles = StyleSheet.create({
   container: { paddingTop: SPACING.md },
-  header: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl, gap: 4 },
-  eyebrow: {
-    fontSize: 10,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  title: { fontSize: 20, fontFamily: fonts.dmMono, fontWeight: '500' },
   balance: { fontSize: 12, fontFamily: fonts.dmMono, marginTop: 2 },
   empty: {
     fontSize: 13,
@@ -142,13 +133,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: '#8E8E93',
   },
-  card: {
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
+  card: { marginHorizontal: SPACING.lg, marginBottom: SPACING.md },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -165,20 +150,6 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 14, fontFamily: fonts.dmMono, fontWeight: '500' },
   cardDate: { fontSize: 11, fontFamily: fonts.dmMono },
-  statusBadge: {
-    borderWidth: 1,
-    borderRadius: 9999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    flexShrink: 0,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 9,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   cardFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: SPACING.sm,

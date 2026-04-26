@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel, FraiseEvent } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { fetchEvents, fetchMyClaims, getMemberToken } from '../../lib/api';
+import { PanelHeader, PillBadge, ProgressBar } from '../ui';
 
 const SHEET_NAME = 'main-sheet';
 
@@ -18,11 +19,18 @@ function statusLabel(ev: FraiseEvent): string {
   return 'open';
 }
 
+function statusColor(ev: FraiseEvent, c: any): string {
+  if (ev.status === 'confirmed')     return c.text;
+  if (ev.status === 'threshold_met') return '#27AE60';
+  return c.border;
+}
+
 function EventRow({ ev, isClaimed, onPress }: { ev: FraiseEvent; isClaimed: boolean; onPress: () => void }) {
   const c = useColors();
   const pct = Math.min(100, Math.round((ev.seats_claimed / ev.min_seats) * 100));
   const seatsLeft = ev.max_seats - ev.seats_claimed;
   const isReady = ev.status !== 'open';
+  const badgeColor = isClaimed ? c.text : statusColor(ev, c);
 
   return (
     <TouchableOpacity
@@ -42,29 +50,17 @@ function EventRow({ ev, isClaimed, onPress }: { ev: FraiseEvent; isClaimed: bool
             {ev.description}
           </Text>
         ) : null}
-        <View style={[styles.progressBar, { backgroundColor: c.border }]}>
-          <View style={[
-            styles.progressFill,
-            { width: `${pct}%` as any, backgroundColor: isReady ? '#27AE60' : c.text },
-          ]} />
-        </View>
+        <ProgressBar pct={pct} ready={isReady} />
       </View>
       <View style={styles.rowRight}>
         <Text style={[styles.rowPrice, { color: c.text }]}>1 credit</Text>
         <Text style={[styles.rowSeats, { color: seatsLeft <= 3 ? '#C0392B' : c.muted }]}>
           {seatsLeft > 0 ? `${seatsLeft} left` : 'full'}
         </Text>
-        <View style={[
-          styles.badge,
-          { borderColor: isReady ? (ev.status === 'confirmed' ? c.text : '#27AE60') : c.border },
-        ]}>
-          <Text style={[
-            styles.badgeText,
-            { color: isClaimed ? c.text : isReady ? (ev.status === 'confirmed' ? c.text : '#27AE60') : c.muted },
-          ]}>
-            {isClaimed ? 'claimed' : statusLabel(ev)}
-          </Text>
-        </View>
+        <PillBadge
+          label={isClaimed ? 'claimed' : statusLabel(ev)}
+          color={badgeColor}
+        />
       </View>
     </TouchableOpacity>
   );
@@ -106,12 +102,7 @@ export default function HomePanel() {
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.muted} />
       }
     >
-      <View style={styles.header}>
-        <Text style={[styles.eyebrow, { color: c.muted }]}>fraise</Text>
-        <Text style={[styles.headline, { color: c.text }]}>
-          experiences that only happen{'\n'}when enough people want them.
-        </Text>
-      </View>
+      <PanelHeader title={'experiences that only happen\nwhen enough people want them.'} />
 
       {events.length === 0 ? (
         <Text style={[styles.empty, { color: c.muted }]}>no open events right now.</Text>
@@ -150,19 +141,6 @@ export default function HomePanel() {
 
 const styles = StyleSheet.create({
   container: { paddingTop: SPACING.md },
-  header: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
-  eyebrow: {
-    fontSize: 10,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  headline: {
-    fontSize: 15,
-    fontFamily: fonts.dmMono,
-    lineHeight: 22,
-  },
   row: {
     flexDirection: 'row',
     paddingVertical: SPACING.lg,
@@ -180,13 +158,6 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontSize: 14, fontFamily: fonts.dmMono, fontWeight: '500' },
   rowDesc: { fontSize: 11, fontFamily: fonts.dmMono, lineHeight: 16 },
-  progressBar: {
-    height: 3,
-    borderRadius: 9999,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  progressFill: { height: '100%', borderRadius: 9999 },
   rowRight: {
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
@@ -196,18 +167,6 @@ const styles = StyleSheet.create({
   },
   rowPrice: { fontSize: 13, fontFamily: fonts.dmMono },
   rowSeats: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.5 },
-  badge: {
-    borderWidth: 1,
-    borderRadius: 9999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 9,
-    fontFamily: fonts.dmMono,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   empty: {
     fontSize: 13,
     fontFamily: fonts.dmMono,

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel, FraiseEvent } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { claimEvent, getMemberToken } from '../../lib/api';
+import { Card, MetaRow, ProgressBar, PrimaryButton } from '../ui';
 
 const SHEET_NAME = 'main-sheet';
 
@@ -64,7 +65,6 @@ export default function EventDetailPanel() {
     try {
       const result = await claimEvent(ev.id);
       setMember({ ...member, credit_balance: result.credit_balance });
-      // Add to claims list
       setClaims([...claims, {
         id: Date.now(),
         status: 'claimed',
@@ -81,7 +81,6 @@ export default function EventDetailPanel() {
         business_name: ev.business_name,
         business_slug: ev.business_slug,
       }]);
-      // Update event in list
       setEvents(events.map(e => e.id === ev.id
         ? { ...e, seats_claimed: result.seats_claimed }
         : e
@@ -117,26 +116,20 @@ export default function EventDetailPanel() {
       ) : null}
 
       {/* Meta card */}
-      <View style={[styles.metaCard, { backgroundColor: c.card, borderColor: c.border }]}>
-        <MetaRow label="price" value="1 credit (CA$120)" c={c} />
-        <MetaRow label="spots claimed" value={String(ev.seats_claimed)} c={c} />
-        <MetaRow label="minimum to go ahead" value={String(ev.min_seats)} c={c} />
-        <MetaRow label="maximum spots" value={String(ev.max_seats)} c={c} />
-        {ev.event_date ? <MetaRow label="date" value={ev.event_date} c={c} last /> : null}
-
-        {/* Progress */}
+      <Card style={styles.metaCard}>
+        <MetaRow label="price" value="1 credit (CA$120)" />
+        <MetaRow label="spots claimed" value={String(ev.seats_claimed)} />
+        <MetaRow label="minimum to go ahead" value={String(ev.min_seats)} />
+        <MetaRow label="maximum spots" value={String(ev.max_seats)} />
+        {ev.event_date ? <MetaRow label="date" value={ev.event_date} last /> : null}
         <View style={styles.progressWrap}>
-          <View style={[styles.progressBar, { backgroundColor: c.border }]}>
-            <View style={[
-              styles.progressFill,
-              { width: `${pct}%` as any, backgroundColor: isReady ? '#27AE60' : c.text },
-            ]} />
-          </View>
-          <Text style={[styles.progressLabel, { color: c.muted }]}>
-            {pct}% to threshold{isReady ? ' — going ahead' : ''}
-          </Text>
+          <ProgressBar
+            pct={pct}
+            ready={isReady}
+            label={`${pct}% to threshold${isReady ? ' — going ahead' : ''}`}
+          />
         </View>
-      </View>
+      </Card>
 
       {/* Status notice */}
       {ev.status === 'confirmed' && ev.event_date ? (
@@ -167,38 +160,23 @@ export default function EventDetailPanel() {
           </Text>
         </View>
       ) : isFull ? (
-        <View style={[styles.ctaBtn, { backgroundColor: c.card, borderColor: c.border }]}>
-          <Text style={[styles.ctaBtnText, { color: c.muted }]}>SOLD OUT</Text>
+        <View style={[styles.ctaArea, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={[styles.ctaText, { color: c.muted }]}>SOLD OUT</Text>
         </View>
       ) : (
-        <TouchableOpacity
-          style={[styles.ctaBtn, { backgroundColor: c.text }]}
-          onPress={handleClaim}
-          activeOpacity={0.8}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color={c.ctaText} />
-            : <Text style={[styles.ctaBtnText, { color: c.ctaText }]}>
-                claim a spot →
-              </Text>
-          }
-        </TouchableOpacity>
+        <View style={styles.ctaArea}>
+          <PrimaryButton
+            label="claim a spot →"
+            onPress={handleClaim}
+            loading={loading}
+          />
+        </View>
       )}
 
       <Text style={[styles.note, { color: c.muted }]}>
         date tbd — you'll be notified when it's set. full credit refund if it doesn't work for you.
       </Text>
     </ScrollView>
-  );
-}
-
-function MetaRow({ label, value, c, last }: { label: string; value: string; c: any; last?: boolean }) {
-  return (
-    <View style={[styles.metaRow, last ? null : styles.metaRowBorder, { borderColor: c.border }]}>
-      <Text style={[styles.metaLabel, { color: c.muted }]}>{label}</Text>
-      <Text style={[styles.metaValue, { color: c.text }]}>{value}</Text>
-    </View>
   );
 }
 
@@ -223,26 +201,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.lg,
   },
-  metaCard: {
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: 12,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-  },
-  metaRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth },
-  metaLabel: { fontSize: 11, fontFamily: fonts.dmMono },
-  metaValue: { fontSize: 11, fontFamily: fonts.dmMono },
-  progressWrap: { padding: SPACING.md, gap: 6 },
-  progressBar: { height: 3, borderRadius: 9999, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 9999 },
-  progressLabel: { fontSize: 10, fontFamily: fonts.dmMono },
+  metaCard: { marginHorizontal: SPACING.lg, marginBottom: SPACING.lg },
+  progressWrap: { padding: SPACING.md },
   notice: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
@@ -257,16 +217,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
   },
-  ctaBtn: {
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.sm,
-    borderRadius: 9999,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  ctaBtnText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 2, textTransform: 'uppercase' },
+  ctaArea: { marginHorizontal: SPACING.lg, marginBottom: SPACING.sm },
+  ctaText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 2, textTransform: 'uppercase', textAlign: 'center', paddingVertical: 14 },
   doneCard: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
