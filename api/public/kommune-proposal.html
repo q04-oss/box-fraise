@@ -771,13 +771,12 @@
       canvas.dataset.mode = 'reserve';
       reserveData = { _prefillSize: prefill.size || null, _prefillPreorder: prefill.preorder || null };
       canvas.innerHTML = '<div class="result-state">—</div>';
+      let active = [];
       try {
         const res = await fetch('/api/table/events?slug=kommune');
-        const events = await res.json();
-        const active = (events ?? []).filter(e => e.active);
-        if (active.length) { renderTableChoice(canvas, active); return; }
+        active = ((await res.json()) ?? []).filter(e => e.active);
       } catch {}
-      renderReserveStep1(canvas);
+      renderTableChoice(canvas, active);
     }
 
     async function selectTableEventById(id) {
@@ -791,23 +790,44 @@
     }
 
     function renderTableChoice(canvas, events) {
-      canvas.innerHTML = events.map(e => {
-        const seatsLeft = e.capacity - e.seats_taken;
-        const meta = e.date_tbd
-          ? (seatsLeft > 0 ? `date tbd · ${seatsLeft} left` : `date tbd · waitlist`)
-          : `${fmtTableDate(e.event_date)} · ${seatsLeft > 0 ? seatsLeft + ' left' : 'waitlist'}`;
-        return `<div class="table-option" onclick="selectTableEvent(${JSON.stringify(esc(JSON.stringify(e)))})">
-          <span class="table-option-name">${esc(e.title.toLowerCase())}</span>
-          <div class="table-option-right">
-            <span class="table-option-price">${fmtTablePrice(e.price_cents)}</span>
-            <span class="table-option-meta">${meta}</span>
-          </div>
+      // Named events — exclude the standing "next event" row (rendered separately)
+      const named = events.filter(e => e.title !== 'next event');
+
+      canvas.innerHTML =
+        `<div class="table-option" onclick="joinNextEvent()">
+          <span class="table-option-name">next event</span>
+          <span class="table-option-meta" style="color:var(--muted);">date tbd · pay to reserve</span>
+        </div>` +
+        named.map(e => {
+          const seatsLeft = e.capacity - e.seats_taken;
+          const meta = e.date_tbd
+            ? (seatsLeft > 0 ? `date tbd · ${seatsLeft} left` : `date tbd · waitlist`)
+            : `${fmtTableDate(e.event_date)} · ${seatsLeft > 0 ? seatsLeft + ' left' : 'waitlist'}`;
+          return `<div class="table-option" onclick="selectTableEvent(${JSON.stringify(esc(JSON.stringify(e)))})">
+            <span class="table-option-name">${esc(e.title.toLowerCase())}</span>
+            <div class="table-option-right">
+              <span class="table-option-price">${fmtTablePrice(e.price_cents)}</span>
+              <span class="table-option-meta">${meta}</span>
+            </div>
+          </div>`;
+        }).join('') +
+        `<div class="table-option" onclick="renderReserveStep1(document.getElementById('results-canvas'))">
+          <span class="table-option-name">just a table</span>
+          <span class="table-option-meta" style="color:var(--muted);">date · time · pre-order</span>
         </div>`;
-      }).join('') +
-      `<div class="table-option" onclick="renderReserveStep1(document.getElementById('results-canvas'))">
-        <span class="table-option-name">just a table</span>
-        <span class="table-option-meta" style="color:var(--muted);">date · time · pre-order</span>
-      </div>`;
+    }
+
+    async function joinNextEvent() {
+      const canvas = document.getElementById('results-canvas');
+      canvas.innerHTML = '<div class="result-state">—</div>';
+      try {
+        const res = await fetch('/api/table/standing?slug=kommune', { method: 'POST' });
+        if (!res.ok) throw new Error();
+        const event = await res.json();
+        selectTableEvent(esc(JSON.stringify(event)));
+      } catch {
+        canvas.innerHTML = '<div class="result-state">unavailable right now</div>';
+      }
     }
 
     function selectTableEvent(escapedJson) {

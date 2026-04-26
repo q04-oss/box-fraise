@@ -1721,7 +1721,7 @@ export const tableInstructors = pgTable('table_instructors', {
 
 export const tableEvents = pgTable('table_events', {
   id: serial('id').primaryKey(),
-  instructor_id: integer('instructor_id').notNull().references(() => tableInstructors.id),
+  instructor_id: integer('instructor_id').references(() => tableInstructors.id),
   title: text('title').notNull(),
   venue_name: text('venue_name').notNull(),
   venue_address: text('venue_address'),

@@ -378,6 +378,10 @@ export async function ensureSchema(): Promise<void> {
     ALTER TABLE table_events ADD COLUMN IF NOT EXISTS threshold INTEGER
   `);
 
+  await run('table_events.instructor_id nullable', sql`
+    ALTER TABLE table_events ALTER COLUMN instructor_id DROP NOT NULL
+  `);
+
   await run('table_booking_tokens', sql`CREATE TABLE IF NOT EXISTS table_booking_tokens (
     id SERIAL PRIMARY KEY,
     token TEXT UNIQUE NOT NULL,

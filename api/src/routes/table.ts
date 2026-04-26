@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { db } from '../db';
 import { tableEvents, tableInstructors, tableBookings, tableBookingTokens, users } from '../db/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
 import { stripe } from '../lib/stripe';
 import { sendTableBookingConfirmation, sendTableClaimEmail, sendTableDateAnnouncedWithConfirm } from '../lib/resend';
@@ -57,7 +57,7 @@ router.get('/events', async (req: any, res: any) => {
         instructor_photo_url: tableInstructors.photo_url,
       })
       .from(tableEvents)
-      .innerJoin(tableInstructors, eq(tableEvents.instructor_id, tableInstructors.id))
+      .leftJoin(tableInstructors, eq(tableEvents.instructor_id, tableInstructors.id))
       .where(where);
 
     // Attach waitlist counts
@@ -75,6 +75,34 @@ router.get('/events', async (req: any, res: any) => {
     res.json(events.map(e => ({ ...e, waitlist_count: waitlistCounts[e.id] ?? 0 })));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
+
+// POST /api/table/standing?slug= — find or create the always-on standing event for a venue
+router.post('/standing', async (req: any, res: any) => {
+  const slug = String(req.query.slug ?? '').trim();
+  if (!slug) return res.status(400).json({ error: 'slug required' });
+
+  try {
+    // Try to find an existing active standing event for this venue
+    const rows = await db.execute(sql`
+      SELECT id, title, venue_name, venue_slug, price_cents, capacity, seats_taken, date_tbd, active
+      FROM table_events
+      WHERE active = true AND venue_slug = ${slug} AND title = 'next event'
+      LIMIT 1
+    `);
+    const existing = ((rows as any).rows ?? rows)[0] as any;
+    if (existing) return res.json(existing);
+
+    // None exists — create one
+    const created = await db.execute(sql`
+      INSERT INTO table_events (title, venue_name, venue_slug, date_tbd, price_cents, capacity, event_type, active)
+      VALUES ('next event', 'Kommune', ${slug}, true, 2500, 30, 'group', true)
+      RETURNING id, title, venue_name, venue_slug, price_cents, capacity, seats_taken, date_tbd, active
+    `);
+    res.json(((created as any).rows ?? created)[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'internal' });
   }
 });
 
