@@ -23,7 +23,19 @@ export interface FraiseMember {
   email: string;
   credit_balance: number;
   credits_purchased: number;
+  standing?: number;
+  events_attended?: number;
+  response_rate?: number | null;
+  created_at?: string;
   token?: string;
+}
+
+export interface FraiseMemberPublic {
+  id: number;
+  name: string;
+  standing: number;
+  events_attended: number;
+  created_at: string;
 }
 
 export interface FraiseInvitation {
@@ -120,6 +132,13 @@ export async function creditsConfirm(paymentIntentId: string): Promise<{ credit_
     headers,
     body: JSON.stringify({ payment_intent_id: paymentIntentId }),
   });
+}
+
+// ─── Members directory ────────────────────────────────────────────────────────
+
+export async function fetchMembersDirectory(): Promise<FraiseMemberPublic[]> {
+  const data = await apiFetch('/members/directory');
+  return data.members ?? [];
 }
 
 // ─── Push token ───────────────────────────────────────────────────────────────

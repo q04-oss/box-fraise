@@ -91,6 +91,10 @@ export default function AccountPanel() {
         <View style={styles.body}>
           <Card style={styles.card}>
             <View style={styles.cardRow}>
+              <Text style={[styles.cardLabel, { color: c.muted }]}>standing</Text>
+              <Text style={[styles.cardValue, { color: c.text }]}>{member.standing ?? 0}</Text>
+            </View>
+            <View style={[styles.cardRow, styles.cardRowBorder, { borderColor: c.border }]}>
               <Text style={[styles.cardLabel, { color: c.muted }]}>email</Text>
               <Text style={[styles.cardValue, { color: c.text }]}>{member.email}</Text>
             </View>
@@ -101,9 +105,15 @@ export default function AccountPanel() {
               </Text>
             </View>
             <View style={[styles.cardRow, styles.cardRowBorder, { borderColor: c.border }]}>
-              <Text style={[styles.cardLabel, { color: c.muted }]}>credits purchased</Text>
-              <Text style={[styles.cardValue, { color: c.text }]}>{member.credits_purchased}</Text>
+              <Text style={[styles.cardLabel, { color: c.muted }]}>events attended</Text>
+              <Text style={[styles.cardValue, { color: c.text }]}>{member.events_attended ?? 0}</Text>
             </View>
+            {member.response_rate != null && (
+              <View style={[styles.cardRow, styles.cardRowBorder, { borderColor: c.border }]}>
+                <Text style={[styles.cardLabel, { color: c.muted }]}>response rate</Text>
+                <Text style={[styles.cardValue, { color: c.text }]}>{member.response_rate}%</Text>
+              </View>
+            )}
           </Card>
 
           <PrimaryButton

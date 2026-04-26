@@ -44,11 +44,12 @@ export default function AppScreen() {
     }
   }, [pendingScreen]);
 
-  const handleTabPress = (tab: 'discover' | 'claims' | 'account') => {
+  const handleTabPress = (tab: 'discover' | 'members' | 'claims' | 'account') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (tab === 'discover')    goHome();
-    else if (tab === 'claims') jumpToPanel('my-claims');
-    else                       jumpToPanel('account');
+    if (tab === 'discover')      goHome();
+    else if (tab === 'members')  jumpToPanel('members');
+    else if (tab === 'claims')   jumpToPanel('my-claims');
+    else                         jumpToPanel('account');
   };
 
   return (
@@ -60,7 +61,7 @@ export default function AppScreen() {
         styles.tabBar,
         { borderTopColor: c.border, backgroundColor: c.panelBg, paddingBottom: insets.bottom },
       ]}>
-        {(['discover', 'claims', 'account'] as const).map(tab => (
+        {(['discover', 'members', 'claims', 'account'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
             style={styles.tabItem}

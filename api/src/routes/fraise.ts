@@ -113,10 +113,70 @@ router.post('/members/login', async (req: any, res: any) => {
 // GET /api/fraise/members/me
 router.get('/members/me', requireMember, async (req: any, res: any) => {
   const rows = await db.execute(sql`
-    SELECT id, name, email, credit_balance, credits_purchased, created_at
-    FROM fraise_members WHERE id = ${req.member.id} LIMIT 1
+    SELECT
+      m.id, m.name, m.email, m.credit_balance, m.credits_purchased, m.created_at,
+      COALESCE(inv.confirmed, 0)::int AS events_attended,
+      CASE
+        WHEN COALESCE(inv.total, 0) > 0
+        THEN ROUND((COALESCE(inv.responded, 0)::numeric / inv.total::numeric) * 100)::int
+        ELSE NULL
+      END AS response_rate,
+      (
+        COALESCE(inv.confirmed, 0) * 150 +
+        m.credit_balance * 75 +
+        m.credits_purchased * 30 +
+        GREATEST(EXTRACT(EPOCH FROM (now() - m.created_at))::int / 2592000, 0) * 5 +
+        COALESCE(CASE
+          WHEN inv.total > 0
+          THEN (inv.responded::float / inv.total::float * 100)::int
+          ELSE 0
+        END, 0)
+      )::int AS standing
+    FROM fraise_members m
+    LEFT JOIN (
+      SELECT
+        member_id,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status != 'pending') AS responded,
+        COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed
+      FROM fraise_invitations
+      WHERE member_id = ${req.member.id}
+      GROUP BY member_id
+    ) inv ON inv.member_id = m.id
+    WHERE m.id = ${req.member.id}
+    LIMIT 1
   `);
   res.json(((rows as any).rows ?? rows)[0]);
+});
+
+// GET /api/fraise/members/directory — public leaderboard
+router.get('/members/directory', async (req: any, res: any) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT
+        m.id, m.name, m.created_at,
+        COALESCE(inv.confirmed, 0)::int AS events_attended,
+        (
+          COALESCE(inv.confirmed, 0) * 150 +
+          m.credit_balance * 75 +
+          m.credits_purchased * 30 +
+          GREATEST(EXTRACT(EPOCH FROM (now() - m.created_at))::int / 2592000, 0) * 5
+        )::int AS standing
+      FROM fraise_members m
+      LEFT JOIN (
+        SELECT
+          member_id,
+          COUNT(*) FILTER (WHERE status = 'confirmed') AS confirmed
+        FROM fraise_invitations
+        GROUP BY member_id
+      ) inv ON inv.member_id = m.id
+      ORDER BY standing DESC
+      LIMIT 100
+    `);
+    res.json({ members: (rows as any).rows ?? rows });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
 });
 
 // PUT /api/fraise/members/push-token

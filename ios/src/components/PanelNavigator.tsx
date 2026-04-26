@@ -7,6 +7,7 @@ import InvitationDetailPanel from './panels/InvitationDetailPanel';
 import MyClaimsPanel from './panels/MyClaimsPanel';
 import AccountPanel from './panels/AccountPanel';
 import CreditsPanel from './panels/CreditsPanel';
+import MembersPanel from './panels/MembersPanel';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
   home:                HomePanel,
@@ -14,6 +15,7 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'my-claims':         MyClaimsPanel,
   account:             AccountPanel,
   credits:             CreditsPanel,
+  members:             MembersPanel,
 };
 
 export default function PanelNavigator() {
