@@ -4,7 +4,10 @@ import { sql } from 'drizzle-orm';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import appleSignin from 'apple-signin-auth';
+import Anthropic from '@anthropic-ai/sdk';
 import { stripe } from '../lib/stripe';
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 import {
   sendFraiseWelcome,
   sendFraiseCreditsAdded,
@@ -593,6 +596,37 @@ router.post('/events', requireBusiness, async (req: any, res: any) => {
       RETURNING id, title, status, created_at
     `);
     res.json(((rows as any).rows ?? rows)[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
+// POST /api/fraise/businesses/assist — AI copywriting for event title + description
+router.post('/businesses/assist', requireBusiness, async (req: any, res: any) => {
+  const title = String(req.body?.title ?? '').trim().slice(0, 200);
+  const draft = String(req.body?.description ?? '').trim().slice(0, 500);
+  if (!title) return res.status(400).json({ error: 'title required' });
+  try {
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: `You write event copy for box fraise — an invitation-only platform where businesses run exclusive experiences for vetted members. The tone is understated, specific, and confident. No marketing language, no exclamation marks, no adjectives like "amazing" or "unique". Short sentences. Write in lowercase.
+
+Business: ${req.business.name}
+Event title: ${title}${draft ? `\nDraft description: ${draft}` : ''}
+
+Return a JSON object with two fields:
+- "title": a polished version of the event title (max 60 chars, lowercase)
+- "description": 1-2 sentences describing the experience (max 120 chars, lowercase, no period at end optional)
+
+Return only the JSON object, nothing else.`,
+      }],
+    });
+    const text = (msg.content[0] as any).text.trim();
+    const json = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? text);
+    res.json({ title: json.title ?? title, description: json.description ?? draft });
   } catch (err: any) {
     res.status(500).json({ error: err.message ?? 'internal' });
   }
