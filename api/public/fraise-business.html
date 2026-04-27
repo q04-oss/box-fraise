@@ -506,7 +506,13 @@
     // Header
     const hd = document.createElement('div'); hd.className = 'event-hd';
     const hdLeft = document.createElement('div'); hdLeft.className = 'event-hd-left';
-    const titleEl = document.createElement('div'); titleEl.className = 'event-title'; titleEl.textContent = ev.title;
+    const titleEl = document.createElement('div'); titleEl.className = 'event-title';
+    titleEl.textContent = ev.title;
+    if (!isCancelled) {
+      titleEl.title = 'click to edit';
+      titleEl.style.cursor = 'text';
+      titleEl.addEventListener('click', () => startEditTitle(ev.id, titleEl));
+    }
     const subEl = document.createElement('div'); subEl.className = 'event-sub';
     subEl.textContent = `CA$120 · ${ev.seats_claimed}/${ev.max_seats} claimed · min ${ev.min_seats}`;
     if (ev.event_date) { const dt = document.createElement('span'); dt.style.marginLeft='0.5rem'; dt.textContent = ev.event_date; subEl.appendChild(dt); }
@@ -672,6 +678,37 @@
     </head><body><h2>${title}</h2>${names.map(n => `<div class="name"><div class="check"></div>${n}</div>`).join('')}</body></html>`);
     win.document.close();
     win.print();
+  }
+
+  function startEditTitle(eventId, titleEl) {
+    const original = titleEl.textContent;
+    const input = document.createElement('input');
+    input.value = original;
+    input.style.cssText = 'font-family:inherit;font-size:inherit;font-weight:inherit;background:var(--input);border:1px solid var(--border);border-radius:4px;padding:0.1rem 0.4rem;width:100%;outline:none;color:var(--text);';
+    titleEl.replaceWith(input);
+    input.focus(); input.select();
+
+    async function save() {
+      const val = input.value.trim();
+      if (!val || val === original) { input.replaceWith(titleEl); return; }
+      try {
+        const r = await fetch(API + `/api/fraise/events/${eventId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-business-token': bizToken },
+          body: JSON.stringify({ title: val }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'failed');
+        titleEl.textContent = data.title;
+      } catch { titleEl.textContent = original; }
+      input.replaceWith(titleEl);
+    }
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      if (e.key === 'Escape') { input.replaceWith(titleEl); }
+    });
   }
 
   async function doCancel(eventId, btn) {

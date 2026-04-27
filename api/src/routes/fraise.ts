@@ -598,6 +598,25 @@ router.post('/events', requireBusiness, async (req: any, res: any) => {
   }
 });
 
+// PATCH /api/fraise/events/:id — edit title and/or description
+router.patch('/events/:id', requireBusiness, async (req: any, res: any) => {
+  const eventId = parseInt(req.params.id);
+  if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
+  const title = req.body?.title != null ? String(req.body.title).trim().slice(0, 200) : null;
+  const desc  = req.body?.description != null ? String(req.body.description).trim().slice(0, 2000) : null;
+  if (title !== null && !title) return res.status(400).json({ error: 'title cannot be empty' });
+  try {
+    const evRows = await db.execute(sql`SELECT id FROM fraise_events WHERE id = ${eventId} AND business_id = ${req.business.id} LIMIT 1`);
+    if (!((evRows as any).rows ?? evRows).length) return res.status(404).json({ error: 'event not found' });
+    if (title !== null) await db.execute(sql`UPDATE fraise_events SET title = ${title} WHERE id = ${eventId}`);
+    if (desc  !== null) await db.execute(sql`UPDATE fraise_events SET description = ${desc || null} WHERE id = ${eventId}`);
+    const updated = await db.execute(sql`SELECT id, title, description FROM fraise_events WHERE id = ${eventId} LIMIT 1`);
+    res.json(((updated as any).rows ?? updated)[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
 // POST /api/fraise/events/:id/invite — business sends invitations to selected members
 router.post('/events/:id/invite', requireBusiness, async (req: any, res: any) => {
   const eventId = parseInt(req.params.id);
