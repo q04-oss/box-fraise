@@ -90,8 +90,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
-    height: 44,
   },
-  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 44 },
   tabLabel: { fontSize: 11, fontFamily: fonts.dmMono, letterSpacing: 1.5 },
 });

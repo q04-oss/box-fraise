@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View, Text, TouchableOpacity, ActivityIndicator, StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors, fonts, SPACING } from '../theme';
 
 // ─── PanelHeader ─────────────────────────────────────────────────────────────
@@ -16,8 +17,9 @@ interface PanelHeaderProps {
 
 export function PanelHeader({ title, subtitle, back, onBack, children }: PanelHeaderProps) {
   const c = useColors();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={headerStyles.wrap}>
+    <View style={[headerStyles.wrap, { paddingTop: insets.top + SPACING.md }]}>
       {back && (
         <TouchableOpacity onPress={onBack} activeOpacity={0.6} style={headerStyles.back}>
           <Text style={[headerStyles.backText, { color: c.muted }]}>← back</Text>
