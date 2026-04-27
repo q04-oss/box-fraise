@@ -112,6 +112,32 @@
     /* ── Empty ── */
     .empty-state { padding-block: 2rem; font-size: 0.8rem; color: var(--muted); }
 
+    /* ── Earnings ── */
+    .earnings-card { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .earnings-stat { display: flex; flex-direction: column; gap: 0.25rem; }
+    .earnings-val { font-size: 1.3rem; font-weight: 500; }
+    .earnings-lbl { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .earnings-breakdown { margin-top: 0.75rem; }
+    .earnings-row { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding: 0.3rem 0; border-top: 1px solid var(--border); }
+    .earnings-row span:last-child { color: var(--text); }
+
+    /* ── Member pool & Interest ── */
+    .pool-section { margin-top: 3rem; padding-top: 2.5rem; border-top: 1px solid var(--border); }
+    .pool-controls { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .pool-select { font-family: 'DM Mono', monospace; font-size: 0.75rem; background: var(--input); border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.75rem; color: var(--text); outline: none; }
+    .pool-select:focus { border-color: var(--text); }
+    .member-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; border-top: 1px solid var(--border); }
+    .member-row:hover { background: var(--card); margin-inline: -1.5rem; padding-inline: 1.5rem; }
+    .member-check { width: 14px; height: 14px; accent-color: var(--text); flex-shrink: 0; cursor: pointer; }
+    .member-info { flex: 1; min-width: 0; }
+    .member-name { font-size: 0.8rem; font-weight: 500; }
+    .member-email { font-size: 0.65rem; color: var(--muted); }
+    .member-badge { font-size: 0.6rem; letter-spacing: 0.06em; padding: 0.15rem 0.5rem; border-radius: 9999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+    .member-badge.has-akene { border-color: var(--green); color: var(--green); }
+    .pool-msg { font-size: 0.7rem; color: var(--muted); }
+    .pool-msg.ok { color: var(--green); }
+    .pool-msg.err { color: var(--red); }
+
     /* ── Marketing ── */
     .marketing { margin-bottom: 4rem; }
     .mkt-headline { font-size: clamp(1rem, 2.5vw, 1.25rem); font-weight: 500; line-height: 1.5; margin-bottom: 0.75rem; }
@@ -239,10 +265,42 @@
   <!-- Dashboard -->
   <div id="dashboard" style="display:none;">
 
+    <!-- Earnings -->
+    <div class="section-label">earnings</div>
+    <div class="earnings-card" id="earnings-card">
+      <div class="earnings-stat"><div class="earnings-val" id="earn-total">—</div><div class="earnings-lbl">total earned</div></div>
+      <div class="earnings-stat"><div class="earnings-val" id="earn-akenes">—</div><div class="earnings-lbl">akènes accepted</div></div>
+    </div>
+    <div class="earnings-breakdown" id="earnings-breakdown"></div>
+
     <!-- Events -->
-    <div class="section-label">your events</div>
+    <div class="section-label" style="margin-top:2.5rem;">your events</div>
     <div id="events-list">
       <div class="empty-state" id="events-empty" style="display:none;">no events yet — create one below.</div>
+    </div>
+
+    <!-- Interest list -->
+    <div class="pool-section" id="interest-section">
+      <div class="section-label">interest list</div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:1.25rem;">visitors who submitted through your widget. green badge means they hold an akène.</p>
+      <div class="pool-controls">
+        <select class="pool-select" id="interest-event-select"><option value="">invite to event…</option></select>
+        <button class="btn-primary" style="font-size:0.72rem;" onclick="doInviteSelected('interest')">send invitations</button>
+        <span class="pool-msg" id="interest-msg"></span>
+      </div>
+      <div id="interest-rows"><div class="empty-state">no interest submissions yet.</div></div>
+    </div>
+
+    <!-- Member pool -->
+    <div class="pool-section" id="members-section">
+      <div class="section-label">member pool</div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:1.25rem;">all members currently holding at least one akène.</p>
+      <div class="pool-controls">
+        <select class="pool-select" id="members-event-select"><option value="">invite to event…</option></select>
+        <button class="btn-primary" style="font-size:0.72rem;" onclick="doInviteSelected('members')">send invitations</button>
+        <span class="pool-msg" id="members-msg"></span>
+      </div>
+      <div id="members-rows"><div class="empty-state">no members with akènes yet.</div></div>
     </div>
 
     <!-- Create event -->
@@ -369,6 +427,9 @@
     document.getElementById('nav-biz').style.display = '';
     document.getElementById('nav-biz-name').textContent = biz.name;
     loadEvents();
+    loadEarnings();
+    loadInterest();
+    loadMembers();
   }
 
   // ── Events ───────────────────────────────────────────────────────────────────
@@ -548,6 +609,126 @@
       msg.className = 'form-msg err'; msg.textContent = e.message;
     }
     btn.disabled = false; btn.textContent = 'create event →';
+  }
+
+  // ── Earnings ─────────────────────────────────────────────────────────────────
+
+  async function loadEarnings() {
+    try {
+      const r = await fetch(API + '/api/fraise/businesses/earnings', { headers: { 'x-business-token': bizToken } });
+      const data = await r.json();
+      document.getElementById('earn-total').textContent =
+        'CA$' + (data.total_earned_cents / 100).toFixed(0);
+      document.getElementById('earn-akenes').textContent = data.total_akenes;
+      const breakdown = document.getElementById('earnings-breakdown');
+      breakdown.innerHTML = '';
+      if (data.events?.length) {
+        data.events.filter(e => e.accepted_count > 0).forEach(e => {
+          const row = document.createElement('div'); row.className = 'earnings-row';
+          row.innerHTML = `<span>${e.title}</span><span>${e.accepted_count} akène${e.accepted_count !== 1 ? 's' : ''} · CA$${(e.earned_cents / 100).toFixed(0)}</span>`;
+          breakdown.appendChild(row);
+        });
+      }
+    } catch {}
+  }
+
+  // ── Interest list ─────────────────────────────────────────────────────────────
+
+  let interestData = [];
+
+  async function loadInterest() {
+    try {
+      const r = await fetch(API + '/api/fraise/businesses/interest', { headers: { 'x-business-token': bizToken } });
+      const data = await r.json();
+      interestData = data.interest || [];
+      renderPoolRows('interest-rows', interestData, 'interest');
+      populateEventSelect('interest-event-select');
+    } catch {}
+  }
+
+  // ── Member pool ───────────────────────────────────────────────────────────────
+
+  let membersData = [];
+
+  async function loadMembers() {
+    try {
+      const r = await fetch(API + '/api/fraise/businesses/members', { headers: { 'x-business-token': bizToken } });
+      const data = await r.json();
+      membersData = data.members || [];
+      renderPoolRows('members-rows', membersData, 'members');
+      populateEventSelect('members-event-select');
+    } catch {}
+  }
+
+  function renderPoolRows(containerId, items, prefix) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state">nothing here yet.</div>'; return;
+    }
+    items.forEach(item => {
+      // For interest list: member_id is the fraise_members id (null if not signed up)
+      // For member pool: id is the fraise_members id directly
+      const memberId = prefix === 'interest' ? item.member_id : item.id;
+      const hasAkene = (item.credit_balance ?? 0) > 0;
+      const canInvite = !!memberId;
+      const row = document.createElement('div'); row.className = 'member-row';
+      row.innerHTML = `
+        <input type="checkbox" class="member-check ${prefix}-check" data-id="${memberId || ''}" ${!canInvite ? 'disabled title="not a member yet"' : ''} />
+        <div class="member-info">
+          <div class="member-name">${item.name || '—'}</div>
+          <div class="member-email">${item.email}</div>
+        </div>
+        <div class="member-badge ${hasAkene ? 'has-akene' : ''}">${hasAkene ? 'holds akène' : 'no akène'}</div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  function populateEventSelect(selectId) {
+    const select = document.getElementById(selectId);
+    const current = select.value;
+    // preserve existing options[0]
+    while (select.options.length > 1) select.remove(1);
+    const evCards = document.querySelectorAll('.event-card');
+    evCards.forEach(card => {
+      const titleEl = card.querySelector('.event-title');
+      const id = card.id.replace('ev-card-', '');
+      if (titleEl && id) {
+        const opt = document.createElement('option');
+        opt.value = id; opt.textContent = titleEl.textContent;
+        select.appendChild(opt);
+      }
+    });
+    if (current) select.value = current;
+  }
+
+  async function doInviteSelected(prefix) {
+    const selectId = prefix + '-event-select';
+    const eventId = document.getElementById(selectId).value;
+    const msgEl = document.getElementById(prefix + '-msg');
+    msgEl.className = 'pool-msg';
+    if (!eventId) { msgEl.className = 'pool-msg err'; msgEl.textContent = 'select an event first.'; return; }
+
+    const checks = document.querySelectorAll('.' + prefix + '-check:checked');
+    const memberIds = Array.from(checks).map(c => parseInt(c.dataset.id)).filter(Boolean);
+    if (!memberIds.length) { msgEl.className = 'pool-msg err'; msgEl.textContent = 'select at least one person.'; return; }
+
+    try {
+      const r = await fetch(API + `/api/fraise/events/${eventId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-business-token': bizToken },
+        body: JSON.stringify({ member_ids: memberIds }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'failed');
+      msgEl.className = 'pool-msg ok';
+      msgEl.textContent = `${data.sent} invitation${data.sent !== 1 ? 's' : ''} sent.`;
+      checks.forEach(c => c.checked = false);
+      loadEvents();
+    } catch (e) {
+      msgEl.className = 'pool-msg err'; msgEl.textContent = e.message;
+    }
   }
 
   // ── Keyboard ─────────────────────────────────────────────────────────────────

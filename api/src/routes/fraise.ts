@@ -727,6 +727,36 @@ router.post('/events/:id/confirm', async (req: any, res: any) => {
   }
 });
 
+// GET /api/fraise/businesses/earnings — total and per-event earnings at 80% rate
+router.get('/businesses/earnings', requireBusiness, async (req: any, res: any) => {
+  const BUSINESS_RATE = 9600; // CA$96 per akène (80% of CA$120)
+  try {
+    const rows = await db.execute(sql`
+      SELECT e.id AS event_id, e.title,
+             COUNT(i.id) FILTER (WHERE i.status IN ('accepted','confirmed'))::int AS accepted_count
+      FROM fraise_events e
+      LEFT JOIN fraise_invitations i ON i.event_id = e.id
+      WHERE e.business_id = ${req.business.id}
+      GROUP BY e.id, e.title
+      ORDER BY e.created_at DESC
+    `);
+    const events = ((rows as any).rows ?? rows) as any[];
+    const totalAkenes = events.reduce((s, e) => s + (parseInt(e.accepted_count) || 0), 0);
+    res.json({
+      total_akenes: totalAkenes,
+      total_earned_cents: totalAkenes * BUSINESS_RATE,
+      events: events.map(e => ({
+        event_id: e.event_id,
+        title: e.title,
+        accepted_count: parseInt(e.accepted_count) || 0,
+        earned_cents: (parseInt(e.accepted_count) || 0) * BUSINESS_RATE,
+      })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 // POST /api/fraise/admin/members/merge
