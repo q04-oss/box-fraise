@@ -844,6 +844,50 @@ router.get('/businesses/earnings', requireBusiness, async (req: any, res: any) =
   }
 });
 
+// POST /api/fraise/events/:id/cancel — cancel event, return akènes, notify members
+router.post('/events/:id/cancel', requireBusiness, async (req: any, res: any) => {
+  const eventId = parseInt(req.params.id);
+  if (isNaN(eventId)) return res.status(400).json({ error: 'invalid id' });
+  try {
+    const evRows = await db.execute(sql`
+      SELECT id, title, status FROM fraise_events WHERE id = ${eventId} AND business_id = ${req.business.id} LIMIT 1
+    `);
+    const event = (((evRows as any).rows ?? evRows)[0] as any);
+    if (!event) return res.status(404).json({ error: 'event not found' });
+    if (event.status === 'cancelled') return res.status(400).json({ error: 'already cancelled' });
+
+    // Return akènes to all members who accepted
+    const accepted = await db.execute(sql`
+      SELECT member_id FROM fraise_invitations
+      WHERE event_id = ${eventId} AND status IN ('accepted','confirmed')
+    `);
+    const acceptedRows = (accepted as any).rows ?? accepted;
+
+    if (acceptedRows.length) {
+      const memberIds = acceptedRows.map((r: any) => r.member_id);
+      await db.execute(sql`
+        UPDATE fraise_members SET credit_balance = credit_balance + 1
+        WHERE id = ANY(${memberIds}::int[])
+      `);
+      // Notify affected members
+      const tokenRows = await db.execute(sql`
+        SELECT push_token FROM fraise_members
+        WHERE id = ANY(${memberIds}::int[]) AND push_token IS NOT NULL
+      `);
+      const pushTokens = ((tokenRows as any).rows ?? tokenRows).map((r: any) => r.push_token);
+      sendExpoPush(pushTokens, `${event.title}`, `this event was cancelled. your akène has been returned.`, { screen: 'home' });
+    }
+
+    // Mark event and all invitations cancelled
+    await db.execute(sql`UPDATE fraise_events SET status = 'cancelled' WHERE id = ${eventId}`);
+    await db.execute(sql`UPDATE fraise_invitations SET status = 'declined' WHERE event_id = ${eventId} AND status IN ('accepted','confirmed','pending')`);
+
+    res.json({ ok: true, returned: acceptedRows.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message ?? 'internal' });
+  }
+});
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 // POST /api/fraise/admin/members/merge

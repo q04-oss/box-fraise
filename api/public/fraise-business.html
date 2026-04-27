@@ -110,7 +110,23 @@
     .form-msg.err { color: var(--red); }
 
     /* ── Empty ── */
-    .empty-state { padding-block: 2rem; font-size: 0.8rem; color: var(--muted); }
+    .empty-state { padding-block: 2rem; font-size: 0.8rem; color: var(--muted); line-height: 1.7; }
+
+    /* ── Guest list ── */
+    .guest-list-header { padding: 0.65rem 1.25rem; font-size: 0.65rem; color: var(--muted); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; border-top: 1px solid var(--border); }
+    .guest-list-header:hover { color: var(--text); }
+    .guest-list-body { display: none; }
+    .guest-list-body.open { display: block; }
+    .guest-row { display: flex; justify-content: space-between; padding: 0.5rem 1.25rem; border-top: 1px solid var(--border); font-size: 0.72rem; }
+    .guest-row-name { font-weight: 500; }
+    .guest-row-email { font-size: 0.62rem; color: var(--muted); }
+    .btn-print { font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em; background: none; border: 1px solid var(--border); border-radius: 9999px; padding: 0.2rem 0.65rem; color: var(--muted); cursor: pointer; }
+    .btn-print:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── Cancel ── */
+    .btn-cancel { font-family: 'DM Mono', monospace; font-size: 0.6rem; letter-spacing: 0.06em; background: none; border: 1px solid var(--border); border-radius: 9999px; padding: 0.2rem 0.65rem; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+    .btn-cancel:hover { border-color: var(--red); color: var(--red); }
+    .event-card.cancelled { opacity: 0.5; }
 
     /* ── Connect banner ── */
     .connect-banner { border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -291,7 +307,11 @@
     <!-- Events -->
     <div class="section-label" style="margin-top:2.5rem;">your events</div>
     <div id="events-list">
-      <div class="empty-state" id="events-empty" style="display:none;">no events yet — create one below.</div>
+      <div class="empty-state" id="events-empty" style="display:none;">
+        no events yet.<br>
+        create your first event below — set a title, description, and seat range.<br>
+        invitations go out without a date. you confirm the time once enough members accept.
+      </div>
     </div>
 
     <!-- Interest list -->
@@ -478,8 +498,10 @@
     card.id = `ev-card-${ev.id}`;
 
     const pct = ev.min_seats > 0 ? Math.min(100, Math.round((ev.seats_claimed / ev.min_seats) * 100)) : 0;
-    const badgeLabel = ev.status === 'confirmed' ? 'confirmed' : ev.status === 'threshold_met' ? 'going ahead' : 'open';
+    const isCancelled = ev.status === 'cancelled';
+    const badgeLabel = ev.status === 'confirmed' ? 'confirmed' : ev.status === 'threshold_met' ? 'going ahead' : isCancelled ? 'cancelled' : 'open';
     const badgeCls   = ev.status === 'confirmed' ? 'confirmed' : ev.status === 'threshold_met' ? 'threshold' : '';
+    if (isCancelled) card.classList.add('cancelled');
 
     // Header
     const hd = document.createElement('div'); hd.className = 'event-hd';
@@ -489,8 +511,15 @@
     subEl.textContent = `CA$120 · ${ev.seats_claimed}/${ev.max_seats} claimed · min ${ev.min_seats}`;
     if (ev.event_date) { const dt = document.createElement('span'); dt.style.marginLeft='0.5rem'; dt.textContent = ev.event_date; subEl.appendChild(dt); }
     hdLeft.append(titleEl, subEl);
+    const hdRight = document.createElement('div'); hdRight.style.cssText = 'display:flex;gap:0.5rem;align-items:center;flex-shrink:0;';
     const badge = document.createElement('div'); badge.className = 'badge' + (badgeCls ? ' ' + badgeCls : ''); badge.textContent = badgeLabel;
-    hd.append(hdLeft, badge);
+    if (!isCancelled) {
+      const cancelBtn = document.createElement('button'); cancelBtn.className = 'btn-cancel'; cancelBtn.textContent = 'cancel';
+      cancelBtn.addEventListener('click', () => doCancel(ev.id, cancelBtn));
+      hdRight.append(cancelBtn);
+    }
+    hdRight.append(badge);
+    hd.append(hdLeft, hdRight);
 
     // Progress
     const prog = document.createElement('div'); prog.className = 'progress-row';
@@ -516,55 +545,105 @@
     const confirmMsg = document.createElement('div'); confirmMsg.className = 'confirm-msg'; confirmMsg.id = `confirm-msg-${ev.id}`;
     confirmRow.append(dateWrap, confirmBtn, confirmMsg);
 
-    // Claims toggle
+    // Responses toggle
     const toggle = document.createElement('div'); toggle.className = 'claims-toggle';
-    const toggleLeft = document.createElement('span'); toggleLeft.textContent = 'claims';
+    const toggleLeft = document.createElement('span'); toggleLeft.textContent = 'responses';
     const toggleRight = document.createElement('span'); toggleRight.id = `toggle-icon-${ev.id}`; toggleRight.textContent = '↓';
     toggle.append(toggleLeft, toggleRight);
     const claimsList = document.createElement('div'); claimsList.className = 'claims-list'; claimsList.id = `claims-${ev.id}`;
     toggle.addEventListener('click', () => toggleClaims(ev.id));
 
-    card.append(hd, prog, confirmRow, toggle, claimsList);
-    // Load claims immediately
+    // Guest list toggle
+    const guestHeader = document.createElement('div'); guestHeader.className = 'guest-list-header';
+    const guestLeft = document.createElement('span'); guestLeft.id = `guest-lbl-${ev.id}`; guestLeft.textContent = 'guest list';
+    const guestRight = document.createElement('div'); guestRight.style.cssText = 'display:flex;gap:0.75rem;align-items:center;';
+    const printBtn = document.createElement('button'); printBtn.className = 'btn-print'; printBtn.textContent = 'print';
+    printBtn.addEventListener('click', e => { e.stopPropagation(); printGuestList(ev.id, ev.title); });
+    const guestIcon = document.createElement('span'); guestIcon.id = `guest-icon-${ev.id}`; guestIcon.textContent = '↓';
+    guestRight.append(printBtn, guestIcon);
+    guestHeader.append(guestLeft, guestRight);
+    const guestBody = document.createElement('div'); guestBody.className = 'guest-list-body'; guestBody.id = `guest-${ev.id}`;
+    guestHeader.addEventListener('click', () => toggleGuests(ev.id));
+
+    card.append(hd, prog, confirmRow, toggle, claimsList, guestHeader, guestBody);
     fetchClaims(ev.id);
     return card;
   }
 
   async function fetchClaims(eventId) {
     try {
-      const r = await fetch(API + `/api/fraise/events/${eventId}/claims`, { headers: { 'x-business-token': bizToken } });
+      const r = await fetch(API + `/api/fraise/events/${eventId}/invitations`, { headers: { 'x-business-token': bizToken } });
       const data = await r.json();
-      renderClaims(eventId, data.claims || []);
+      renderClaims(eventId, data.invitations || []);
     } catch {}
   }
 
-  function renderClaims(eventId, claims) {
+  function renderClaims(eventId, invitations) {
     const list = document.getElementById(`claims-${eventId}`);
     const toggleEl = document.querySelector(`#ev-card-${eventId} .claims-toggle`);
     if (!list) return;
     list.innerHTML = '';
-    const count = claims.filter(c => c.status !== 'declined').length;
 
-    // Update toggle label
-    const toggleLeft = toggleEl?.querySelector('span:first-child');
-    if (toggleLeft) toggleLeft.textContent = `claims (${count})`;
+    const accepted  = invitations.filter(c => c.status === 'accepted' || c.status === 'confirmed').length;
+    const declined  = invitations.filter(c => c.status === 'declined').length;
+    const responded = accepted + declined;
+    const total     = invitations.length;
 
-    if (!claims.length) {
-      const empty = document.createElement('div'); empty.className = 'no-claims'; empty.textContent = 'no claims yet.';
-      list.appendChild(empty); return;
+    // Response rate on subEl
+    const subEl = document.querySelector(`#ev-card-${eventId} .event-sub`);
+    if (subEl && total > 0) {
+      const rate = Math.round((accepted / total) * 100);
+      const rateSpan = subEl.querySelector('.response-rate') || document.createElement('span');
+      rateSpan.className = 'response-rate';
+      rateSpan.style.marginLeft = '0.5rem';
+      rateSpan.textContent = `· ${rate}% accepted (${responded}/${total})`;
+      if (!subEl.querySelector('.response-rate')) subEl.appendChild(rateSpan);
     }
-    claims.forEach(c => {
-      const row = document.createElement('div'); row.className = 'claim-row';
-      const left = document.createElement('div');
-      const name = document.createElement('div'); name.className = 'claim-name'; name.textContent = c.name;
-      const email = document.createElement('div'); email.className = 'claim-email'; email.textContent = c.email;
-      left.append(name, email);
-      const statusEl = document.createElement('div');
-      statusEl.className = 'claim-status' + (c.status === 'confirmed' ? ' confirmed' : c.status === 'declined' ? ' declined' : '');
-      statusEl.textContent = c.status;
-      row.append(left, statusEl);
-      list.appendChild(row);
-    });
+
+    // Update responses toggle label
+    const toggleLeft = toggleEl?.querySelector('span:first-child');
+    if (toggleLeft) toggleLeft.textContent = `responses (${accepted} accepted · ${declined} declined)`;
+
+    if (!invitations.length) {
+      const empty = document.createElement('div'); empty.className = 'no-claims'; empty.textContent = 'no responses yet.';
+      list.appendChild(empty);
+    } else {
+      invitations.forEach(c => {
+        const row = document.createElement('div'); row.className = 'claim-row';
+        const left = document.createElement('div');
+        const name = document.createElement('div'); name.className = 'claim-name'; name.textContent = c.name;
+        const email = document.createElement('div'); email.className = 'claim-email'; email.textContent = c.email;
+        left.append(name, email);
+        const statusEl = document.createElement('div');
+        statusEl.className = 'claim-status' + (c.status === 'confirmed' ? ' confirmed' : c.status === 'declined' ? ' declined' : '');
+        statusEl.textContent = c.status;
+        row.append(left, statusEl);
+        list.appendChild(row);
+      });
+    }
+
+    // Populate guest list (confirmed/accepted only)
+    const guests = invitations.filter(c => c.status === 'accepted' || c.status === 'confirmed');
+    const guestBody = document.getElementById(`guest-${eventId}`);
+    const guestLbl  = document.getElementById(`guest-lbl-${eventId}`);
+    if (guestLbl) guestLbl.textContent = `guest list (${guests.length})`;
+    if (guestBody) {
+      guestBody.innerHTML = '';
+      if (!guests.length) {
+        const empty = document.createElement('div'); empty.className = 'no-claims'; empty.textContent = 'no confirmed guests yet.';
+        guestBody.appendChild(empty);
+      } else {
+        guests.forEach(g => {
+          const row = document.createElement('div'); row.className = 'guest-row';
+          const left = document.createElement('div');
+          const name = document.createElement('div'); name.className = 'guest-row-name'; name.textContent = g.name;
+          const email = document.createElement('div'); email.className = 'guest-row-email'; email.textContent = g.email;
+          left.append(name, email);
+          row.appendChild(left);
+          guestBody.appendChild(row);
+        });
+      }
+    }
   }
 
   function toggleClaims(eventId) {
@@ -572,6 +651,45 @@
     const icon = document.getElementById(`toggle-icon-${eventId}`);
     const open = list.classList.toggle('open');
     icon.textContent = open ? '↑' : '↓';
+  }
+
+  function toggleGuests(eventId) {
+    const body = document.getElementById(`guest-${eventId}`);
+    const icon = document.getElementById(`guest-icon-${eventId}`);
+    const open = body.classList.toggle('open');
+    icon.textContent = open ? '↑' : '↓';
+  }
+
+  function printGuestList(eventId, title) {
+    const body = document.getElementById(`guest-${eventId}`);
+    const rows = Array.from(body.querySelectorAll('.guest-row'));
+    const names = rows.map(r => r.querySelector('.guest-row-name')?.textContent || '').filter(Boolean);
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>${title} — guest list</title>
+      <style>body{font-family:monospace;padding:2rem;font-size:13px;}h2{font-weight:500;margin-bottom:1.5rem;}
+      .name{padding:0.5rem 0;border-bottom:1px solid #eee;display:flex;gap:1rem;align-items:center;}
+      .check{width:14px;height:14px;border:1px solid #ccc;border-radius:2px;flex-shrink:0;}</style>
+    </head><body><h2>${title}</h2>${names.map(n => `<div class="name"><div class="check"></div>${n}</div>`).join('')}</body></html>`);
+    win.document.close();
+    win.print();
+  }
+
+  async function doCancel(eventId, btn) {
+    if (!confirm('cancel this event? akènes will be returned to all accepted members.')) return;
+    btn.disabled = true; btn.textContent = '—';
+    try {
+      const r = await fetch(API + `/api/fraise/events/${eventId}/cancel`, {
+        method: 'POST',
+        headers: { 'x-business-token': bizToken },
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'failed');
+      loadEvents();
+      loadEarnings();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'cancel';
+      alert(e.message);
+    }
   }
 
   async function doConfirm(eventId, btn) {
