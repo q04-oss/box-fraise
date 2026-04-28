@@ -28,6 +28,7 @@ import ConversationsPanel from './panels/ConversationsPanel';
 import ChatThreadPanel from './panels/ChatThreadPanel';
 import PopupFoodPanel from './panels/PopupFoodPanel';
 import PopupMerchPanel from './panels/PopupMerchPanel';
+import FraisePopupsPanel from './panels/FraisePopupsPanel';
 import { TierGate, PANEL_TIER_REQUIREMENTS } from './TierGate';
 
 const PANELS: Record<string, React.ComponentType<any>> = {
@@ -56,6 +57,7 @@ const PANELS: Record<string, React.ComponentType<any>> = {
   'chat-thread': ChatThreadPanel,
   'popup-food': PopupFoodPanel,
   'popup-merch': PopupMerchPanel,
+  'fraise-popups': FraisePopupsPanel,
 };
 
 const FULL_HEIGHT_PANELS = new Set([

@@ -23,7 +23,7 @@ async function seedRosewood() {
     launched_at: new Date('2026-01-01'),
     description: 'An all-day café in downtown Edmonton serving seasonal breakfast and lunch.',
     neighbourhood: 'Downtown Edmonton',
-    approved_by_admin: true,
+    approved_by_admin: false,
   }).returning();
 
   console.log(`Created business: ${biz.name} (id: ${biz.id})`);

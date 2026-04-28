@@ -49,7 +49,7 @@ export default function HomePanel() {
     : month >= 6 && month <= 8 ? 'summer'
     : month >= 9 && month <= 11 ? 'autumn'
     : 'winter';
-  const isOrderableLocation = !!activeLocation && (activeLocation.type === 'collection' || activeLocation.type === 'popup');
+  const isOrderableLocation = !!activeLocation && (activeLocation.type === 'collection' || activeLocation.type === 'popup') && activeLocation.approved_by_admin !== false;
 
   // ── Auth state ──
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -213,6 +213,7 @@ export default function HomePanel() {
     if (!q) return [];
     return businesses.filter((b: Business) => {
       if (!b.lat || !b.lng) return false;
+      if (b.approved_by_admin === false) return false;
       return (
         b.name.toLowerCase().includes(q) ||
         ((b as any).neighbourhood ?? '').toLowerCase().includes(q) ||
@@ -240,6 +241,7 @@ export default function HomePanel() {
   };
 
   const handleLocationSelect = (b: Business) => {
+    if (b.approved_by_admin === false) return;
     setHighlightedBizId(b.id);
     setTimeout(() => setHighlightedBizId(null), 2500);
     if (b.type === 'partner') {
@@ -266,6 +268,7 @@ export default function HomePanel() {
   // ── Other locations switcher ──
   const otherLocations = businesses.filter((b: any) => {
     if (b.id === activeLocation?.id) return false;
+    if (b.approved_by_admin === false) return false;
     if (b.type === 'collection') return true;
     if (b.type === 'popup') {
       if (!b.launched_at) return false;
@@ -400,6 +403,15 @@ export default function HomePanel() {
         </View>
       )}
 
+      {/* Coming soon strip for unapproved locations */}
+      {!!activeLocation && activeLocation.approved_by_admin === false && (
+        <View style={[styles.strip, { opacity: 0.5 }]}>
+          <Text style={[styles.stripBrand, { color: c.muted }]}>
+            {`${activeLocation.name.toLowerCase()} — coming soon`}
+          </Text>
+        </View>
+      )}
+
       {/* Location strip */}
       {isOrderableLocation && (
         <TouchableOpacity
@@ -408,7 +420,7 @@ export default function HomePanel() {
           onPress={() => showPanel('verifyNFC')}
         >
           <Text style={[styles.stripBrand, { color: c.text }]}>
-            {`box fraise × ${activeLocation!.name.toLowerCase()}`}
+            {activeLocation!.name.toLowerCase()}
           </Text>
         </TouchableOpacity>
       )}
@@ -422,7 +434,7 @@ export default function HomePanel() {
             </Text>
             <Text style={[styles.ambientSeason, { color: c.muted }]}>{season}</Text>
             <Text style={[styles.ambientStat, { color: c.muted }]}>
-              {businesses.filter(b => b.type === 'partner').length} locations · edmonton
+              {businesses.filter(b => b.type === 'partner' && b.approved_by_admin !== false).length} locations · <Text onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); showPanel('fraise-popups'); }}>popups</Text> · edmonton
             </Text>
             {communityFund && communityFund.threshold_cents > 0 && (
               <View style={styles.fundBlock}>
@@ -483,13 +495,6 @@ export default function HomePanel() {
               {searchResults.length === 0 && userResults.length === 0 ? (
                 <View style={{ paddingHorizontal: SPACING.md, paddingTop: SPACING.md }}>
                   <Text style={[styles.nothingText, { color: c.muted }]}>nothing matched — try a neighbourhood or name</Text>
-                  <TouchableOpacity
-                    style={[styles.proposeNudge, { borderColor: c.border }]}
-                    onPress={() => showPanel('propose-business')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.proposeNudgeText, { color: c.muted }]}>know a place that belongs here?  →</Text>
-                  </TouchableOpacity>
                 </View>
               ) : searchResults.map(b => {
                 const dist = formatDist(b);
@@ -854,6 +859,9 @@ const styles = StyleSheet.create({
   ambientDate: { fontSize: 32, fontFamily: fonts.playfair },
   ambientSeason: { fontSize: 13, fontFamily: fonts.playfair, fontStyle: 'italic' },
   ambientStat: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 1, marginTop: 6 },
+  discoverRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  discoverRowLabel: { fontSize: 14, fontFamily: fonts.playfair, marginBottom: 2 },
+  discoverRowSub: { fontSize: 10, fontFamily: fonts.dmMono, letterSpacing: 0.3 },
   fundBlock: { marginTop: 10, gap: 5 },
   fundTrack: { height: 2, borderRadius: 1, overflow: 'hidden' },
   fundFill: { height: 2, borderRadius: 1 },
@@ -864,7 +872,7 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: 18, paddingBottom: SPACING.sm, gap: 10 },
   searchBox: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   searchInput: { fontSize: 14, fontFamily: fonts.dmSans },
-  msgBtn: { width: 42, height: 42, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
+  msgBtn: { width: 42, height: 42, borderRadius: 21, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center' },
   msgBtnText: { fontSize: 17 },
   searchSectionLabel: { fontSize: 9, fontFamily: fonts.dmMono, letterSpacing: 1.5, paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: 4 },
   locCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth },

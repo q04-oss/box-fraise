@@ -4,6 +4,7 @@ import { Animated, Dimensions } from 'react-native';
 export type RootTab = 'discover' | 'order' | 'me';
 
 export type PanelId =
+  | 'fraise-popups'
   | 'home'
   | 'location'
   | 'verified'
@@ -103,6 +104,7 @@ export interface Business {
   has_toilet?: boolean;
   toilet_fee_cents?: number;
   allows_walkin?: boolean;
+  approved_by_admin?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;

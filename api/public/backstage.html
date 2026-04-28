@@ -292,7 +292,6 @@
     const roles = [
       { role:'admin',       header:'X-Admin-PIN',       url:'/api/admin/orders' },
       { role:'chocolatier', header:'X-Chocolatier-PIN', url:'/api/chocolatier/orders' },
-      { role:'supplier',    header:'X-Supplier-PIN',    url:'/api/supplier/alerts' },
     ];
 
     for (const { role, header, url } of roles) {
@@ -320,8 +319,8 @@
 
   // ── DASHBOARD ────────────────────────────────────────
   async function loadDashboard(role, data) {
-    const roleLabel  = { admin:'Admin', chocolatier:'Chocolatier', supplier:'Supplier' };
-    const titleLabel = { admin:'Orders', chocolatier:'Today', supplier:'Stock Alerts' };
+    const roleLabel  = { admin:'Admin', chocolatier:'Chocolatier' };
+    const titleLabel = { admin:'Orders', chocolatier:'Today' };
     document.getElementById('dash-role').textContent  = roleLabel[role];
     document.getElementById('dash-title').textContent = titleLabel[role];
     document.getElementById('dash-date').textContent  = today();
@@ -336,9 +335,6 @@
     } else if (role === 'chocolatier') {
       document.getElementById('tab-row').innerHTML = '';
       renderChocolatier(data);
-    } else if (role === 'supplier') {
-      document.getElementById('tab-row').innerHTML = '';
-      renderSupplier(data);
     }
   }
 
@@ -483,11 +479,6 @@
     body.innerHTML = '<div class="empty">Chocolatier view — use the dedicated panel at /chocolatier</div>';
   }
 
-  function renderSupplier(data) {
-    document.getElementById('tab-row').innerHTML = '';
-    const body = document.getElementById('dash-body');
-    body.innerHTML = '<div class="empty">Supplier view not available in this panel.</div>';
-  }
 
   async function loadOrdersList() {
     const el = document.getElementById('orders-list');

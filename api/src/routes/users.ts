@@ -4,9 +4,9 @@ import { db } from '../db';
 import {
   users, legitimacyEvents, businesses, popupRsvps, djOffers, popupNominations,
   employmentContracts, orders, varieties, timeSlots, userFollows, notifications,
-  referralCodes, memberships, popupMerchOrders, popupMerchItems,
+  referralCodes, memberships, popupMerchOrders, popupMerchItems, standingOrders, locations,
 } from '../db/schema';
-import { requireUser } from '../lib/auth';
+import { requireUser, requireVerifiedUser } from '../lib/auth';
 import { MIN_QUANTITY } from '../lib/batchTrigger';
 import { stripe } from '../lib/stripe';
 import { currentBankSeconds, tierFromBalance, effectiveTier } from '../lib/socialTier';
@@ -1098,6 +1098,65 @@ router.get('/me/merch-history', requireUser, async (req: Request, res: Response)
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// ── Standing orders ──────────────────────────────────────────────────────────
+
+router.get('/me/standing-orders', requireVerifiedUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  try {
+    const rows = await db.execute(sql`
+      SELECT so.id, so.quantity, so.chocolate, so.finish, so.status, so.created_at,
+             v.name AS variety_name,
+             l.name AS location_name
+      FROM standing_orders so
+      JOIN varieties v ON v.id = so.variety_id
+      JOIN locations l ON l.id = so.location_id
+      WHERE so.sender_id = ${userId} AND so.status != 'cancelled'
+      ORDER BY so.created_at DESC
+    `);
+    res.json((rows as any).rows ?? rows);
+  } catch { res.status(500).json({ error: 'internal' }); }
+});
+
+router.post('/me/standing-orders', requireVerifiedUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const { variety_id, location_id, quantity, chocolate, finish } = req.body;
+  if (!variety_id || !location_id || !chocolate || !finish) {
+    res.status(400).json({ error: 'variety_id, location_id, chocolate, finish required' }); return;
+  }
+  try {
+    const [created] = await db.insert(standingOrders).values({
+      sender_id: userId,
+      variety_id: parseInt(variety_id, 10),
+      location_id: parseInt(location_id, 10),
+      quantity: quantity ?? 4,
+      chocolate,
+      finish,
+      status: 'active',
+    }).returning();
+    res.status(201).json(created);
+  } catch (err) {
+    logger.error('standing order create error: ' + String(err));
+    res.status(500).json({ error: 'internal' });
+  }
+});
+
+router.patch('/me/standing-orders/:id', requireVerifiedUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const id = parseInt(req.params.id, 10);
+  const { status } = req.body;
+  if (!['active', 'paused', 'cancelled'].includes(status)) {
+    res.status(400).json({ error: 'status must be active, paused, or cancelled' }); return;
+  }
+  try {
+    const [updated] = await db.update(standingOrders)
+      .set({ status })
+      .where(and(eq(standingOrders.id, id), eq(standingOrders.sender_id, userId)))
+      .returning();
+    if (!updated) { res.status(404).json({ error: 'not found' }); return; }
+    res.json(updated);
+  } catch { res.status(500).json({ error: 'internal' }); }
 });
 
 export default router;

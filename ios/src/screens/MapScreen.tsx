@@ -34,9 +34,10 @@ interface PinCalloutProps {
   hoursOpen?: boolean | null;
   subtitle?: string | null;
   onPress: () => void;
+  hideCta?: boolean;
 }
 
-function PinCallout({ name, hoursLabel, hoursOpen, hours, subtitle, onPress }: PinCalloutProps) {
+function PinCallout({ name, hoursLabel, hoursOpen, hours, subtitle, onPress, hideCta }: PinCalloutProps) {
   const hours24 = hours ? formatHours24(hours) : null;
   return (
     <Callout onPress={onPress} tooltip>
@@ -54,7 +55,7 @@ function PinCallout({ name, hoursLabel, hoursOpen, hours, subtitle, onPress }: P
           <Text style={calloutStyles.hoursStr} numberOfLines={1} ellipsizeMode="tail">{hours24}</Text>
         ) : null}
         {subtitle ? <Text style={calloutStyles.subtitle} numberOfLines={1} ellipsizeMode="tail">{subtitle}</Text> : null}
-        <Text style={calloutStyles.cta}>tap to open  →</Text>
+        {!hideCta && <Text style={calloutStyles.cta}>tap to open  →</Text>}
       </View>
     </Callout>
   );
@@ -466,7 +467,8 @@ export default function MapScreen() {
   const validBusinesses = curatedMap
     ? allValidBusinesses.filter(b => curatedMap.businessIds.includes(b.id))
     : allValidBusinesses;
-  const collectionPoints = validBusinesses.filter(b => b.type === 'collection');
+  const collectionPoints = validBusinesses.filter(b => b.type === 'collection' && b.approved_by_admin !== false);
+  const unapprovedPoints = validBusinesses.filter(b => b.type === 'collection' && b.approved_by_admin === false);
   const allPopups = validBusinesses.filter(b => {
     if (b.type !== 'popup') return false;
     if (!b.launched_at) return false;
@@ -476,7 +478,8 @@ export default function MapScreen() {
   });
   const popups = allPopups.filter(b => !b.is_audition);
   const auditionPopups = allPopups.filter(b => b.is_audition);
-  const partners = validBusinesses.filter(b => b.type !== 'collection' && b.type !== 'popup');
+  const partners = validBusinesses.filter(b => b.type !== 'collection' && b.type !== 'popup' && b.approved_by_admin !== false);
+  const unapprovedPartners = validBusinesses.filter(b => b.type !== 'collection' && b.type !== 'popup' && b.approved_by_admin === false);
 
   const formatDistance = (lat: number, lng: number): string | null => {
     if (!userLocation) return null;
@@ -574,6 +577,16 @@ export default function MapScreen() {
           );
         })}
 
+        {unapprovedPoints.map(b => (
+          <Marker
+            key={`unapproved-${b.id}`}
+            coordinate={{ latitude: b.lat, longitude: b.lng }}
+          >
+            <View style={[styles.pinCollection, { backgroundColor: '#CCCCCC', opacity: 0.5 }]} />
+            <PinCallout name={b.name} subtitle="example" onPress={() => {}} hideCta />
+          </Marker>
+        ))}
+
         {popups.map(b => {
           const live = isLive(b);
           return (
@@ -635,6 +648,16 @@ export default function MapScreen() {
             </Marker>
           );
         })}
+
+        {unapprovedPartners.map(b => (
+          <Marker
+            key={`unapp-${b.id}`}
+            coordinate={{ latitude: b.lat, longitude: b.lng }}
+          >
+            <View style={[styles.pinPartner, { borderColor: '#CCCCCC', opacity: 0.4 }]} />
+            <PinCallout name={b.name} subtitle="example" onPress={() => {}} hideCta />
+          </Marker>
+        ))}
 
       </MapView>
 

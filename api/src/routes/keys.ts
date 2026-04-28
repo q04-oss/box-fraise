@@ -104,4 +104,31 @@ router.get('/bundle/:userId', requireUser, async (req: Request, res: Response) =
   }
 });
 
+// GET /api/keys/bundle/by-code/:userCode — look up by fraise user_code
+router.get('/bundle/by-code/:userCode', requireUser, async (req: Request, res: Response) => {
+  try {
+    const targetRows = await db.execute(
+      sql`SELECT id FROM users WHERE user_code = ${req.params.userCode}`
+    );
+    const target = ((targetRows as any).rows ?? targetRows)[0];
+    if (!target) { res.status(404).json({ error: 'user not found' }); return; }
+
+    const [keys] = await db.select().from(userKeys).where(eq(userKeys.user_id, target.id));
+    if (!keys) { res.status(404).json({ error: 'no keys registered' }); return; }
+
+    const [otpk] = await db.update(oneTimePreKeys)
+      .set({ used: true })
+      .where(and(eq(oneTimePreKeys.user_id, target.id), eq(oneTimePreKeys.used, false)))
+      .returning({ key_id: oneTimePreKeys.key_id, public_key: oneTimePreKeys.public_key });
+
+    res.json({
+      userId: target.id,
+      identityKey: keys.identity_key,
+      signedPreKey: keys.signed_pre_key,
+      signedPreKeySignature: keys.signed_pre_key_sig,
+      ...(otpk ? { oneTimePreKey: otpk.public_key, oneTimePreKeyId: otpk.key_id } : {}),
+    });
+  } catch { res.status(500).json({ error: 'internal' }); }
+});
+
 export default router;

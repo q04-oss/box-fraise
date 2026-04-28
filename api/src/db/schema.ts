@@ -100,8 +100,9 @@ export const timeSlots = pgTable('time_slots', {
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   variety_id: integer('variety_id')
-    .notNull()
     .references(() => varieties.id),
+  menu_item_id: integer('menu_item_id')
+    .references(() => businessMenuItems.id),
   location_id: integer('location_id')
     .notNull()
     .references(() => locations.id),

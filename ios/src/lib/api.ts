@@ -4280,3 +4280,113 @@ export async function confirmMemory(bookingId: number, confirmed: boolean): Prom
   return r.json();
 }
 
+
+export interface PopupMerchOrder {
+  id: number;
+  item_id: number;
+  item_name: string;
+  recipient_user_id?: number | null;
+  recipient_name?: string | null;
+  recipient_code?: string | null;
+  buyer_user_id?: number;
+  buyer_name?: string | null;
+  buyer_code?: string | null;
+  donated: boolean;
+  size: string | null;
+  total_cents: number;
+  status: string;
+  created_at: string;
+}
+
+export async function fetchMerchHistory(): Promise<{ sent: PopupMerchOrder[]; received: PopupMerchOrder[] }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/users/me/merch-history`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch merch history');
+  return res.json();
+}
+
+export async function fetchMyFundContributions(): Promise<{ total_cents: number; contributions: { amount_cents: number; order_type: string; created_at: string }[] }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/community-fund/my-contributions`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch contributions');
+  return res.json();
+}
+
+export interface CommunityPopupInterest {
+  id: number;
+  concept: string | null;
+  note: string | null;
+  status: 'pending' | 'contacted' | 'done';
+  created_at: string;
+}
+
+export async function fetchMyPopupInterest(): Promise<CommunityPopupInterest | null> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/community-fund/my-interest`, { headers: auth });
+  if (!res.ok) throw new Error('Failed to fetch interest');
+  return res.json();
+}
+
+export async function submitPopupInterest(body: { concept?: string; note?: string; business_id?: number }): Promise<void> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/community-fund/interest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('Failed to submit interest');
+}
+
+export interface FraisePopup {
+  id: number;
+  title: string;
+  description: string | null;
+  price_cents: number;
+  min_seats: number;
+  max_seats: number;
+  seats_claimed: number;
+  status: 'open' | 'threshold_met' | 'confirmed';
+  event_date: string | null;
+  scheduled_at: string | null;
+  created_at: string;
+  business_slug: string;
+  business_name: string;
+}
+
+export async function fetchFraisePopups(): Promise<FraisePopup[]> {
+  const res = await fetch(`${BASE_URL}/api/fraise/popups`);
+  if (!res.ok) throw new Error('Failed to fetch popups');
+  const data = await res.json();
+  return data.popups ?? [];
+}
+
+export async function joinFraisePopup(popupId: number): Promise<{ client_secret: string }> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/fraise/popups/${popupId}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...auth },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'Failed to join popup');
+  }
+  return res.json();
+}
+
+export async function confirmFraisePopupJoin(popupId: number): Promise<void> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/fraise/popups/${popupId}/join/confirm`, {
+    method: 'POST',
+    headers: { ...auth },
+  });
+  if (!res.ok) throw new Error('Failed to confirm join');
+}
+
+export async function cancelFraisePopup(popupId: number): Promise<void> {
+  const auth = await authHeader();
+  const res = await fetch(`${BASE_URL}/api/fraise/popups/${popupId}/cancel`, {
+    method: 'POST',
+    headers: { ...auth },
+  });
+  if (!res.ok) throw new Error('Failed to cancel');
+}

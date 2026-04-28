@@ -31,10 +31,7 @@ export function composeTokenName(params: {
   variety_name: string;
 }): string {
   if (params.token_type === 'chocolate') {
-    if (params.location_type === 'collab_chocolate' && params.partner_name) {
-      return `MAISON FRAISE × ${params.partner_name.toUpperCase()}`;
-    }
-    return 'MAISON FRAISE';
+    return 'BOX FRAISE';
   }
   return params.variety_name.toUpperCase();
 }
