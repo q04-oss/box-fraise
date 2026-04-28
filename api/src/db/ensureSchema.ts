@@ -464,13 +464,14 @@ export async function ensureSchema(): Promise<void> {
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`);
 
-  await run('fraise_businesses', sql`CREATE TABLE IF NOT EXISTS fraise_businesses (
+  await run('business_accounts', sql`CREATE TABLE IF NOT EXISTS business_accounts (
     id SERIAL PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     description TEXT,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT NOT NULL DEFAULT '',
+    apple_id TEXT UNIQUE,
     stripe_connect_account_id TEXT,
     stripe_connect_onboarded BOOLEAN NOT NULL DEFAULT false,
     active BOOLEAN NOT NULL DEFAULT true,
@@ -479,7 +480,7 @@ export async function ensureSchema(): Promise<void> {
 
   await run('fraise_business_sessions', sql`CREATE TABLE IF NOT EXISTS fraise_business_sessions (
     id SERIAL PRIMARY KEY,
-    business_id INTEGER NOT NULL REFERENCES fraise_businesses(id),
+    business_id INTEGER NOT NULL REFERENCES business_accounts(id),
     token TEXT NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -487,7 +488,7 @@ export async function ensureSchema(): Promise<void> {
 
   await run('fraise_events', sql`CREATE TABLE IF NOT EXISTS fraise_events (
     id SERIAL PRIMARY KEY,
-    business_id INTEGER NOT NULL REFERENCES fraise_businesses(id),
+    business_id INTEGER NOT NULL REFERENCES business_accounts(id),
     title TEXT NOT NULL,
     description TEXT,
     price_cents INTEGER NOT NULL DEFAULT 12000,
@@ -514,6 +515,10 @@ export async function ensureSchema(): Promise<void> {
   await run('fraise_claims_idx', sql`
     CREATE INDEX IF NOT EXISTS fraise_claims_event_idx ON fraise_claims (event_id, status)
   `);
+  await run('fraise_claims.stripe_payment_intent_id', sql`ALTER TABLE fraise_claims ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT`);
+  await run('fraise_claims.amount_paid_cents', sql`ALTER TABLE fraise_claims ADD COLUMN IF NOT EXISTS amount_paid_cents INTEGER`);
+  await run('fraise_claims.stripe_refund_id', sql`ALTER TABLE fraise_claims ADD COLUMN IF NOT EXISTS stripe_refund_id TEXT`);
+  await run('fraise_events.scheduled_at', sql`ALTER TABLE fraise_events ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
 
   // ── Kommune reservations — paid pre-order columns ─────────────────────────
   await run('kommune_reservations.email', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS email text`);
@@ -521,6 +526,16 @@ export async function ensureSchema(): Promise<void> {
   await run('kommune_reservations.stripe_payment_intent_id', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS stripe_payment_intent_id text`);
   await run('kommune_reservations.order_json', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS order_json jsonb`);
   await run('kommune_reservations.event_id', sql`ALTER TABLE kommune_reservations ADD COLUMN IF NOT EXISTS event_id integer REFERENCES table_events(id)`);
+
+  // Rename fraise_businesses → business_accounts
+  await run('rename.fraise_businesses', sql`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fraise_businesses')
+        AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'business_accounts')
+      THEN ALTER TABLE fraise_businesses RENAME TO business_accounts; END IF;
+    END $$
+  `);
+  await run('business_accounts.apple_id', sql`ALTER TABLE business_accounts ADD COLUMN IF NOT EXISTS apple_id TEXT UNIQUE`);
 
   logger.info('ensureSchema complete');
 }
