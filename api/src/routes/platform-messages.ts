@@ -22,16 +22,20 @@ db.execute(sql`
     sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     delivered_at TIMESTAMPTZ,
     read_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ
+    expires_at TIMESTAMPTZ,
+    reply_to_id INTEGER REFERENCES platform_messages(id),
+    reply_to_snippet TEXT
   )
 `).catch(() => {});
+db.execute(sql`ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES platform_messages(id)`).catch(() => {});
+db.execute(sql`ALTER TABLE platform_messages ADD COLUMN IF NOT EXISTS reply_to_snippet TEXT`).catch(() => {});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // POST /api/platform-messages/send
 router.post('/send', requireUser, async (req: Request, res: Response) => {
   const senderId = (req as any).userId as number;
-  const { recipient_code, encrypted_body, message_type, fraise_object, x3dh_sender_key, expires_in_days } = req.body;
+  const { recipient_code, encrypted_body, message_type, fraise_object, x3dh_sender_key, expires_in_days, reply_to_id, reply_to_snippet } = req.body;
   if (!recipient_code || !encrypted_body) {
     res.status(400).json({ error: 'recipient_code and encrypted_body required' }); return;
   }
@@ -49,16 +53,18 @@ router.post('/send', requireUser, async (req: Request, res: Response) => {
 
     const rows = await db.execute(sql`
       INSERT INTO platform_messages
-        (sender_id, recipient_id, encrypted_body, x3dh_sender_key, message_type, fraise_object, expires_at)
+        (sender_id, recipient_id, encrypted_body, x3dh_sender_key, message_type, fraise_object, expires_at, reply_to_id, reply_to_snippet)
       VALUES (
         ${senderId}, ${recipient.id}, ${encrypted_body},
         ${x3dh_sender_key ?? null},
         ${message_type ?? 'text'},
         ${fraise_object ? JSON.stringify(fraise_object) : null},
-        ${expiresAt}
+        ${expiresAt},
+        ${reply_to_id ?? null},
+        ${reply_to_snippet ?? null}
       )
       RETURNING id, sender_id, recipient_id, encrypted_body, x3dh_sender_key,
-                message_type, fraise_object, sent_at, expires_at
+                message_type, fraise_object, sent_at, expires_at, reply_to_id, reply_to_snippet
     `);
     const msg = ((rows as any).rows ?? rows)[0];
 
@@ -107,7 +113,7 @@ router.get('/threads', requireUser, async (req: Request, res: Response) => {
         lm.contact_id, lm.id AS last_message_id, lm.encrypted_body,
         lm.message_type, lm.sent_at AS last_message_at, lm.sender_id AS last_sender_id,
         COALESCE(un.cnt, 0) AS unread_count,
-        u.display_name AS name, u.user_code, u.is_shop, u.is_dorotka,
+        u.display_name AS name, u.user_code, u.is_shop, u.is_dorotka, u.status AS contact_status,
         c.met_at
       FROM last_msgs lm
       JOIN users u ON u.id = lm.contact_id
@@ -138,7 +144,8 @@ router.get('/thread/:userCode', requireUser, async (req: Request, res: Response)
 
     const rows = await db.execute(sql`
       SELECT id, sender_id, recipient_id, encrypted_body, x3dh_sender_key,
-             message_type, fraise_object, sent_at, delivered_at, read_at, expires_at
+             message_type, fraise_object, sent_at, delivered_at, read_at, expires_at,
+             reply_to_id, reply_to_snippet
       FROM platform_messages
       WHERE (sender_id = ${userId} AND recipient_id = ${contactId})
          OR (sender_id = ${contactId} AND recipient_id = ${userId})
@@ -147,6 +154,66 @@ router.get('/thread/:userCode', requireUser, async (req: Request, res: Response)
     `);
     res.json((rows as any).rows ?? rows);
   } catch { res.status(500).json({ error: 'internal' }); }
+});
+
+// GET /api/platform-messages/thread/:userCode/new?after_id=X
+router.get('/thread/:userCode/new', requireUser, async (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  const afterId = parseInt(req.query.after_id as string) || 0;
+  try {
+    const contactRow = ((await db.execute(sql`SELECT id FROM users WHERE user_code = ${req.params.userCode}`)) as any).rows?.[0];
+    if (!contactRow) { res.json([]); return; }
+    const rows = await db.execute(sql`
+      SELECT id, sender_id, recipient_id, encrypted_body, x3dh_sender_key,
+             message_type, fraise_object, sent_at, delivered_at, read_at, expires_at,
+             reply_to_id, reply_to_snippet
+      FROM platform_messages
+      WHERE ((sender_id = ${userId} AND recipient_id = ${contactRow.id})
+          OR (sender_id = ${contactRow.id} AND recipient_id = ${userId}))
+        AND id > ${afterId}
+      ORDER BY sent_at ASC LIMIT 50
+    `);
+    res.json((rows as any).rows ?? rows);
+  } catch { res.json([]); }
+});
+
+// GET /api/platform-messages/stream?after_id=X  (SSE — new inbound messages for this user)
+router.get('/stream', requireUser, (req: Request, res: Response) => {
+  const userId = (req as any).userId as number;
+  let lastId = parseInt(req.query.after_id as string) || 0;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const check = async () => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT id, sender_id, recipient_id, encrypted_body, x3dh_sender_key,
+               message_type, fraise_object, sent_at, delivered_at, read_at, expires_at,
+               reply_to_id, reply_to_snippet
+        FROM platform_messages
+        WHERE recipient_id = ${userId} AND id > ${lastId}
+        ORDER BY id ASC LIMIT 20
+      `);
+      const msgs = (rows as any).rows ?? rows;
+      for (const msg of msgs) {
+        res.write(`data: ${JSON.stringify(msg)}\n\n`);
+        if (msg.id > lastId) lastId = msg.id;
+      }
+    } catch {}
+  };
+
+  const pollInterval  = setInterval(check, 2000);
+  const heartbeat     = setInterval(() => res.write(': ping\n\n'), 25000);
+
+  req.on('close', () => {
+    clearInterval(pollInterval);
+    clearInterval(heartbeat);
+    res.end();
+  });
 });
 
 // POST /api/platform-messages/thread/:userCode/delivered
