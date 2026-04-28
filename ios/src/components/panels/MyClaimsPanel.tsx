@@ -5,30 +5,38 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePanel, FraiseInvitation } from '../../context/PanelContext';
-import { useColors, fonts, type, SPACING } from '../../theme';
-import { declineInvitation, fetchInvitations } from '../../lib/api';
-import { PanelHeader, Card } from '../ui';
+import { usePanel, FraiseClaim } from '../../context/PanelContext';
+import { useColors, fonts, SPACING } from '../../theme';
+import { declineClaim, fetchMyClaims } from '../../lib/api';
+import { PanelHeader, Card, PillBadge } from '../ui';
+
+function statusDisplay(claim: FraiseClaim): { label: string; color: string } {
+  if (claim.event_status === 'confirmed')     return { label: 'confirmed', color: '#27AE60' };
+  if (claim.event_status === 'threshold_met') return { label: 'going ahead', color: '#1C1C1E' };
+  return { label: 'open', color: '#8E8E93' };
+}
 
 export default function MyClaimsPanel() {
-  const { invitations, setInvitations, member, setMember } = usePanel();
+  const { claims, setClaims, member, setMember } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
-  const [releasingId, setReleasingId] = useState<number | null>(null);
-
-  const accepted = invitations.filter(i => i.status === 'accepted' || i.status === 'confirmed');
+  const [decliningId, setDecliningId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
+    if (refreshing) return;
     setRefreshing(true);
-    try { setInvitations(await fetchInvitations()); } catch {}
+    try {
+      const fresh = await fetchMyClaims();
+      setClaims(fresh);
+    } catch {}
     setRefreshing(false);
-  }, []);
+  }, [refreshing]);
 
-  const handleRelease = (inv: FraiseInvitation) => {
+  const handleDecline = (claim: FraiseClaim) => {
     Alert.alert(
       'Release spot?',
-      'Your akène will be returned to your balance.',
+      'Your credit will be returned to your balance.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -36,19 +44,15 @@ export default function MyClaimsPanel() {
           style: 'destructive',
           onPress: async () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setReleasingId(inv.event_id);
+            setDecliningId(claim.event_id);
             try {
-              const result = await declineInvitation(inv.event_id);
-              setInvitations(invitations.map(i =>
-                i.id === inv.id ? { ...i, status: 'declined' } : i
-              ));
-              if (member && result.credit_returned) {
-                setMember({ ...member, credit_balance: result.credit_balance });
-              }
+              const result = await declineClaim(claim.event_id);
+              setClaims(claims.filter(cl => cl.event_id !== claim.event_id));
+              if (member) setMember({ ...member, credit_balance: result.credit_balance });
             } catch (err: any) {
               Alert.alert('Error', err.message || 'something went wrong.');
             }
-            setReleasingId(null);
+            setDecliningId(null);
           },
         },
       ]
@@ -64,35 +68,41 @@ export default function MyClaimsPanel() {
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.muted} />
       }
     >
-      <PanelHeader title="your spots">
+      <PanelHeader title="your claims">
         {member ? (
           <Text style={[styles.balance, { color: c.muted }]}>
-            {member.credit_balance} in your box
+            {member.credit_balance} credit{member.credit_balance !== 1 ? 's' : ''} remaining
           </Text>
         ) : null}
       </PanelHeader>
 
-      {accepted.length === 0 ? (
+      {claims.length === 0 ? (
         <Text style={[styles.empty, { color: c.muted }]}>
-          no confirmed spots yet.{'\n'}accept an invitation on the discover tab.
+          no claims yet.{'\n'}browse events on the discover tab.
         </Text>
       ) : (
-        accepted.map(inv => {
-          const isReleasing = releasingId === inv.event_id;
+        claims.map(claim => {
+          const { label, color } = statusDisplay(claim);
+          const isReleasing = decliningId === claim.event_id;
           return (
-            <Card key={inv.id} style={styles.card}>
+            <Card key={claim.id} style={styles.card}>
               <View style={styles.cardTop}>
                 <View style={styles.cardLeft}>
-                  <Text style={[styles.cardBiz, { color: c.muted }]}>{inv.business_name}</Text>
-                  <Text style={[styles.cardTitle, { color: c.text }]}>{inv.title}</Text>
-                  {inv.event_date ? (
-                    <Text style={[styles.cardDate, { color: c.muted }]}>{inv.event_date}</Text>
-                  ) : null}
+                  <Text style={[styles.cardBiz, { color: c.muted }]}>
+                    {claim.business_name}
+                  </Text>
+                  <Text style={[styles.cardTitle, { color: c.text }]}>
+                    {claim.title}
+                  </Text>
+                  <Text style={[styles.cardDate, { color: c.muted }]}>
+                    {claim.event_date ? `date: ${claim.event_date}` : 'date tbd'}
+                  </Text>
                 </View>
+                <PillBadge label={label} color={color} />
               </View>
               <View style={[styles.cardFooter, { borderTopColor: c.border }]}>
                 <TouchableOpacity
-                  onPress={() => handleRelease(inv)}
+                  onPress={() => handleDecline(claim)}
                   activeOpacity={0.6}
                   disabled={isReleasing}
                 >
@@ -126,14 +136,15 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     gap: SPACING.md,
   },
-  cardLeft: { flex: 1 },
+  cardLeft: { flex: 1, gap: 3 },
   cardBiz: {
-    ...type.eyebrow,
+    fontSize: 10,
+    fontFamily: fonts.dmMono,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginBottom: 4,
   },
-  cardTitle: { ...type.heading, marginBottom: 6 },
-  cardDate: { ...type.small },
+  cardTitle: { fontSize: 14, fontFamily: fonts.dmMono, fontWeight: '500' },
+  cardDate: { fontSize: 11, fontFamily: fonts.dmMono },
   cardFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: SPACING.sm,

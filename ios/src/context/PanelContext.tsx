@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useRef, useState, ReactNode, useCallback } from 'react';
 import { Animated, Dimensions } from 'react-native';
-import { FraiseInvitation, FraiseMember } from '../lib/api';
+import { FraiseEvent, FraiseMember, FraiseClaim } from '../lib/api';
 
-export type PanelId = 'home' | 'invitation-detail' | 'my-claims' | 'account' | 'credits';
+export type PanelId = 'home' | 'event-detail' | 'my-claims' | 'account' | 'credits';
 export type RootTab = 'discover' | 'claims' | 'account';
 
-export { FraiseInvitation, FraiseMember };
+export { FraiseEvent, FraiseMember, FraiseClaim };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -22,38 +22,50 @@ interface PanelContextValue {
   lastNavType: React.MutableRefObject<'show' | 'jump'>;
   panelData: Record<string, any> | null;
   setPanelData: (data: Record<string, any> | null) => void;
+  sheetHeight: number;
+  setSheetHeight: (h: number) => void;
   activeRootTab: RootTab;
+  suppressCollapseBack: React.MutableRefObject<boolean>;
 
   // domain
   member: FraiseMember | null;
   setMember: (m: FraiseMember | null) => void;
-  invitations: FraiseInvitation[];
-  setInvitations: (inv: FraiseInvitation[]) => void;
-  activeInvitation: FraiseInvitation | null;
-  setActiveInvitation: (inv: FraiseInvitation | null) => void;
+  events: FraiseEvent[];
+  setEvents: (evs: FraiseEvent[]) => void;
+  claims: FraiseClaim[];
+  setClaims: (c: FraiseClaim[]) => void;
+  activeEvent: FraiseEvent | null;
+  setActiveEvent: (ev: FraiseEvent | null) => void;
 }
 
 const PanelContext = createContext<PanelContextValue | null>(null);
 
 export function PanelProvider({ children }: { children: ReactNode }) {
-  const [stack, setStack]               = useState<PanelId[]>(['home']);
+  const [stack, setStack]             = useState<PanelId[]>(['home']);
   const [currentPanel, setCurrentPanel] = useState<PanelId>('home');
-  const [isAnimating, setIsAnimating]   = useState(false);
-  const [panelData, setPanelData]       = useState<Record<string, any> | null>(null);
-  const [member, setMember]             = useState<FraiseMember | null>(null);
-  const [invitations, setInvitations]   = useState<FraiseInvitation[]>([]);
-  const [activeInvitation, setActiveInvitation] = useState<FraiseInvitation | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [panelData, setPanelData]     = useState<Record<string, any> | null>(null);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [member, setMember]           = useState<FraiseMember | null>(null);
+  const [events, setEvents]           = useState<FraiseEvent[]>([]);
+  const [claims, setClaims]           = useState<FraiseClaim[]>([]);
+  const [activeEvent, setActiveEvent] = useState<FraiseEvent | null>(null);
 
-  const slideAnim   = useRef(new Animated.Value(0)).current;
-  const safetyRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastNavType = useRef<'show' | 'jump'>('show');
+  const slideAnim           = useRef(new Animated.Value(0)).current;
+  const animSafetyRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNavType         = useRef<'show' | 'jump'>('show');
+  const suppressCollapseBack = useRef(false);
 
   const activeRootTab: RootTab =
-    currentPanel === 'my-claims' ? 'claims'  :
+    currentPanel === 'my-claims' ? 'claims' :
     currentPanel === 'account'   ? 'account' : 'discover';
 
   const clearSafety = () => {
-    if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
+    if (animSafetyRef.current) { clearTimeout(animSafetyRef.current); animSafetyRef.current = null; }
+  };
+  const startSafety = (done: () => void) => {
+    clearSafety();
+    animSafetyRef.current = setTimeout(done, 600);
   };
 
   const showPanel = useCallback((id: PanelId, data?: Record<string, any>) => {
@@ -65,7 +77,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     setCurrentPanel(id);
     setStack(prev => [...prev, id]);
     const done = () => { clearSafety(); setIsAnimating(false); };
-    safetyRef.current = setTimeout(done, 600);
+    startSafety(done);
     Animated.timing(slideAnim, { toValue: 0, duration: 320, useNativeDriver: true }).start(() => done());
   }, [isAnimating, slideAnim]);
 
@@ -80,7 +92,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
       slideAnim.setValue(0);
       setIsAnimating(false);
     };
-    safetyRef.current = setTimeout(done, 600);
+    startSafety(done);
     Animated.timing(slideAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start(() => done());
   }, [isAnimating, stack, slideAnim]);
 
@@ -106,10 +118,12 @@ export function PanelProvider({ children }: { children: ReactNode }) {
       stack, currentPanel, slideAnim, isAnimating,
       showPanel, jumpToPanel, goBack, goHome, lastNavType,
       panelData, setPanelData,
-      activeRootTab,
+      sheetHeight, setSheetHeight,
+      activeRootTab, suppressCollapseBack,
       member, setMember,
-      invitations, setInvitations,
-      activeInvitation, setActiveInvitation,
+      events, setEvents,
+      claims, setClaims,
+      activeEvent, setActiveEvent,
     }}>
       {children}
     </PanelContext.Provider>

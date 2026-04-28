@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import { creditsCheckout, creditsConfirm, getMemberToken } from '../../lib/api';
-import { PanelHeader, Card, PrimaryButton } from '../ui';
+import { PanelHeader, Card, MetaRow, PrimaryButton } from '../ui';
 
 const CREDIT_PRICE_CENTS = 12000; // CA$120
 
@@ -24,26 +24,24 @@ export default function CreditsPanel() {
   const [error, setError]     = useState<string | null>(null);
   const [done, setDone]       = useState(false);
   const [newBalance, setNewBalance] = useState<number | null>(null);
-  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const totalCents = qty * CREDIT_PRICE_CENTS;
   const totalDisplay = `CA$${(totalCents / 100).toFixed(0)}`;
 
   const handleBuy = async () => {
-    const token = await getMemberToken();
-    if (!token || !member) {
-      setError('sign in first.');
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (loading) return;
+    if (!member) { setError('sign in first.'); return; }
     setLoading(true);
     setError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      const token = await getMemberToken();
+      if (!token) { setLoading(false); setError('sign in first.'); return; }
       const { client_secret, amount_cents } = await creditsCheckout(qty);
 
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: client_secret,
-        merchantDisplayName: 'box fraise',
+        merchantDisplayName: 'fraise',
         applePay: { merchantCountryCode: 'CA' },
         style: 'alwaysLight',
         primaryButtonLabel: `Pay ${totalDisplay}`,
@@ -71,7 +69,7 @@ export default function CreditsPanel() {
   if (!member) {
     return (
       <View style={[styles.center, { backgroundColor: c.panelBg }]}>
-        <Text style={[styles.muted, { color: c.muted }]}>sign in to buy akènes.</Text>
+        <Text style={[styles.muted, { color: c.muted }]}>sign in to buy credits.</Text>
       </View>
     );
   }
@@ -82,20 +80,27 @@ export default function CreditsPanel() {
       contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
-      <PanelHeader title="buy akènes" back onBack={goBack} />
+      <PanelHeader
+        title="buy credits"
+        subtitle="CA$120 per credit · no expiry"
+        back
+        onBack={goBack}
+      />
 
       {done ? (
         <Card style={styles.doneCard}>
-          <Text style={[styles.doneTitle, { color: c.text }]}>akènes added.</Text>
+          <Text style={[styles.doneTitle, { color: c.text }]}>credits added.</Text>
           {newBalance !== null ? (
             <Text style={[styles.doneSub, { color: c.muted }]}>
-              balance: {newBalance} akène{newBalance !== 1 ? 's' : ''}
+              balance: {newBalance} credit{newBalance !== 1 ? 's' : ''}
             </Text>
           ) : null}
         </Card>
       ) : (
         <View style={styles.body}>
-          <Text style={[styles.priceNote, { color: c.muted }]}>CA$120 per akène · no expiry</Text>
+          <Card>
+            <MetaRow label="current balance" value={`${member.credit_balance} credit${member.credit_balance !== 1 ? 's' : ''}`} last />
+          </Card>
 
           <View style={styles.qtyRow}>
             <TouchableOpacity
@@ -108,7 +113,7 @@ export default function CreditsPanel() {
             <View style={styles.qtyCenter}>
               <Text style={[styles.qtyVal, { color: c.text }]}>{qty}</Text>
               <Text style={[styles.qtyLabel, { color: c.muted }]}>
-                akène{qty !== 1 ? 's' : ''}
+                credit{qty !== 1 ? 's' : ''}
               </Text>
             </View>
             <TouchableOpacity
@@ -120,32 +125,23 @@ export default function CreditsPanel() {
             </TouchableOpacity>
           </View>
 
+          <View style={[styles.totalRow, { borderTopColor: c.border }]}>
+            <Text style={[styles.totalLabel, { color: c.muted }]}>total</Text>
+            <Text style={[styles.totalValue, { color: c.text }]}>{totalDisplay}</Text>
+          </View>
+
           {error ? (
             <Text style={[styles.errText, { color: '#C0392B' }]}>{error}</Text>
           ) : null}
 
-          <TouchableOpacity
-            style={styles.termsRow}
-            onPress={() => setTermsAccepted(t => !t)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.termsCheck, { borderColor: termsAccepted ? c.text : c.border, backgroundColor: termsAccepted ? c.text : 'transparent' }]}>
-              {termsAccepted && <Text style={[styles.termsCheckMark, { color: c.panelBg }]}>✓</Text>}
-            </View>
-            <Text style={[styles.termsText, { color: c.muted }]}>
-              i understand: akènes are non-refundable, but returned automatically if an event is cancelled.
-            </Text>
-          </TouchableOpacity>
-
           <PrimaryButton
-            label={totalDisplay}
+            label={`pay ${totalDisplay} →`}
             onPress={handleBuy}
             loading={loading}
-            disabled={!termsAccepted}
           />
 
           <Text style={[styles.note, { color: c.muted }]}>
-            akènes never expire. if an event doesn't go ahead, your akène is returned automatically.
+            credits never expire. if an event doesn't go ahead, your credit is returned automatically.
           </Text>
         </View>
       )}
@@ -189,23 +185,5 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 13, fontFamily: fonts.dmMono, fontWeight: '500' },
   errText: { fontSize: 12, fontFamily: fonts.dmMono },
   note: { fontSize: 11, fontFamily: fonts.dmMono, lineHeight: 17 },
-  priceNote: { fontSize: 12, fontFamily: fonts.dmMono },
   muted: { fontSize: 13, fontFamily: fonts.dmMono },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  termsCheck: {
-    width: 18,
-    height: 18,
-    borderWidth: 1,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 1,
-  },
-  termsCheckMark: { fontSize: 11, fontFamily: fonts.dmMono },
-  termsText: { flex: 1, fontSize: 11, fontFamily: fonts.dmMono, lineHeight: 17 },
 });

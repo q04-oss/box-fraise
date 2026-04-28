@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import AppScreen from '../screens/AppScreen';
+import MapScreen from '../screens/MapScreen';
 import { PanelProvider } from '../context/PanelContext';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 
@@ -14,7 +14,7 @@ export default function RootNavigator() {
     <ThemeProvider>
       <PanelProvider>
         <AppStatusBar />
-        <AppScreen />
+        <MapScreen />
       </PanelProvider>
     </ThemeProvider>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,10 +14,15 @@ export default function AppScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
 
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const bootstrap = useCallback(async () => {
     const token = await getMemberToken();
+    if (!mountedRef.current) return;
     if (token) {
       const [me, invs] = await Promise.all([fetchMe(), fetchInvitations()]);
+      if (!mountedRef.current) return;
       if (me) setMember(me);
       setInvitations(invs);
     }

@@ -9,40 +9,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePanel } from '../../context/PanelContext';
 import { useColors, fonts, SPACING } from '../../theme';
 import {
-  memberLogin, memberSignup, fraiseAppleSignin,
-  setMemberToken, deleteMemberToken, fetchInvitations,
-  forgotPassword, resetPassword,
+  memberLogin, memberSignup, memberAppleSignIn, setMemberToken, deleteMemberToken,
+  fetchMyClaims,
 } from '../../lib/api';
 import { PanelHeader, Card, PrimaryButton } from '../ui';
 
 export default function AccountPanel() {
-  const { member, setMember, setInvitations, showPanel, goHome } = usePanel();
+  const { member, setMember, setClaims, showPanel } = usePanel();
   const c = useColors();
   const insets = useSafeAreaInsets();
 
-  const [view, setView] = useState<'login' | 'signup' | 'forgot' | 'reset'>('login');
+  const [view, setView] = useState<'login' | 'signup'>('login');
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [resetCode, setResetCode] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
 
-  const reset = () => { setName(''); setEmail(''); setPassword(''); setResetCode(''); setError(null); setCodeSent(false); };
+  const reset = () => { setName(''); setEmail(''); setPassword(''); setError(null); };
 
   const handleLogin = async () => {
+    if (loading) return;
     setError(null);
     if (!email.trim() || !password) { setError('email and password required.'); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     try {
       const data = await memberLogin(email.trim().toLowerCase(), password);
-      await setMemberToken(data.token!);
+      await setMemberToken(data.token);
       setMember(data);
-      setInvitations(await fetchInvitations());
+      const claims = await fetchMyClaims();
+      setClaims(claims);
       reset();
-      goHome();
     } catch (err: any) {
       setError(err.message || 'login failed.');
     }
@@ -50,6 +48,7 @@ export default function AccountPanel() {
   };
 
   const handleSignup = async () => {
+    if (loading) return;
     setError(null);
     if (!name.trim() || !email.trim() || password.length < 8) {
       setError('name, email, and password (8+ chars) required.');
@@ -59,76 +58,36 @@ export default function AccountPanel() {
     setLoading(true);
     try {
       const data = await memberSignup(name.trim(), email.trim().toLowerCase(), password);
-      await setMemberToken(data.token!);
+      await setMemberToken(data.token);
       setMember(data);
-      setInvitations([]);
+      setClaims([]);
       reset();
-      goHome();
     } catch (err: any) {
       setError(err.message || 'signup failed.');
     }
     setLoading(false);
   };
 
-  const handleForgot = async () => {
-    setError(null);
-    if (!email.trim()) { setError('enter your email first.'); return; }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading(true);
-    try {
-      await forgotPassword(email.trim().toLowerCase());
-      setCodeSent(true);
-      setView('reset');
-    } catch (err: any) {
-      setError(err.message || 'could not send code.');
-    }
-    setLoading(false);
-  };
-
-  const handleReset = async () => {
-    setError(null);
-    if (!email.trim() || !resetCode.trim() || password.length < 8) {
-      setError('email, code, and new password (8+ chars) required.');
-      return;
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading(true);
-    try {
-      await resetPassword(email.trim().toLowerCase(), resetCode.trim(), password);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      reset();
-      setView('login');
-    } catch (err: any) {
-      setError(err.message || 'reset failed. check your code.');
-    }
-    setLoading(false);
-  };
-
   const handleAppleSignIn = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading(true);
-    setError(null);
+    if (loading) return;
     try {
-      const credential = await AppleAuthentication.signInAsync({
+      const cred = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
-      const fullName = [credential.fullName?.givenName, credential.fullName?.familyName]
-        .filter(Boolean).join(' ');
-      const data = await fraiseAppleSignin({
-        identityToken: credential.identityToken!,
-        name: fullName || undefined,
-        email: credential.email ?? undefined,
-      });
-      await setMemberToken(data.token!);
+      const fullName = [cred.fullName?.givenName, cred.fullName?.familyName].filter(Boolean).join(' ');
+      setLoading(true);
+      setError(null);
+      const data = await memberAppleSignIn(cred.identityToken!, fullName, cred.email ?? '');
+      await setMemberToken(data.token);
       setMember(data);
-      setInvitations(await fetchInvitations());
+      const claims = await fetchMyClaims();
+      setClaims(claims);
       reset();
-      goHome();
     } catch (err: any) {
-      if (err?.code !== 'ERR_REQUEST_CANCELED') {
+      if (err.code !== 'ERR_REQUEST_CANCELED') {
         setError(err.message || 'apple sign in failed.');
       }
     }
@@ -142,7 +101,7 @@ export default function AccountPanel() {
         text: 'Sign out', style: 'destructive', onPress: async () => {
           await deleteMemberToken();
           setMember(null);
-          setInvitations([]);
+          setClaims([]);
         },
       },
     ]);
@@ -155,10 +114,9 @@ export default function AccountPanel() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <PanelHeader title={member ? member.name : 'your box'} subtitle={!member ? 'open your box.' : undefined} />
+      <PanelHeader title={member ? member.name : 'account'} />
 
       {member ? (
-        // ── Signed in ──────────────────────────────────────────────────────────
         <View style={styles.body}>
           <Card style={styles.card}>
             <View style={styles.cardRow}>
@@ -166,24 +124,19 @@ export default function AccountPanel() {
               <Text style={[styles.cardValue, { color: c.text }]}>{member.email}</Text>
             </View>
             <View style={[styles.cardRow, styles.cardRowBorder, { borderColor: c.border }]}>
-              <Text style={[styles.cardLabel, { color: c.muted }]}>akènes</Text>
-              <Text style={[styles.cardValue, { color: c.text }]}>{member.credit_balance}</Text>
+              <Text style={[styles.cardLabel, { color: c.muted }]}>credit balance</Text>
+              <Text style={[styles.cardValue, { color: c.text }]}>
+                {member.credit_balance} credit{member.credit_balance !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <View style={[styles.cardRow, styles.cardRowBorder, { borderColor: c.border }]}>
+              <Text style={[styles.cardLabel, { color: c.muted }]}>credits purchased</Text>
+              <Text style={[styles.cardValue, { color: c.text }]}>{member.credits_purchased}</Text>
             </View>
           </Card>
 
-          {member.credit_balance > 0 && (
-            <View style={styles.berryRow}>
-              {Array.from({ length: Math.min(member.credit_balance, 12) }).map((_, i) => (
-                <View key={i} style={styles.berry} />
-              ))}
-              {member.credit_balance > 12 && (
-                <Text style={[styles.berryMore, { color: c.muted }]}>+{member.credit_balance - 12}</Text>
-              )}
-            </View>
-          )}
-
           <PrimaryButton
-            label="buy akènes"
+            label="buy credits →"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               showPanel('credits');
@@ -198,104 +151,8 @@ export default function AccountPanel() {
             <Text style={[styles.btnGhostText, { color: c.muted }]}>sign out</Text>
           </TouchableOpacity>
         </View>
-      ) : view === 'forgot' ? (
-        // ── Forgot password ────────────────────────────────────────────────────
-        <View style={styles.body}>
-          <Text style={[styles.subtitle, { color: c.muted }]}>
-            enter your email and we'll send a reset code.
-          </Text>
-          <View style={styles.form}>
-            <Field label="email" c={c}>
-              <TextInput
-                style={[styles.input, { backgroundColor: c.searchBg, borderColor: c.searchBorder, color: c.text, fontFamily: fonts.dmMono }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor={c.muted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                onSubmitEditing={handleForgot}
-                returnKeyType="send"
-              />
-            </Field>
-            {error ? <Text style={[styles.errText, { color: '#C0392B' }]}>{error}</Text> : null}
-            <PrimaryButton label="send code" onPress={handleForgot} loading={loading} />
-            <TouchableOpacity onPress={() => { setView('login'); setError(null); }} activeOpacity={0.7} style={styles.declineBtn}>
-              <Text style={[styles.declineBtnText, { color: c.muted }]}>back to sign in</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : view === 'reset' ? (
-        // ── Reset password ─────────────────────────────────────────────────────
-        <View style={styles.body}>
-          {codeSent ? (
-            <Text style={[styles.subtitle, { color: c.muted }]}>
-              code sent — check your email.
-            </Text>
-          ) : null}
-          <View style={styles.form}>
-            <Field label="email" c={c}>
-              <TextInput
-                style={[styles.input, { backgroundColor: c.searchBg, borderColor: c.searchBorder, color: c.text, fontFamily: fonts.dmMono }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor={c.muted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-              />
-            </Field>
-            <Field label="reset code" c={c}>
-              <TextInput
-                style={[styles.input, { backgroundColor: c.searchBg, borderColor: c.searchBorder, color: c.text, fontFamily: fonts.dmMono }]}
-                value={resetCode}
-                onChangeText={t => setResetCode(t.toUpperCase())}
-                placeholder="6-character code"
-                placeholderTextColor={c.muted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-              />
-            </Field>
-            <Field label="new password" c={c}>
-              <TextInput
-                style={[styles.input, { backgroundColor: c.searchBg, borderColor: c.searchBorder, color: c.text, fontFamily: fonts.dmMono }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="8+ characters"
-                placeholderTextColor={c.muted}
-                secureTextEntry
-                autoComplete="new-password"
-                onSubmitEditing={handleReset}
-                returnKeyType="go"
-              />
-            </Field>
-            {error ? <Text style={[styles.errText, { color: '#C0392B' }]}>{error}</Text> : null}
-            <PrimaryButton label="reset password" onPress={handleReset} loading={loading} />
-            <TouchableOpacity onPress={() => { setView('login'); setError(null); }} activeOpacity={0.7} style={styles.declineBtn}>
-              <Text style={[styles.declineBtnText, { color: c.muted }]}>back to sign in</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       ) : (
-        // ── Auth form ──────────────────────────────────────────────────────────
         <View style={styles.body}>
-          {Platform.OS === 'ios' && (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              cornerRadius={9999}
-              style={styles.appleBtn}
-              onPress={handleAppleSignIn}
-            />
-          )}
-          <View style={[styles.divider]}>
-            <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
-            <Text style={[styles.dividerText, { color: c.muted }]}>or</Text>
-            <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
-          </View>
-
           <View style={styles.tabs}>
             <TouchableOpacity
               style={[styles.tabBtn, view === 'login' && { borderBottomColor: c.text }]}
@@ -362,19 +219,26 @@ export default function AccountPanel() {
             ) : null}
 
             <PrimaryButton
-              label={view === 'login' ? 'sign in' : 'create account'}
+              label={view === 'login' ? 'sign in →' : 'create account →'}
               onPress={view === 'login' ? handleLogin : handleSignup}
               loading={loading}
             />
 
-            {view === 'login' && (
-              <TouchableOpacity
-                onPress={() => { setError(null); setView('forgot'); }}
-                activeOpacity={0.7}
-                style={styles.declineBtn}
-              >
-                <Text style={[styles.declineBtnText, { color: c.muted }]}>forgot password?</Text>
-              </TouchableOpacity>
+            {Platform.OS === 'ios' && (
+              <>
+                <View style={styles.divider}>
+                  <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+                  <Text style={[styles.dividerText, { color: c.muted }]}>or</Text>
+                  <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+                </View>
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={9999}
+                  style={styles.appleBtn}
+                  onPress={handleAppleSignIn}
+                />
+              </>
             )}
           </View>
         </View>
@@ -412,17 +276,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   btnGhostText: { fontSize: 12, fontFamily: fonts.dmMono, letterSpacing: 1 },
-  appleBtn: {
-    height: 44,
-    width: '100%',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerText: { fontSize: 11, fontFamily: fonts.dmMono },
   tabs: {
     flexDirection: 'row',
     gap: SPACING.lg,
@@ -450,20 +303,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   errText: { fontSize: 12, fontFamily: fonts.dmMono },
-  berryRow: {
+  divider: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
   },
-  berry: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#C0392B',
-  },
-  berryMore: { fontSize: 11, fontFamily: fonts.dmMono, alignSelf: 'center' },
-  subtitle: { fontSize: 12, fontFamily: fonts.dmMono, lineHeight: 18, paddingHorizontal: SPACING.lg },
-  declineBtn: { alignItems: 'center', paddingVertical: SPACING.sm },
-  declineBtnText: { fontSize: 12, fontFamily: fonts.dmMono },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: { fontSize: 11, fontFamily: fonts.dmMono },
+  appleBtn: { width: '100%', height: 44 },
 });
